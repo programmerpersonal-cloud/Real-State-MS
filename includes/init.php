@@ -1,0 +1,36 @@
+<?php
+/**
+ * Saxane Real Estate Management System
+ * Bootstrap / Init File
+ *
+ * This file is the single entry point for loading all dependencies.
+ * Every page should include this file first.
+ */
+
+// Load configuration
+require_once __DIR__ . '/../config/app.php';
+require_once __DIR__ . '/../config/database.php';
+
+// Load core includes
+require_once __DIR__ . '/session.php';
+require_once __DIR__ . '/csrf.php';
+require_once __DIR__ . '/functions.php';
+
+// ─── Company identity, resolved from Settings ──────────────────────────
+// Defined here (after functions.php, before anything that reads them) so the
+// ~60 templates and schema builders that already reference these constants
+// become admin-configurable without each one having to query the database.
+// Falls back to config/app.php when a value is blank or the DB is unreachable.
+define('BIZ_LEGAL_NAME', companyLegalName());
+define('BIZ_PHONE',      companyPhone());
+define('BIZ_EMAIL',      companyEmail());
+
+require_once __DIR__ . '/content.php';
+require_once __DIR__ . '/seo.php';
+require_once __DIR__ . '/auth.php';
+
+// Security headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
