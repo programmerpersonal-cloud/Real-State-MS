@@ -592,11 +592,12 @@ switch ($page) {
     // ─── Users (admin) ─────────────────────────────────
     case 'users':
         $method = match ($action) {
-            'create'     => 'create',
-            'edit'       => 'edit',
-            'toggle'     => 'toggle',
-            'reset-pass' => 'resetPassword',
-            default      => 'index',
+            'create'      => 'create',
+            'edit'        => 'edit',
+            'toggle'      => 'toggle',
+            'reset-pass'  => 'resetPassword',
+            'permissions' => 'permissions',
+            default       => 'index',
         };
         dispatch('UserController', $method);
         break;

@@ -864,6 +864,47 @@ a.person:hover .person__name{color:var(--primary)}
 .list-toolbar--plain{margin-bottom:var(--space-3)}
 .list-toolbar__note{font-size:var(--fs-xs);color:var(--text-muted);margin:0}
 
+/* ── Permission matrix ─────────────────────────────────────
+   A grid of ticks is only readable if the row label stays put while the
+   columns scroll, and if a filled cell is distinguishable from an empty one
+   by shape as well as colour. */
+.table--matrix th[scope="row"]{
+  position:sticky;left:0;z-index:1;background:var(--surface);
+  text-align:left;font-weight:600;color:var(--text);
+  border-right:1px solid var(--border);
+}
+.table--matrix .cell-center{text-align:center;width:1%;white-space:nowrap}
+.table--matrix thead th.cell-center{text-align:center}
+.matrix__group th{
+  background:var(--surface-3);color:var(--text-muted);
+  font-size:var(--fs-2xs);font-weight:700;
+  text-transform:uppercase;letter-spacing:.7px;
+  padding:8px 18px;position:sticky;left:0;
+}
+.matrix__row{font-size:var(--fs-xs)}
+.matrix__yes{color:var(--success);font-size:1rem}
+.matrix__no{color:var(--border-strong);font-size:1rem}
+/* The stat strip on a page that has no record header above it. */
+.detail-stats--standalone{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:var(--space-4) var(--space-5);
+  margin-bottom:var(--space-4);
+}
+
+/* A warning that is also the repair. Used where a row reports a broken link
+   between two records and the button beside it mends the link — so it has to
+   read as a problem and behave as a control at once. */
+.linkfix{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:var(--radius-pill);
+  background:var(--warning-bg);border:1px dashed var(--warning);
+  color:var(--warning);font-size:var(--fs-2xs);font-weight:600;
+  cursor:pointer;text-align:left;line-height:1.4;
+  transition:background var(--transition),color var(--transition);
+}
+.linkfix:hover{background:var(--warning);color:#fff;border-style:solid}
+.linkfix:focus-visible{outline:2px solid var(--warning);outline-offset:2px}
+
 /* A file in a table row: type glyph, name, and what it is underneath.
    The sibling of .person, for the rows that are documents rather than people. */
 .filecell{display:flex;align-items:flex-start;gap:10px;min-width:0}
