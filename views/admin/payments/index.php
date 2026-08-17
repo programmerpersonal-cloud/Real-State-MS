@@ -1,86 +1,214 @@
 <?php
 /**
- * Payments — Index
+ * Payments — the ledger.
+ *
+ * The page used to carry the money twice: a read-only totals strip at the top
+ * and a status dropdown in the filter bar, so seeing which three payments made
+ * up "Overdue 4,800" meant scrolling down and re-asking the question. Here the
+ * totals are the filter — each card states a status, what it is worth and how
+ * many records it covers, and clicking it narrows the table underneath.
+ *
+ * Vars from PaymentController::index().
  */
-$fd = $formData ?? [];
+$fd   = $formData ?? [];
+$errs = $formErrors ?? [];
+
+$listUrl = APP_URL . '/index.php?page=payments';
+
+/* One pass over the totals the controller already fetched: the "All" card
+   needs the sums, and building them here costs nothing. */
+$allCount = 0; $allTotal = 0.0;
+foreach ($totals as $row) {
+    $allCount += (int) ($row['cnt'] ?? 0);
+    $allTotal += (float) ($row['total'] ?? 0);
+}
+
+$ledger = [
+    'param'   => 'status',
+    'value'   => $filters['status'] ?? '',
+    'options' => $statuses,
+    'totals'  => $totals,
+    'all'     => ['label' => 'All payments', 'cnt' => $allCount, 'total' => $allTotal],
+];
+
+/* Status is handled by the cards above, so the toolbar carries it hidden and
+   offers the two axes the cards cannot: what the money was for, and how it
+   arrived. */
+$toolbar = [
+    'page'   => 'payments',
+    'keep'   => array_filter(['status' => $filters['status'] ?? '']),
+    'search' => [
+        'name'        => 'search',
+        'value'       => $filters['search'] ?? '',
+        'label'       => 'Search payments',
+        'placeholder' => 'Search by code, receipt, customer or property…',
+    ],
+    'filters' => [
+        ['name' => 'payment_type', 'label' => 'Type', 'value' => $filters['payment_type'] ?? '',
+         'options' => $types, 'all' => 'Any type'],
+        ['name' => 'payment_method', 'label' => 'Method', 'value' => $filters['payment_method'] ?? '',
+         'options' => $methods, 'all' => 'Any method'],
+    ],
+    'actions' => [
+        ['label' => 'Record Payment', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
+         'can' => 'payments.create',
+         'url' => $listUrl . '&action=create',
+         'attrs' => ['data-modal-open' => 'paymentCreateModal']],
+    ],
+];
+
+$applied = array_filter([
+    'search'         => $filters['search'] ?? '',
+    'payment_type'   => $filters['payment_type'] ?? '',
+    'payment_method' => $filters['payment_method'] ?? '',
+], static fn($v): bool => $v !== '' && $v !== null);
+
+$chipLabels = [
+    'search'         => ['Search', static fn($v) => '“' . $v . '”'],
+    'payment_type'   => ['Type',   static fn($v) => $types[$v] ?? $v],
+    'payment_method' => ['Method', static fn($v) => $methods[$v] ?? $v],
+];
+
+$isFiltered = (bool) $applied || ($filters['status'] ?? '') !== '';
+
+$without = static function (string $key) use ($listUrl): string {
+    $params = $_GET;
+    unset($params[$key], $params['p'], $params['page']);
+    return $listUrl . ($params ? '&' . http_build_query($params) : '');
+};
 ?>
-<div class="mini-stats">
-    <?php
-    $statuses = ['paid' => 'success', 'pending' => 'warning', 'overdue' => 'danger', 'partial' => 'info'];
-    foreach ($statuses as $s => $color):
-        $row = $totals[$s] ?? ['cnt' => 0, 'total' => 0];
-    ?>
-    <div class="mini-stat">
-        <div class="mini-stat__label" style="color:var(--<?= $color ?>)"><?= ucfirst($s) ?> (<?= $row['cnt'] ?>)</div>
-        <div class="mini-stat__value"><?= formatCurrency((float)$row['total']) ?></div>
-    </div>
-    <?php endforeach ?>
-</div>
 
-<form method="get" class="filter-bar">
-    <input type="hidden" name="page" value="payments">
-    <div class="form-group">
-        <label class="form-label">Search</label>
-        <input class="form-control" name="search" value="<?= sanitize($filters['search'] ?? '') ?>" placeholder="Payment code, customer…">
-    </div>
-    <div class="form-group">
-        <label class="form-label">Type</label>
-        <select class="form-control" name="payment_type">
-            <option value="">All</option>
-            <?php foreach (['rent','sale','deposit','refund','late_fee','other'] as $t): ?>
-                <option value="<?= $t ?>" <?= ($filters['payment_type'] ?? '') === $t ? 'selected' : '' ?>><?= ucfirst(str_replace('_',' ',$t)) ?></option>
-            <?php endforeach ?>
-        </select>
-    </div>
-    <div class="form-group">
-        <label class="form-label">Status</label>
-        <select class="form-control" name="status">
-            <option value="">All</option>
-            <?php foreach (['paid','pending','partial','overdue','cancelled'] as $s): ?>
-                <option value="<?= $s ?>" <?= ($filters['status'] ?? '') === $s ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
-            <?php endforeach ?>
-        </select>
-    </div>
-    <button class="btn btn--primary"><i class="bi bi-funnel"></i> Filter</button>
-</form>
+<?php require VIEWS_PATH . '/components/ui/ledger_summary.php'; ?>
+<?php require VIEWS_PATH . '/components/ui/list_toolbar.php'; ?>
 
-<div class="card">
-    <div class="card__header"><h3 class="card__title"><?= $totalCount ?> Payment<?= $totalCount === 1 ? '' : 's' ?></h3></div>
-    <div class="card__body" style="padding:0">
-        <?php if (empty($payments)): ?>
-            <div class="empty-state">
-                <div class="empty-state__icon"><i class="bi bi-credit-card"></i></div>
-                <div class="empty-state__title">No payments recorded</div>
-                <button type="button" class="btn btn--primary btn--sm" data-modal-open="paymentCreateModal" style="margin-top:14px">
-                    <i class="bi bi-plus-lg"></i> Record Payment
-                </button>
+<?php if ($applied): ?>
+    <div class="filter-chips">
+        <span class="filter-chips__label">Filtered by</span>
+        <?php foreach ($applied as $key => $value): ?>
+            <?php [$label, $format] = $chipLabels[$key]; ?>
+            <span class="filter-chip">
+                <span class="filter-chip__key"><?= sanitize($label) ?>:</span>
+                <?= sanitize((string) $format($value)) ?>
+                <a class="filter-chip__x" href="<?= sanitize($without($key)) ?>"
+                   aria-label="Remove the <?= sanitize(strtolower($label)) ?> filter">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </a>
+            </span>
+        <?php endforeach ?>
+        <a href="<?= $listUrl ?>" class="btn btn--ghost btn--sm">Clear all</a>
+    </div>
+<?php endif ?>
+
+<div class="table-card">
+    <?php if (empty($payments)): ?>
+        <?= uiEmptyState([
+            'icon'     => 'bi-credit-card',
+            'filtered' => $isFiltered,
+            'title'    => $isFiltered ? 'No payments match these filters' : 'No payments recorded',
+            'desc'     => $isFiltered
+                ? 'Nothing in the ledger matches what you have selected.'
+                : 'Recording a payment against a lease instalment also marks that instalment settled.',
+            'clearUrl' => $listUrl,
+            'actions'  => [[
+                'label' => 'Record Payment', 'icon' => 'bi-plus-lg', 'can' => 'payments.create',
+                'url'   => $listUrl . '&action=create',
+                'attrs' => ['data-modal-open' => 'paymentCreateModal'],
+            ]],
+        ]) ?>
+    <?php else: ?>
+        <div class="table-head">
+            <div class="table-head__title">
+                <?= number_format($totalCount) ?> <?= $totalCount === 1 ? 'payment' : 'payments' ?>
+                <?php if ($isFiltered): ?><span class="table-head__count">matching</span><?php endif ?>
             </div>
-        <?php else: ?>
+        </div>
+
         <div class="table-wrap">
             <table class="table">
-                <thead><tr><th>Code</th><th>Customer</th><th>Property</th><th>Type</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th><th></th></tr></thead>
+                <thead>
+                    <tr>
+                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc']) ?>
+                        <th>Customer</th>
+                        <th>Property</th>
+                        <th>For</th>
+                        <?= uiSortHeader('Amount', ['desc' => 'amount_desc', 'asc' => 'amount_asc'], 'sort', 'cell-num') ?>
+                        <?= uiSortHeader('Received', ['desc' => 'date_desc', 'asc' => 'date_asc'], 'sort', 'cell-date') ?>
+                        <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
+                        <th class="cell-actions"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
                 <tbody>
-                <?php foreach ($payments as $p): ?>
-                <tr>
-                    <td><code><?= sanitize($p['payment_code']) ?></code></td>
-                    <td><?= sanitize($p['customer_name']) ?></td>
-                    <td><?= sanitize($p['property_title'] ?? '—') ?></td>
-                    <td><span class="badge badge--muted"><?= ucfirst(str_replace('_',' ',$p['payment_type'])) ?></span></td>
-                    <td><strong><?= formatCurrency((float)$p['amount']) ?></strong></td>
-                    <td><?= ucfirst(str_replace('_',' ',$p['payment_method'])) ?></td>
-                    <td><?= formatDate($p['payment_date']) ?></td>
-                    <td><span class="badge <?= getStatusBadgeClass($p['status']) ?>"><?= ucfirst($p['status']) ?></span></td>
-                    <td>
-                        <a class="btn btn--outline btn--sm" href="<?= APP_URL ?>/index.php?page=payments&action=receipt&id=<?= $p['id'] ?>"><i class="bi bi-receipt"></i></a>
-                    </td>
-                </tr>
-                <?php endforeach ?>
+                    <?php foreach ($payments as $p): ?>
+                        <?php $id = (int) $p['id']; ?>
+                        <tr>
+                            <td class="cell-tight">
+                                <a href="<?= $listUrl ?>&amp;action=receipt&amp;id=<?= $id ?>" class="table__id">
+                                    <?= sanitize($p['payment_code']) ?>
+                                </a>
+                            </td>
+                            <td>
+                                <?= uiPersonCell(
+                                    $p['customer_name'],
+                                    $p['customer_photo'] ?? null,
+                                    '',
+                                    APP_URL . '/index.php?page=customers&action=show&id=' . (int) $p['customer_id']
+                                ) ?>
+                            </td>
+                            <td class="cell-clip">
+                                <?php if (!empty($p['property_title'])): ?>
+                                    <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $p['property_id'] ?>">
+                                        <?= sanitize($p['property_title']) ?>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-subtle">—</span>
+                                <?php endif ?>
+                            </td>
+                            <td>
+                                <div><?= sanitize(uiLabel((string) $p['payment_type'])) ?></div>
+                                <div class="person__meta"><?= sanitize(uiLabel((string) $p['payment_method'])) ?></div>
+                            </td>
+                            <td class="cell-num">
+                                <strong><?= formatCurrency((float) $p['amount']) ?></strong>
+                                <?php if ((float) ($p['penalty_amount'] ?? 0) > 0): ?>
+                                    <div class="person__meta text-warning">
+                                        incl. <?= formatCurrency((float) $p['penalty_amount']) ?> penalty
+                                    </div>
+                                <?php endif ?>
+                            </td>
+                            <td class="cell-date">
+                                <?= formatDate($p['payment_date']) ?>
+                                <?php if (!empty($p['due_date']) && $p['due_date'] !== $p['payment_date']): ?>
+                                    <div class="person__meta">due <?= formatDate($p['due_date']) ?></div>
+                                <?php endif ?>
+                            </td>
+                            <td><?= uiStatus($p['status']) ?></td>
+                            <td class="cell-actions">
+                                <?= uiRowActions(array_merge(
+                                    [
+                                        ['label' => 'View receipt', 'icon' => 'bi-receipt', 'can' => 'payments.receipt',
+                                         'url' => $listUrl . '&action=receipt&id=' . $id],
+                                        ['label' => 'View customer', 'icon' => 'bi-person', 'can' => 'customers.show',
+                                         'url' => APP_URL . '/index.php?page=customers&action=show&id=' . (int) $p['customer_id']],
+                                    ],
+                                    !empty($p['property_id']) ? [[
+                                        'label' => 'View property', 'icon' => 'bi-buildings', 'can' => 'properties.show',
+                                        'url' => APP_URL . '/index.php?page=properties&action=show&id=' . (int) $p['property_id'],
+                                    ]] : []
+                                )) ?>
+                            </td>
+                        </tr>
+                    <?php endforeach ?>
                 </tbody>
             </table>
         </div>
-        <div style="padding:0 20px"><?php require VIEWS_PATH . '/components/pagination.php' ?></div>
+
+        <?php if ($totalPages > 1): ?>
+            <div class="table-foot">
+                <span class="table-foot__note">Page <?= $page ?> of <?= $totalPages ?></span>
+                <?php require VIEWS_PATH . '/components/pagination.php'; ?>
+            </div>
         <?php endif ?>
-    </div>
+    <?php endif ?>
 </div>
 
 <?php require __DIR__ . '/_create_modal.php'; ?>

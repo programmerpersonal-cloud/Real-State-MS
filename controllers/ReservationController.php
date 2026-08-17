@@ -6,6 +6,20 @@ require_once BASE_PATH . '/models/Reservation.php';
 
 class ReservationController
 {
+    /**
+     * The reservation lifecycle, keyed by the stored value.
+     *
+     * One list, read by three things: the status filter pills, the request
+     * validator, and the label shown in a row. They cannot disagree, because
+     * there is nothing for them to disagree with.
+     */
+    private const STATUSES = [
+        'active'    => 'Active',
+        'confirmed' => 'Confirmed',
+        'expired'   => 'Expired',
+        'cancelled' => 'Cancelled',
+    ];
+
     private Reservation $model;
 
     public function __construct()
@@ -17,7 +31,16 @@ class ReservationController
     public function index(): void
     {
         authorize('reservations.view');
-        $filters = ['status' => $_GET['status'] ?? '', 'search' => $_GET['search'] ?? ''];
+
+        // The status comes back only if it is one of ours, and the sort key is
+        // resolved by Reservation::SORTS rather than reaching the query as
+        // text. The search term stays a bound parameter inside the model.
+        $filters = [
+            'status' => uiPick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'search' => trim((string) ($_GET['search'] ?? '')),
+            'sort'   => uiSortValue(array_keys(Reservation::SORTS), 'newest'),
+        ];
+
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
         $reservations = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
@@ -34,8 +57,13 @@ class ReservationController
             'reservations' => $reservations, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
             'formData' => $formData,
+            'statuses' => self::STATUSES,
+            // One grouped query behind the status pills. It is the page's only
+            // added cost and does not grow with the number of rows shown.
+            'statusCounts' => $this->model->countsByStatus(),
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Reservations',
+            'pageSubtitle' => 'Holds placed on properties, and how long each one has left to run.',
             'breadcrumbs' => [['label' => 'Reservations']],
             'actionButton' => [
                 'label' => 'New Reservation',
@@ -81,10 +109,28 @@ class ReservationController
                 'deposit_amount'   => (float)($_POST['deposit_amount'] ?? 0),
                 'notes'            => sanitize($_POST['notes'] ?? ''),
             ];
-            if (!$data['property_id'] || !$data['customer_id']) {
-                setFlash('error', 'Property and customer are required.');
-                $_SESSION['form_data'] = $data;
-                redirect($failUrl);
+
+            // Errors are collected rather than thrown one at a time, so a form
+            // with two problems reports both instead of sending the user round
+            // the loop twice. Each one is keyed to its field, which is what
+            // puts the message under the control that caused it.
+            unset($_SESSION['form_errors']);
+            $errors = [];
+
+            if (!$data['property_id']) {
+                addFieldError($errors, 'property_id', 'Choose the property being reserved.');
+            }
+            if (!$data['customer_id']) {
+                addFieldError($errors, 'customer_id', 'Choose the customer holding the reservation.');
+            }
+            // A hold that expires before it starts is expired the moment it is
+            // written — expireOld() would cancel it on the next page load — so
+            // it is refused here rather than created and immediately undone.
+            if ($data['expiry_date'] < $data['reservation_date']) {
+                addFieldError($errors, 'expiry_date', 'The expiry date cannot fall before the reservation date.');
+            }
+            if ($data['deposit_amount'] < 0) {
+                addFieldError($errors, 'deposit_amount', 'A deposit cannot be negative.');
             }
 
             // Booking terms, when a version is published and acceptance is on.
@@ -93,20 +139,25 @@ class ReservationController
                 $data['terms_accepted'] = !empty($_POST['terms_accepted']) ? 1 : 0;
 
                 if (!$data['terms_accepted']) {
-                    setFlash('error', 'The booking terms must be accepted before a reservation can be created.');
-                    $_SESSION['form_data'] = $data;
-                    redirect($failUrl);
+                    addFieldError($errors, 'terms_accepted',
+                        'The booking terms must be accepted before a reservation can be created.');
                 }
 
                 // A version published while this form sat open is a different
                 // agreement from the one on screen, so the stale submission is
-                // refused rather than recorded against the wrong wording.
-                if ((int) ($_POST['terms_version_id'] ?? 0) !== (int) $bookingTerms['id']) {
+                // refused rather than recorded against the wrong wording. This
+                // one keeps its own flash: it is not the user's mistake, and
+                // the wording has to explain why an accepted box was rejected.
+                if ($data['terms_accepted'] && (int) ($_POST['terms_version_id'] ?? 0) !== (int) $bookingTerms['id']) {
                     setFlash('warning', 'The booking terms were updated while this form was open. '
                         . 'Please read the current version and accept it again.');
                     $_SESSION['form_data'] = $data;
                     redirect($failUrl);
                 }
+            }
+
+            if ($errors) {
+                rejectForm($errors, $data, $failUrl);
             }
 
             $id = $this->model->create($data);
@@ -161,13 +212,30 @@ class ReservationController
         return (string) ($stmt->fetchColumn() ?: '');
     }
 
+    /**
+     * Cancel a hold and, if nothing else is holding it, free the property.
+     *
+     * Both this and confirm() used to be plain links. A link that changes a
+     * record is a link a browser prefetcher, a link scanner or a third-party
+     * page can fire without the user ever clicking it, so the change now
+     * requires a POST carrying the session's CSRF token — the same shape the
+     * customer and owner login actions already use. A stray GET falls through
+     * to the redirect and changes nothing.
+     */
     public function cancel(): void
     {
         authorize('reservations.cancel');
         $id = (int)($_GET['id'] ?? 0);
-        $this->model->cancel($id);
-        logAudit('cancelled_reservation', 'reservation', $id);
-        setFlash('success', 'Reservation cancelled.');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            enforceCSRF();
+            if ($this->model->cancel($id)) {
+                logAudit('cancelled_reservation', 'reservation', $id);
+                setFlash('success', 'Reservation cancelled. The property is available again unless another hold is on it.');
+            } else {
+                setFlash('error', 'That reservation no longer exists.');
+            }
+        }
         redirect(APP_URL . '/index.php?page=reservations');
     }
 
@@ -175,9 +243,13 @@ class ReservationController
     {
         authorize('reservations.confirm');
         $id = (int)($_GET['id'] ?? 0);
-        $this->model->confirm($id);
-        logAudit('confirmed_reservation', 'reservation', $id);
-        setFlash('success', 'Reservation confirmed.');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            enforceCSRF();
+            $this->model->confirm($id);
+            logAudit('confirmed_reservation', 'reservation', $id);
+            setFlash('success', 'Reservation confirmed.');
+        }
         redirect(APP_URL . '/index.php?page=reservations');
     }
 }

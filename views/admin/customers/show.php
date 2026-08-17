@@ -38,7 +38,7 @@ $tabs = [
 
 <div class="detail-header">
     <div class="detail-header__media detail-header__media--avatar">
-        <img src="<?= sanitize(getAvatarUrl($c['avatar'] ?? null)) ?>" alt="" width="144" height="144">
+        <img src="<?= sanitize(getAvatarUrl($c['profile_photo'] ?? null)) ?>" alt="" width="144" height="144">
     </div>
 
     <div class="detail-header__body">

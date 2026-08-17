@@ -51,21 +51,6 @@ class PropertyController
         $this->model = new Property();
     }
 
-    /**
-     * A request value, but only if it is one we recognise.
-     *
-     * Anything else becomes '' — an absent filter — so an unexpected value
-     * widens the result set rather than reaching the query or the page.
-     *
-     * @param string[] $allowed
-     */
-    private static function pick(mixed $value, array $allowed): string
-    {
-        $value = is_string($value) ? $value : '';
-
-        return in_array($value, $allowed, true) ? $value : '';
-    }
-
     public function index(): void
     {
         authorize('properties.view');
@@ -76,9 +61,9 @@ class PropertyController
         // text and the ids stay bound parameters inside buildFilters().
         $filters = [
             'search'        => trim((string) ($_GET['search'] ?? '')),
-            'property_type' => self::pick($_GET['property_type'] ?? '', array_keys(self::LISTING_TYPES)),
-            'category'      => self::pick($_GET['category'] ?? '', array_keys(self::CATEGORIES)),
-            'status'        => self::pick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'property_type' => uiPick($_GET['property_type'] ?? '', array_keys(self::LISTING_TYPES)),
+            'category'      => uiPick($_GET['category'] ?? '', array_keys(self::CATEGORIES)),
+            'status'        => uiPick($_GET['status'] ?? '', array_keys(self::STATUSES)),
             'owner_id'      => max(0, (int) ($_GET['owner_id'] ?? 0)) ?: '',
             // Never interpolated: the model looks this key up in Property::SORTS
             // and falls back to 'newest' for anything it does not recognise.

@@ -7,6 +7,37 @@ require_once BASE_PATH . '/models/Lease.php';
 
 class PaymentController
 {
+    /**
+     * The payment lifecycle, keyed by the stored value and ordered the way a
+     * ledger is read: what came in, what is owed, what is late.
+     */
+    public const STATUSES = [
+        'paid'      => 'Paid',
+        'pending'   => 'Pending',
+        'overdue'   => 'Overdue',
+        'partial'   => 'Partial',
+        'cancelled' => 'Cancelled',
+    ];
+
+    /** What the money was for — the payments.payment_type enum. */
+    public const TYPES = [
+        'rent'     => 'Rent',
+        'sale'     => 'Sale',
+        'deposit'  => 'Deposit',
+        'refund'   => 'Refund',
+        'late_fee' => 'Late fee',
+        'other'    => 'Other',
+    ];
+
+    /** How it was taken — the payments.payment_method enum. */
+    public const METHODS = [
+        'cash'          => 'Cash',
+        'bank_transfer' => 'Bank transfer',
+        'check'         => 'Cheque',
+        'card'          => 'Card',
+        'other'         => 'Other',
+    ];
+
     private Payment $model;
 
     public function __construct()
@@ -17,16 +48,25 @@ class PaymentController
     public function index(): void
     {
         authorize('payments.view');
+
+        // Every enumerated filter is checked against the same map its control
+        // is built from, and the sort key is resolved by Payment::SORTS. Only
+        // the free-text search reaches the model, and it stays a bound param.
         $filters = [
-            'status'       => $_GET['status'] ?? '',
-            'payment_type' => $_GET['payment_type'] ?? '',
-            'search'       => $_GET['search'] ?? '',
+            'status'         => uiPick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'payment_type'   => uiPick($_GET['payment_type'] ?? '', array_keys(self::TYPES)),
+            'payment_method' => uiPick($_GET['payment_method'] ?? '', array_keys(self::METHODS)),
+            'search'         => trim((string) ($_GET['search'] ?? '')),
+            'sort'           => uiSortValue(array_keys(Payment::SORTS), 'newest'),
         ];
+
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
         $payments = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
         $totalCount = $this->model->count($filters);
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
+        // Already on the page before this redesign. It now drives the status
+        // cards as well as the totals, so the filter costs no extra query.
         $totals = $this->model->totalsByStatus();
 
         // The quick-record popup lives on this page, so it needs the lease
@@ -38,10 +78,14 @@ class PaymentController
             'payments' => $payments, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
             'totals' => $totals,
+            'statuses' => self::STATUSES,
+            'types'    => self::TYPES,
+            'methods'  => self::METHODS,
             'leases'   => self::activeLeases(),
             'formData' => $formData,
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Payments',
+            'pageSubtitle' => 'Every transaction recorded against a lease, a sale or a reservation.',
             'breadcrumbs' => [['label' => 'Payments']],
             'actionButton' => [
                 'label' => 'Record Payment',
@@ -111,13 +155,31 @@ class PaymentController
                 'status'         => $_POST['status'] ?? 'paid',
                 'schedule_id'    => (int)($_POST['schedule_id'] ?? 0),
             ];
+            // The same rules, each now keyed to the field it belongs to so the
+            // message appears under the control rather than as one flash.
+            unset($_SESSION['form_errors']);
             $errors = [];
-            if (!$data['customer_id']) $errors[] = 'Customer required.';
-            if ($data['amount'] <= 0)  $errors[] = 'Amount must be positive.';
+
+            if (!$data['customer_id']) {
+                addFieldError($errors, 'reference_id', 'Choose the lease this payment belongs to.');
+            }
+            if ($data['amount'] <= 0) {
+                addFieldError($errors, 'amount', 'The amount must be greater than zero.');
+            }
+            // These three come from <select>s. A value outside the enum would
+            // be refused by MySQL anyway, but a truncation warning is a poor
+            // way to learn a form was tampered with.
+            if (!isset(self::TYPES[$data['payment_type']])) {
+                addFieldError($errors, 'payment_type', 'Choose what this payment is for.');
+            }
+            if (!isset(self::METHODS[$data['payment_method']])) {
+                addFieldError($errors, 'payment_method', 'Choose how the payment was taken.');
+            }
+            if (!isset(self::STATUSES[$data['status']])) {
+                addFieldError($errors, 'status', 'Choose the state of this payment.');
+            }
             if ($errors) {
-                setFlash('error', implode(' ', $errors));
-                $_SESSION['form_data'] = $data;
-                redirect($failUrl);
+                rejectForm($errors, $data, $failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {
@@ -145,6 +207,9 @@ class PaymentController
             'preset' => $preset,
             'formData' => $formData,
             'scheduleId' => $scheduleId,
+            // The form's <option>s and the validator read one list.
+            'types'   => self::TYPES,
+            'methods' => self::METHODS,
             'pageTitle' => 'Record Payment',
             'breadcrumbs' => [
                 ['label' => 'Payments', 'url' => APP_URL . '/index.php?page=payments'],

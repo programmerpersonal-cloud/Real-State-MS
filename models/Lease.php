@@ -4,6 +4,28 @@
  */
 class Lease
 {
+    /**
+     * Sortable columns, keyed by the token a request may ask for.
+     *
+     * A request supplies a key, never a column name; anything unrecognised
+     * resolves to 'newest'. That is what keeps `?sort=` out of the ORDER BY
+     * it is concatenated into.
+     */
+    public const SORTS = [
+        'newest'    => 'l.created_at DESC',
+        'oldest'    => 'l.created_at ASC',
+        'code_asc'  => 'l.lease_code ASC',
+        'code_desc' => 'l.lease_code DESC',
+        'end_asc'   => 'l.end_date ASC',
+        'end_desc'  => 'l.end_date DESC',
+        'start_asc' => 'l.start_date ASC',
+        'start_desc'=> 'l.start_date DESC',
+        'rent_desc' => 'l.rent_amount DESC',
+        'rent_asc'  => 'l.rent_amount ASC',
+        'status_asc'=> 'l.status ASC, l.end_date ASC',
+        'status_desc'=> 'l.status DESC, l.end_date ASC',
+    ];
+
     private PDO $db;
 
     public function __construct()
@@ -118,7 +140,17 @@ class Lease
         return $this->db->prepare("UPDATE leases SET " . implode(', ', $fields) . " WHERE id = :id")->execute($params);
     }
 
-    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    /**
+     * The WHERE clause and its bound parameters for one filter set.
+     *
+     * Shared by getAll() and count(), which had drifted: count() knew only
+     * about `status`, so a search returned three rows beneath a header
+     * claiming eleven and paginated as though the other eight were still
+     * there — pages that then rendered empty.
+     *
+     * @return array{0:string, 1:array<string, mixed>}
+     */
+    private function buildWhere(array $filters): array
     {
         $where = []; $params = [];
         if (!empty($filters['status'])) { $where[] = "l.status = :st"; $params[':st'] = $filters['status']; }
@@ -126,16 +158,30 @@ class Lease
             $where[] = "(l.lease_code LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s OR p.property_code LIKE :s)";
             $params[':s'] = '%' . $filters['search'] . '%';
         }
-        if (!empty($filters['customer_id'])) { $where[] = "l.customer_id = :cid"; $params[':cid'] = $filters['customer_id']; }
-        if (!empty($filters['property_id'])) { $where[] = "l.property_id = :pid"; $params[':pid'] = $filters['property_id']; }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        if (!empty($filters['customer_id'])) { $where[] = "l.customer_id = :cid"; $params[':cid'] = (int) $filters['customer_id']; }
+        if (!empty($filters['property_id'])) { $where[] = "l.property_id = :pid"; $params[':pid'] = (int) $filters['property_id']; }
+        // Leases whose term ends inside the next N days — the renewal queue.
+        if (!empty($filters['ending_within'])) {
+            $where[] = "l.status = 'active' AND l.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL :win DAY)";
+            $params[':win'] = (int) $filters['ending_within'];
+        }
+
+        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+    }
+
+    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    {
+        [$wc, $params] = $this->buildWhere($filters);
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
+
         $stmt = $this->db->prepare("
-            SELECT l.*, c.full_name AS customer_name, p.title AS property_title, p.property_code
+            SELECT l.*, c.full_name AS customer_name, c.profile_photo AS customer_photo, c.phone AS customer_phone,
+                   p.title AS property_title, p.property_code
             FROM leases l
             JOIN customers c ON l.customer_id = c.id
             JOIN properties p ON l.property_id = p.id
             {$wc}
-            ORDER BY l.created_at DESC
+            ORDER BY {$orderBy}
             LIMIT :l OFFSET :o
         ");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
@@ -147,12 +193,62 @@ class Lease
 
     public function count(array $filters = []): int
     {
-        $where = []; $params = [];
-        if (!empty($filters['status'])) { $where[] = "status = :st"; $params[':st'] = $filters['status']; }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM leases {$wc}");
+        // The same joins as getAll(), because the search reaches across them.
+        [$wc, $params] = $this->buildWhere($filters);
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM leases l
+            JOIN customers c ON l.customer_id = c.id
+            JOIN properties p ON l.property_id = p.id
+            {$wc}
+        ");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * How many leases sit in each status, for the filter pills.
+     *
+     * @return array<string, int>
+     */
+    public function countsByStatus(): array
+    {
+        $rows = $this->db->query("SELECT status, COUNT(*) AS n FROM leases GROUP BY status")->fetchAll();
+
+        return array_column($rows, 'n', 'status');
+    }
+
+    /**
+     * Arrears for a whole page of leases, in one query.
+     *
+     * The batch counterpart to getArrears(). Asking per row would be one
+     * query per lease rendered — the N+1 this codebase already avoids for
+     * property covers — so the ids are collected first and answered together.
+     * Leases with nothing outstanding are simply absent from the result, so
+     * callers read it with `?? 0`.
+     *
+     * @param int[] $leaseIds
+     * @return array<int, float>
+     */
+    public function arrearsFor(array $leaseIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $leaseIds))));
+        if (!$ids) {
+            return [];
+        }
+
+        $in   = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->db->prepare("
+            SELECT lease_id, SUM(amount + penalty) AS due
+            FROM payment_schedules
+            WHERE lease_id IN ({$in})
+              AND status IN ('pending','overdue','partial')
+              AND due_date < CURDATE()
+            GROUP BY lease_id
+        ");
+        $stmt->execute($ids);
+
+        return array_map('floatval', array_column($stmt->fetchAll(), 'due', 'lease_id'));
     }
 
     /** Renew an existing lease — extend end_date, optionally update rent, create new contract record. */

@@ -16,6 +16,10 @@
 .card__subtitle{font-size:.76rem;color:var(--text-muted);margin-top:2px;line-height:1.35}
 .card__body{padding:16px 18px}
 .card__footer{padding:11px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
+/* A short single-column form. Left at full width its labels would sit a
+   screen-width apart from their controls on a wide monitor, which is a longer
+   eye travel than the form is worth. */
+.card--narrow{max-width:640px;margin-inline:auto}
 
 
 /* ── Document-expiry notice ───────────────────────────────
@@ -793,6 +797,103 @@ a.person:hover .person__name{color:var(--primary)}
 }
 .segmented__btn:hover{color:var(--text)}
 .segmented__btn.is-active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-xs)}
+
+/* ════════════════════════════════════════════════════════════
+   STATUS TABS — the primary axis of an operations list
+
+   Status is the first question asked of a queue: what is still open, what
+   is overdue, what is done. Buried in a <select> it takes three actions to
+   answer and shows no quantities; as a row of pills it is one click and the
+   counts are readable before anything is clicked.
+
+   Plain links, so this works with scripting off, is bookmarkable, and the
+   back button behaves.
+   ════════════════════════════════════════════════════════════ */
+.status-tabs{
+  display:flex;align-items:center;gap:var(--space-1);
+  margin-bottom:var(--space-4);padding-bottom:2px;
+  overflow-x:auto;scrollbar-width:thin;
+}
+.status-tabs__item{
+  display:inline-flex;align-items:center;gap:7px;
+  height:34px;padding:0 var(--space-3);flex-shrink:0;
+  border:1px solid transparent;border-radius:var(--radius-pill);
+  font-size:var(--fs-xs);font-weight:600;color:var(--text-muted);
+  text-decoration:none;white-space:nowrap;
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.status-tabs__item:hover{background:var(--surface-3);color:var(--text);text-decoration:none}
+.status-tabs__item.is-active{
+  background:var(--primary-tint);border-color:var(--primary-border);color:var(--primary-ink);
+}
+.status-tabs__dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;opacity:.75}
+.status-tabs__count{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:20px;height:19px;padding:0 6px;border-radius:var(--radius-pill);
+  background:var(--surface-3);color:var(--text-subtle);
+  font-size:var(--fs-2xs);font-weight:700;font-variant-numeric:tabular-nums;
+}
+.status-tabs__item.is-active .status-tabs__count{background:var(--surface);color:var(--primary-ink)}
+/* Tone comes from the same status map the pills use, so "overdue" is the
+   same red in the filter as it is in the row it filters to. */
+.status-tabs__item--success .status-tabs__dot{color:var(--success)}
+.status-tabs__item--warning .status-tabs__dot{color:var(--warning)}
+.status-tabs__item--danger  .status-tabs__dot{color:var(--danger)}
+.status-tabs__item--info    .status-tabs__dot{color:var(--info)}
+.status-tabs__item--primary .status-tabs__dot{color:var(--primary)}
+.status-tabs__item--purple  .status-tabs__dot{color:var(--purple)}
+.status-tabs__item--orange  .status-tabs__dot{color:var(--orange)}
+.status-tabs__item--muted   .status-tabs__dot{color:var(--text-subtle)}
+
+/* ════════════════════════════════════════════════════════════
+   LEDGER — money per status, and the filter for it
+
+   The card is the control. Reading "Overdue · 4,800 · 3 payments" and then
+   having to find a separate dropdown to see which three is a question asked
+   twice; here the answer is one click on the figure itself.
+   ════════════════════════════════════════════════════════════ */
+.ledger{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+  gap:var(--space-3);margin-bottom:var(--space-4);
+}
+.ledger__card{
+  display:flex;flex-direction:column;gap:2px;
+  padding:var(--space-3) var(--space-4);
+  background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--border-strong);
+  border-radius:var(--radius);text-decoration:none;
+  transition:border-color var(--transition),box-shadow var(--transition),transform var(--transition);
+}
+.ledger__card:hover{box-shadow:var(--shadow-sm);text-decoration:none;transform:translateY(-1px)}
+.ledger__card.is-active{border-color:var(--primary);box-shadow:var(--shadow-sm)}
+.ledger__label{
+  display:flex;align-items:center;gap:6px;
+  font-size:var(--fs-2xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--text-muted);
+}
+.ledger__dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ledger__value{
+  font-size:1.22rem;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums;letter-spacing:-.2px;line-height:1.25;
+}
+.ledger__meta{font-size:var(--fs-2xs);color:var(--text-subtle)}
+/* The accent is the status tone: the stripe, the dot and the badge in the
+   rows below all read from one map. */
+.ledger__card--success{border-left-color:var(--success)}
+.ledger__card--success .ledger__label{color:var(--success)}
+.ledger__card--warning{border-left-color:var(--warning)}
+.ledger__card--warning .ledger__label{color:var(--warning)}
+.ledger__card--danger{border-left-color:var(--danger)}
+.ledger__card--danger .ledger__label{color:var(--danger)}
+.ledger__card--info{border-left-color:var(--info)}
+.ledger__card--info .ledger__label{color:var(--info)}
+.ledger__card--primary{border-left-color:var(--primary)}
+.ledger__card--primary .ledger__label{color:var(--primary)}
+.ledger__card--purple{border-left-color:var(--purple)}
+.ledger__card--purple .ledger__label{color:var(--purple)}
+.ledger__card--orange{border-left-color:var(--orange)}
+.ledger__card--orange .ledger__label{color:var(--orange)}
+.ledger__card--muted{border-left-color:var(--text-subtle)}
 
 /* ════════════════════════════════════════════════════════════
    ROW MENU — the compact ⋮ action list

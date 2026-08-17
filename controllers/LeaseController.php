@@ -8,6 +8,24 @@ require_once BASE_PATH . '/models/Customer.php';
 
 class LeaseController
 {
+    /**
+     * The tenancy lifecycle, keyed by the stored value. One list, read by the
+     * status pills, the request validator and the label in a row.
+     */
+    private const STATUSES = [
+        'active'     => 'Active',
+        'renewed'    => 'Renewed',
+        'expired'    => 'Expired',
+        'terminated' => 'Terminated',
+    ];
+
+    /** Billing cadence — matches the leases.payment_schedule enum. */
+    private const SCHEDULES = [
+        'monthly'   => 'Monthly',
+        'quarterly' => 'Quarterly',
+        'yearly'    => 'Yearly',
+    ];
+
     private Lease $model;
 
     public function __construct()
@@ -20,7 +38,22 @@ class LeaseController
     public function index(): void
     {
         authorize('leases.view');
-        $filters = ['status' => $_GET['status'] ?? '', 'search' => $_GET['search'] ?? ''];
+
+        // Enumerated values are checked against the same list the pills are
+        // built from; the sort key is resolved by Lease::SORTS. Neither the
+        // status nor the sort ever reaches SQL as request text.
+        $filters = [
+            'status' => uiPick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'search' => trim((string) ($_GET['search'] ?? '')),
+            'sort'   => uiSortValue(array_keys(Lease::SORTS), 'newest'),
+        ];
+        // The renewal queue: one saved view rather than a date picker nobody
+        // fills in the same way twice.
+        $ending = ($_GET['ending'] ?? '') === 'soon';
+        if ($ending) {
+            $filters['ending_within'] = 60;
+        }
+
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
         $leases = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
@@ -36,8 +69,18 @@ class LeaseController
             'leases' => $leases, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
             'formData' => $formData,
+            'statuses' => self::STATUSES,
+            'schedules' => self::SCHEDULES,
+            'endingSoon' => $ending,
+            // Two added queries, both fixed cost. countsByStatus() answers the
+            // whole pill row in one GROUP BY; arrearsFor() answers the whole
+            // page of rows in one WHERE … IN, rather than asking getArrears()
+            // once per lease as a naive Arrears column would.
+            'statusCounts' => $this->model->countsByStatus(),
+            'arrears' => $this->model->arrearsFor(array_column($leases, 'id')),
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Leases',
+            'pageSubtitle' => 'Tenancies, what they are worth, and what is outstanding on them.',
             'breadcrumbs' => [['label' => 'Leases']],
             'actionButton' => [
                 'label' => 'New Lease',
@@ -94,25 +137,42 @@ class LeaseController
             $stmt->execute([$data['property_id']]);
             $data['owner_id'] = $stmt->fetchColumn() ?: null;
 
+            // The same rules as before, each now carrying the field it belongs
+            // to so the message lands under the control that caused it rather
+            // than as one run-on sentence at the top of the page.
+            unset($_SESSION['form_errors']);
             $errors = [];
-            if (!$data['customer_id']) $errors[] = 'Select a customer.';
-            if (!$data['property_id']) $errors[] = 'Select a property.';
-            if (!$data['start_date'] || !$data['end_date']) $errors[] = 'Start and end dates are required.';
+
+            if (!$data['customer_id']) addFieldError($errors, 'customer_id', 'Select the tenant taking the lease.');
+            if (!$data['property_id']) addFieldError($errors, 'property_id', 'Select the property being let.');
+            if (!$data['start_date'])  addFieldError($errors, 'start_date', 'A start date is required.');
+            if (!$data['end_date'])    addFieldError($errors, 'end_date', 'An end date is required.');
             if ($data['end_date'] && $data['start_date'] && $data['end_date'] <= $data['start_date']) {
-                $errors[] = 'End date must be after start date.';
+                addFieldError($errors, 'end_date', 'The end date must fall after the start date.');
             }
-            if ($data['rent_amount'] <= 0) $errors[] = 'Rent amount must be greater than zero.';
-            if ($data['property_id'] && $this->model->hasOverlap($data['property_id'], $data['start_date'], $data['end_date'])) {
-                $errors[] = 'This property already has an overlapping active lease.';
+            if ($data['rent_amount'] <= 0) {
+                addFieldError($errors, 'rent_amount', 'Rent must be greater than zero.');
+            }
+            if (!isset(self::SCHEDULES[$data['payment_schedule']])) {
+                addFieldError($errors, 'payment_schedule', 'Choose how often rent falls due.');
+            }
+            if ($data['property_id'] && $data['start_date'] && $data['end_date']
+                && $this->model->hasOverlap($data['property_id'], $data['start_date'], $data['end_date'])) {
+                addFieldError($errors, 'property_id', 'This property already has an active lease overlapping those dates.');
             }
             if (!empty($_FILES['contract_file']['name'])) {
                 $path = uploadFile($_FILES['contract_file'], 'documents', ALLOWED_DOC_TYPES);
-                if ($path) $data['contract_file'] = $path;
+                if ($path) {
+                    $data['contract_file'] = $path;
+                } else {
+                    // Silently dropping the file left someone believing the
+                    // signed contract was attached when it was not.
+                    addFieldError($errors, 'contract_file',
+                        'That contract could not be attached. Check it is a permitted document type and within the size limit.');
+                }
             }
             if ($errors) {
-                setFlash('error', implode(' ', $errors));
-                $_SESSION['form_data'] = $data;
-                redirect($failUrl);
+                rejectForm($errors, $data, $failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {

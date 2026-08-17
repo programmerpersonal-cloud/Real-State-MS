@@ -4,6 +4,26 @@
  */
 class Reservation
 {
+    /**
+     * Sortable columns, keyed by the token a request may ask for.
+     *
+     * The request never supplies a column name — it supplies one of these
+     * keys, and anything unrecognised falls back to 'newest'. That is what
+     * keeps `?sort=` out of the SQL string it is concatenated into.
+     */
+    public const SORTS = [
+        'newest'       => 'r.created_at DESC',
+        'oldest'       => 'r.created_at ASC',
+        'expiry_asc'   => 'r.expiry_date ASC',
+        'expiry_desc'  => 'r.expiry_date DESC',
+        'code_asc'     => 'r.reservation_code ASC',
+        'code_desc'    => 'r.reservation_code DESC',
+        'deposit_desc' => 'r.deposit_amount DESC',
+        'deposit_asc'  => 'r.deposit_amount ASC',
+        'status_asc'   => 'r.status ASC, r.created_at DESC',
+        'status_desc'  => 'r.status DESC, r.created_at DESC',
+    ];
+
     private PDO $db;
 
     public function __construct()
@@ -104,24 +124,46 @@ class Reservation
         return $affected;
     }
 
-    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    /**
+     * The WHERE clause and its bound parameters for one filter set.
+     *
+     * Shared by getAll() and count() because they were drifting: count()
+     * only knew about `status`, so a search returned two rows under a header
+     * reading "12 reservations" and paginated as though the other ten were
+     * still there, on pages that rendered empty.
+     *
+     * Every value is bound. The only text placed into the SQL is the clause
+     * this method builds from its own fixed strings.
+     *
+     * @return array{0:string, 1:array<string, mixed>}
+     */
+    private function buildWhere(array $filters): array
     {
         $where = []; $params = [];
         if (!empty($filters['status'])) { $where[] = "r.status = :st"; $params[':st'] = $filters['status']; }
         // Bound and cast, for the property detail page's Reservations tab.
         if (!empty($filters['property_id'])) { $where[] = "r.property_id = :pid"; $params[':pid'] = (int) $filters['property_id']; }
+        if (!empty($filters['customer_id'])) { $where[] = "r.customer_id = :cid"; $params[':cid'] = (int) $filters['customer_id']; }
         if (!empty($filters['search'])) {
-            $where[] = "(r.reservation_code LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s)";
+            $where[] = "(r.reservation_code LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s OR p.property_code LIKE :s)";
             $params[':s'] = '%' . $filters['search'] . '%';
         }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+    }
+
+    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    {
+        [$wc, $params] = $this->buildWhere($filters);
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
+
         $stmt = $this->db->prepare("
             SELECT r.*, c.full_name AS customer_name, p.title AS property_title, p.property_code
             FROM reservations r
             JOIN customers c ON r.customer_id = c.id
             JOIN properties p ON r.property_id = p.id
             {$wc}
-            ORDER BY r.created_at DESC
+            ORDER BY {$orderBy}
             LIMIT :l OFFSET :o
         ");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
@@ -133,11 +175,32 @@ class Reservation
 
     public function count(array $filters = []): int
     {
-        $where = []; $params = [];
-        if (!empty($filters['status'])) { $where[] = "status = :st"; $params[':st'] = $filters['status']; }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM reservations {$wc}");
+        // The same joins as getAll(), because the search reaches across them.
+        [$wc, $params] = $this->buildWhere($filters);
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM reservations r
+            JOIN customers c ON r.customer_id = c.id
+            JOIN properties p ON r.property_id = p.id
+            {$wc}
+        ");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * How many reservations sit in each status, for the filter counts.
+     *
+     * One grouped query rather than one count per status — it answers the
+     * whole row of tabs in a single round trip, and its cost does not change
+     * with the number of statuses the enum grows to.
+     *
+     * @return array<string, int>
+     */
+    public function countsByStatus(): array
+    {
+        $rows = $this->db->query("SELECT status, COUNT(*) AS n FROM reservations GROUP BY status")->fetchAll();
+
+        return array_column($rows, 'n', 'status');
     }
 }

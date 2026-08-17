@@ -127,7 +127,7 @@ $toolbar = [
                             <td>
                                 <?= uiPersonCell(
                                     $c['full_name'],
-                                    $c['avatar'] ?? null,
+                                    $c['profile_photo'] ?? null,
                                     $c['national_id'] ? 'ID ' . $c['national_id'] : '',
                                     $showUrl((int) $c['id'])
                                 ) ?>

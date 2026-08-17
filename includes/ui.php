@@ -342,6 +342,28 @@ function uiSortValue(array $allowed, string $default, string $param = 'sort'): s
     return in_array($key, $allowed, true) ? $key : $default;
 }
 
+/**
+ * A request value, but only if it is one we recognise.
+ *
+ * The companion to uiSortValue() for enumerated filters. Anything the
+ * allow-list does not contain becomes '' — an *absent* filter — so a
+ * hand-edited `?status=<script>` widens the result set rather than reaching
+ * the query or being echoed back into a <select>. Filters fail open to
+ * "everything" on purpose: a filter is a narrowing convenience, and refusing
+ * the whole page over one bad parameter helps nobody.
+ *
+ * Callers pass the keys of the very map their <option>s are built from, so an
+ * option that exists in the form and not in the query is not possible.
+ *
+ * @param string[] $allowed
+ */
+function uiPick(mixed $value, array $allowed): string
+{
+    $value = is_string($value) ? $value : '';
+
+    return in_array($value, $allowed, true) ? $value : '';
+}
+
 /* ── Form field state ────────────────────────────────────────────────
    Promoted from the pattern proven in the customer and owner forms, so
    every form in the system marks a rejected field the same way. */

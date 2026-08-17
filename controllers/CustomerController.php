@@ -52,19 +52,6 @@ class CustomerController
         $this->users = new User();
     }
 
-    /**
-     * A request value, but only if it is one we recognise; anything else
-     * becomes '' — an absent filter — so it never reaches the query.
-     *
-     * @param string[] $allowed
-     */
-    private static function pick(mixed $value, array $allowed): string
-    {
-        $value = is_string($value) ? $value : '';
-
-        return in_array($value, $allowed, true) ? $value : '';
-    }
-
     public function index(): void
     {
         authorize('customers.view');
@@ -74,8 +61,8 @@ class CustomerController
         // than something carried into the query. Free text stays a bound param.
         $filters = [
             'search'        => trim((string) ($_GET['search'] ?? '')),
-            'customer_type' => self::pick($_GET['customer_type'] ?? '', self::TYPES),
-            'login'         => self::pick($_GET['login'] ?? '', array_keys(self::LOGIN_STATES)),
+            'customer_type' => uiPick($_GET['customer_type'] ?? '', self::TYPES),
+            'login'         => uiPick($_GET['login'] ?? '', array_keys(self::LOGIN_STATES)),
             // Never interpolated: Customer::SORTS resolves this key and falls
             // back to 'newest' for anything it does not recognise.
             'sort'          => uiSortValue(array_keys(Customer::SORTS), 'newest'),

@@ -34,8 +34,7 @@ class OwnerController
         // and the sort key against Owner::SORTS — neither reaches SQL as text.
         $filters = [
             'search' => trim((string) ($_GET['search'] ?? '')),
-            'login'  => in_array($_GET['login'] ?? '', array_keys(self::LOGIN_STATES), true)
-                ? (string) $_GET['login'] : '',
+            'login'  => uiPick($_GET['login'] ?? '', array_keys(self::LOGIN_STATES)),
             'sort'   => uiSortValue(array_keys(Owner::SORTS), 'newest'),
         ];
         $page = max(1, (int)($_GET['p'] ?? 1));

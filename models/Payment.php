@@ -4,6 +4,27 @@
  */
 class Payment
 {
+    /**
+     * Sortable columns, keyed by the token a request may ask for. A request
+     * supplies a key, never a column; anything unrecognised resolves to
+     * 'newest' rather than reaching the ORDER BY as text.
+     *
+     * Payment date leads the money columns because a ledger is read in date
+     * order far more often than in amount order.
+     */
+    public const SORTS = [
+        'newest'      => 'py.created_at DESC',
+        'oldest'      => 'py.created_at ASC',
+        'date_desc'   => 'py.payment_date DESC, py.id DESC',
+        'date_asc'    => 'py.payment_date ASC, py.id ASC',
+        'amount_desc' => 'py.amount DESC',
+        'amount_asc'  => 'py.amount ASC',
+        'code_asc'    => 'py.payment_code ASC',
+        'code_desc'   => 'py.payment_code DESC',
+        'status_asc'  => 'py.status ASC, py.payment_date DESC',
+        'status_desc' => 'py.status DESC, py.payment_date DESC',
+    ];
+
     private PDO $db;
 
     public function __construct()
@@ -70,26 +91,45 @@ class Payment
         }
     }
 
-    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    /**
+     * The WHERE clause and its bound parameters for one filter set.
+     *
+     * Shared by getAll() and count(). They had drifted: count() knew only
+     * about `status`, so filtering by type or searching gave a header and a
+     * page count describing a different result set from the rows underneath.
+     *
+     * @return array{0:string, 1:array<string, mixed>}
+     */
+    private function buildWhere(array $filters): array
     {
         $where = []; $params = [];
         if (!empty($filters['status'])) { $where[] = "py.status = :st"; $params[':st'] = $filters['status']; }
         if (!empty($filters['payment_type'])) { $where[] = "py.payment_type = :pt"; $params[':pt'] = $filters['payment_type']; }
-        if (!empty($filters['customer_id'])) { $where[] = "py.customer_id = :cid"; $params[':cid'] = $filters['customer_id']; }
+        if (!empty($filters['payment_method'])) { $where[] = "py.payment_method = :pm"; $params[':pm'] = $filters['payment_method']; }
+        if (!empty($filters['customer_id'])) { $where[] = "py.customer_id = :cid"; $params[':cid'] = (int) $filters['customer_id']; }
         // Bound and cast, for the property detail page's Payments tab.
         if (!empty($filters['property_id'])) { $where[] = "py.property_id = :pid"; $params[':pid'] = (int) $filters['property_id']; }
         if (!empty($filters['search'])) {
-            $where[] = "(py.payment_code LIKE :s OR c.full_name LIKE :s)";
+            $where[] = "(py.payment_code LIKE :s OR py.receipt_number LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s)";
             $params[':s'] = '%' . $filters['search'] . '%';
         }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+    }
+
+    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    {
+        [$wc, $params] = $this->buildWhere($filters);
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
+
         $stmt = $this->db->prepare("
-            SELECT py.*, c.full_name AS customer_name, p.title AS property_title, p.property_code
+            SELECT py.*, c.full_name AS customer_name, c.profile_photo AS customer_photo,
+                   p.title AS property_title, p.property_code
             FROM payments py
             JOIN customers c ON py.customer_id = c.id
             LEFT JOIN properties p ON py.property_id = p.id
             {$wc}
-            ORDER BY py.created_at DESC
+            ORDER BY {$orderBy}
             LIMIT :l OFFSET :o
         ");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
@@ -101,10 +141,15 @@ class Payment
 
     public function count(array $filters = []): int
     {
-        $where = []; $params = [];
-        if (!empty($filters['status'])) { $where[] = "status = :st"; $params[':st'] = $filters['status']; }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM payments {$wc}");
+        // The same joins as getAll(), because the search reaches across them.
+        [$wc, $params] = $this->buildWhere($filters);
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM payments py
+            JOIN customers c ON py.customer_id = c.id
+            LEFT JOIN properties p ON py.property_id = p.id
+            {$wc}
+        ");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
     }
