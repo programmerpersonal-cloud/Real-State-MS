@@ -1,10 +1,16 @@
 <?php
 /**
  * Inquiry — Show / Thread
+ *
+ * Reached by staff working the enquiry, by the owner of the property it
+ * concerns, and by the person who sent it. The thread reads the same for all
+ * three; only the reply box is conditional, because answering on the agency's
+ * behalf is the agency's job.
  */
 $i = $inquiry;
+$canReply = can('inquiries.reply');
 ?>
-<div class="grid-2">
+<div class="<?= $canReply ? 'grid-2' : '' ?>">
     <div>
         <div class="card mb-3">
             <div class="card__header">
@@ -48,6 +54,7 @@ $i = $inquiry;
         <?php endif ?>
     </div>
 
+    <?php if ($canReply): ?>
     <div>
         <div class="card">
             <div class="card__header"><h3 class="card__title">Reply</h3></div>
@@ -62,4 +69,5 @@ $i = $inquiry;
             </div>
         </div>
     </div>
+    <?php endif ?>
 </div>

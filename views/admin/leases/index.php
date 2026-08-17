@@ -2,6 +2,7 @@
 /**
  * Leases — Index
  */
+$fd = $formData ?? [];
 ?>
 <form method="get" class="filter-bar">
     <input type="hidden" name="page" value="leases">
@@ -29,6 +30,9 @@
                 <div class="empty-state__icon"><i class="bi bi-file-earmark-text"></i></div>
                 <div class="empty-state__title">No leases yet</div>
                 <div class="empty-state__desc">Create your first lease to track rentals.</div>
+                <button type="button" class="btn btn--primary btn--sm" data-modal-open="leaseCreateModal" style="margin-top:14px">
+                    <i class="bi bi-plus-lg"></i> New Lease
+                </button>
             </div>
         <?php else: ?>
         <div class="table-wrap">
@@ -64,3 +68,5 @@
         <?php endif ?>
     </div>
 </div>
+
+<?php require __DIR__ . '/_create_modal.php'; ?>

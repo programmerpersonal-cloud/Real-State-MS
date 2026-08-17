@@ -6,6 +6,15 @@
  * and the audit trail. Have a lawyer review before relying on it commercially.
  */
 $updated = '12 August 2026';
+
+/* Administrators can publish these terms from Settings → Legal & Terms, in which
+   case the published version replaces the copy below. The static text stays as
+   the fallback so the page is never blank on an install that has not written
+   its own terms yet.
+
+   ?doc=<slug> renders another published type (rental, sale, viewing, booking). */
+$termsSlug    = trim((string) ($_GET['doc'] ?? '')) ?: (setting('terms_public_slug') ?: 'general');
+$termsVersion = activeTerms($termsSlug);
 ?>
 
 <section class="page-hero page-hero--tight">
@@ -26,6 +35,17 @@ $updated = '12 August 2026';
 
 <section class="section section--flush-top">
     <div class="site-container site-container--narrow">
+        <?php if ($termsVersion): ?>
+        <div class="legal">
+            <p class="legal__meta">
+                <?= sanitize($termsVersion['version_code']) ?>
+                <?php if (!empty($termsVersion['effective_from'])): ?>
+                    · in effect since <?= formatDate($termsVersion['effective_from']) ?>
+                <?php endif ?>
+            </p>
+            <?= renderLegalText((string) $termsVersion['body']) ?>
+        </div>
+        <?php else: ?>
         <div class="legal">
             <p class="legal__meta">Last updated <?= $updated ?></p>
 
@@ -132,6 +152,7 @@ $updated = '12 August 2026';
                 <?= sanitize(BIZ_STREET . ', ' . BIZ_CITY . ', ' . BIZ_REGION) ?>.
             </p>
         </div>
+        <?php endif ?>
 
         <div class="legal__footer">
             <a href="<?= APP_URL ?>/index.php?page=privacy" class="btn btn--outline">

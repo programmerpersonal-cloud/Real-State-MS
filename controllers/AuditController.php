@@ -6,7 +6,7 @@ class AuditController
 {
     public function index(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('audit-logs.view');
         $db = getDBConnection();
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;

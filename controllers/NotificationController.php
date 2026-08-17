@@ -1,12 +1,17 @@
 <?php
 /**
  * Notification Controller — in-app notification inbox.
+ *
+ * All three actions ask for the same permission. Marking your own notification
+ * read is not a capability worth separating from reading it — what stops one
+ * user touching another's is the `user_id = ?` on every statement below, which
+ * is record scoping rather than a permission question.
  */
 class NotificationController
 {
     public function index(): void
     {
-        requireLogin();
+        authorize('notifications.view');
         $db = getDBConnection();
         $stmt = $db->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 100");
         $stmt->execute([$_SESSION['user_id']]);
@@ -21,7 +26,7 @@ class NotificationController
 
     public function markRead(): void
     {
-        requireLogin();
+        authorize('notifications.view');
         $id = (int)($_GET['id'] ?? 0);
         $db = getDBConnection();
         $db->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?")
@@ -31,7 +36,7 @@ class NotificationController
 
     public function readAll(): void
     {
-        requireLogin();
+        authorize('notifications.view');
         getDBConnection()->prepare("UPDATE notifications SET is_read=1 WHERE user_id = ?")
                          ->execute([$_SESSION['user_id']]);
         setFlash('success', 'All notifications marked as read.');

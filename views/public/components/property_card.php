@@ -52,7 +52,11 @@ $title     = $property['title'] ?: 'Untitled property';
             </span>
         <?php endif; ?>
 
-        <?php if (isLoggedIn()): ?>
+        <?php // Drawn from the permission, not from "is anyone signed in": staff
+              // browsing the public site have no wishlist, so they are offered
+              // no heart rather than a heart that refuses them. A signed-out
+              // visitor still gets the sign-in prompt below. ?>
+        <?php if (can('favorites.add') || can('favorites.remove')): ?>
             <?php $favAction = $isSaved ? 'remove' : 'add'; ?>
             <form method="POST"
                   action="<?= APP_URL ?>/index.php?page=favorites&amp;action=<?= $favAction ?>&amp;property_id=<?= $pid ?>"
@@ -65,7 +69,7 @@ $title     = $property['title'] ?: 'Untitled property';
                     <i class="bi bi-heart" aria-hidden="true"></i>
                 </button>
             </form>
-        <?php else: ?>
+        <?php elseif (!isLoggedIn()): ?>
             <a href="<?= APP_URL ?>/index.php?page=login" class="pcard__fav"
                title="Sign in to save properties"
                aria-label="Sign in to save <?= sanitize($title) ?>">

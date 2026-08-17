@@ -29,6 +29,7 @@ function renderRobotsTxt(): void
         'notifications', 'settings', 'users', 'audit', 'reports', 'payments',
         'leases', 'sales', 'maintenance', 'inquiries', 'customers', 'owners',
         'branches', 'reservations',
+        'documents', 'document-categories', 'legal',
         // Post-conversion page: no standalone search value, and organic
         // entrances here would corrupt goal reporting.
         'thanks',
@@ -45,7 +46,7 @@ function renderRobotsTxt(): void
 
     echo "\n# Application source and private file stores.\n";
     foreach (['/config/', '/includes/', '/controllers/', '/models/', '/database/',
-              '/assets/uploads/documents/'] as $dir) {
+              '/storage/', '/assets/uploads/documents/'] as $dir) {
         echo "Disallow: {$dir}\n";
     }
 
@@ -238,7 +239,11 @@ function schemaListing(array $property, array $photoUrls): array
         ? 'https://schema.org/InStock'
         : 'https://schema.org/SoldOut';
 
-    return [
+    // A pinned listing carries its coordinates into the graph — this is the
+    // field search engines read for "near me" and map results.
+    $coords = propertyCoords($property);
+
+    return array_filter([
         '@type'       => 'Product',
         'name'        => $property['title'] ?: 'Property',
         'description' => mb_substr(trim((string) ($property['description'] ?? '')), 0, 500)
@@ -265,7 +270,12 @@ function schemaListing(array $property, array $photoUrls): array
                 'value' => (float) $property['size_sqm'], 'unitCode' => 'MTK',
             ] : null,
         ])),
-    ];
+        'geo' => $coords ? [
+            '@type'     => 'GeoCoordinates',
+            'latitude'  => $coords['lat'],
+            'longitude' => $coords['lng'],
+        ] : null,
+    ]);
 }
 
 /** A person node for an agent profile. */

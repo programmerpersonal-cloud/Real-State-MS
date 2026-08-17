@@ -18,16 +18,23 @@ class TestimonialController
 
     public function index(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('testimonials.view');
 
         $filter       = $_GET['filter'] ?? '';
         $testimonials = $this->model->getAll($filter);
         $summary      = $this->model->ratingSummary();
 
+        // The quick-add popup lives on this page, so it needs the entry kept
+        // back after a rejected save to reopen where the user left off.
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
+
         renderPage(VIEWS_PATH . '/admin/testimonials/index.php', [
             'testimonials' => $testimonials,
             'filter'       => $filter,
             'summary'      => $summary,
+            'formData'     => $formData,
+            'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle'    => 'Testimonials',
             'breadcrumbs'  => [['label' => 'Testimonials']],
         ]);
@@ -35,7 +42,7 @@ class TestimonialController
 
     public function form(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('testimonials.form');
 
         $id          = (int) ($_GET['id'] ?? 0);
         $testimonial = $id > 0 ? $this->model->findById($id) : null;
@@ -45,8 +52,12 @@ class TestimonialController
             redirect(APP_URL . '/index.php?page=testimonials');
         }
 
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
+
         renderPage(VIEWS_PATH . '/admin/testimonials/form.php', [
             'testimonial' => $testimonial,
+            'formData'    => $formData,
             'pageTitle'   => $testimonial ? 'Edit testimonial' : 'Add testimonial',
             'breadcrumbs' => [
                 ['label' => 'Testimonials', 'url' => APP_URL . '/index.php?page=testimonials'],
@@ -57,7 +68,7 @@ class TestimonialController
 
     public function save(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('testimonials.save');
         enforceCSRF();
 
         $id   = (int) ($_POST['id'] ?? 0);
@@ -74,7 +85,12 @@ class TestimonialController
 
         if ($data['author_name'] === '' || $data['body'] === '') {
             setFlash('error', 'A name and the review text are both required.');
-            redirect(APP_URL . '/index.php?page=testimonials&action=form' . ($id ? '&id=' . $id : ''));
+            $_SESSION['form_data'] = $data;
+            // A save from the popup returns to the popup, so a rejected
+            // review is corrected where it was typed.
+            redirect(($_POST['return_to'] ?? '') === 'modal'
+                ? APP_URL . '/index.php?page=testimonials&modal=create'
+                : APP_URL . '/index.php?page=testimonials&action=form' . ($id ? '&id=' . $id : ''));
         }
 
         $ok = $id > 0 ? $this->model->update($id, $data) : (bool) $this->model->create($data);
@@ -88,7 +104,7 @@ class TestimonialController
     /** Toggle publication straight from the list. */
     public function approve(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('testimonials.approve');
         enforceCSRF();
 
         $id      = (int) ($_POST['id'] ?? 0);
@@ -106,7 +122,7 @@ class TestimonialController
 
     public function delete(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('testimonials.delete');
         enforceCSRF();
 
         $id = (int) ($_POST['id'] ?? 0);

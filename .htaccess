@@ -11,6 +11,12 @@
     # Serve the SEO files from the front controller.
     RewriteRule ^robots\.txt$   index.php?page=robots   [L,QSA]
     RewriteRule ^sitemap\.xml$  index.php?page=sitemap  [L,QSA]
+
+    # The protected document store is never reachable over HTTP. Documents are
+    # delivered by index.php?page=documents&action=download, which authorises
+    # the request first. storage/.htaccess denies this too — belt and braces,
+    # because a single missed AllowOverride would otherwise expose title deeds.
+    RewriteRule ^storage/ - [F,L]
 </IfModule>
 
 # Never serve application source or data as plain text if a rewrite is missing.

@@ -53,15 +53,19 @@ function requireLogin(): void
 }
 
 /**
- * Require a specific role. Redirects with error if not authorized.
+ * Require one of a set of roles.
+ *
+ * Superseded by authorize() in permissions.php, which names the action rather
+ * than the job title and so survives a role gaining or losing one capability.
+ * Kept for the routes that have not been migrated, and it refuses the same way
+ * authorize() does: a 403 that explains itself, never a silent bounce to the
+ * dashboard that reads as the application being broken.
  */
 function requireRole(string ...$roles): void
 {
     requireLogin();
-    $currentRole = getUserRole();
-    if (!in_array($currentRole, $roles)) {
-        setFlash('error', 'You do not have permission to access this page.');
-        redirect(APP_URL . '/index.php?page=dashboard');
+    if (!in_array(getUserRole(), $roles, true)) {
+        denyAccess();
     }
 }
 

@@ -1,6 +1,12 @@
 <?php
 /**
  * Inquiry Model
+ *
+ * Every read is cut to the caller by inquiryViewScope() (property_access.php).
+ * The scope is applied here, in the SQL, rather than by filtering rows the
+ * query already returned: the pagination and the totals then describe the same
+ * set the user is allowed to see, so an owner's list does not report "48
+ * inquiries" and show four.
  */
 class Inquiry
 {
@@ -13,9 +19,12 @@ class Inquiry
 
     public function findById(int $id): ?array
     {
+        // owner_id/agent_id come back on the row so canViewInquiry() can judge
+        // it without a second query.
         $stmt = $this->db->prepare("
             SELECT i.*, p.title AS property_title, c.full_name AS customer_name,
-                   u.full_name AS assigned_name
+                   u.full_name AS assigned_name,
+                   p.owner_id AS property_owner_id, p.agent_id AS property_agent_id
             FROM inquiries i
             LEFT JOIN properties p ON i.property_id = p.id
             LEFT JOIN customers c ON i.customer_id = c.id
@@ -62,13 +71,8 @@ class Inquiry
 
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
     {
-        $where = []; $params = [];
-        if (!empty($filters['status'])) { $where[] = "i.status = :st"; $params[':st'] = $filters['status']; }
-        if (!empty($filters['search'])) {
-            $where[] = "(i.name LIKE :s OR i.email LIKE :s OR i.subject LIKE :s OR i.message LIKE :s)";
-            $params[':s'] = '%' . $filters['search'] . '%';
-        }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        [$where, $params] = $this->buildWhere($filters);
+
         $stmt = $this->db->prepare("
             SELECT i.*, p.title AS property_title, c.full_name AS customer_name,
                    u.full_name AS assigned_name
@@ -76,7 +80,7 @@ class Inquiry
             LEFT JOIN properties p ON i.property_id = p.id
             LEFT JOIN customers c ON i.customer_id = c.id
             LEFT JOIN users u ON i.assigned_to = u.id
-            {$wc}
+            WHERE {$where}
             ORDER BY i.created_at DESC
             LIMIT :l OFFSET :o
         ");
@@ -89,12 +93,45 @@ class Inquiry
 
     public function count(array $filters = []): int
     {
-        $where = []; $params = [];
-        if (!empty($filters['status'])) { $where[] = "status = :st"; $params[':st'] = $filters['status']; }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM inquiries {$wc}");
+        [$where, $params] = $this->buildWhere($filters);
+
+        // Same joins as getAll(), because the access scope reaches through the
+        // properties table — counting without them would count rows the list
+        // will not show.
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM inquiries i
+            LEFT JOIN properties p ON i.property_id = p.id
+            WHERE {$where}
+        ");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * The WHERE shared by getAll() and count(): the caller's filters ANDed
+     * with the access scope.
+     *
+     * Built in one place so the two can never disagree — the bug that makes a
+     * list say one thing and its pagination another.
+     *
+     * @return array{0:string,1:array<string,mixed>} [predicate, bound params]
+     */
+    private function buildWhere(array $filters): array
+    {
+        [$scope, $params] = inquiryViewScope('i', 'p');
+        $where = [$scope];
+
+        if (!empty($filters['status'])) {
+            $where[] = "i.status = :st";
+            $params[':st'] = $filters['status'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = "(i.name LIKE :s OR i.email LIKE :s OR i.subject LIKE :s OR i.message LIKE :s)";
+            $params[':s'] = '%' . $filters['search'] . '%';
+        }
+
+        return [implode(' AND ', $where), $params];
     }
 
     public function getMessages(int $inquiryId): array

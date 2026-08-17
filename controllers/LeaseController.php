@@ -19,7 +19,7 @@ class LeaseController
 
     public function index(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('leases.view');
         $filters = ['status' => $_GET['status'] ?? '', 'search' => $_GET['search'] ?? ''];
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
@@ -27,35 +27,67 @@ class LeaseController
         $totalCount = $this->model->count($filters);
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
 
-        renderPage(VIEWS_PATH . '/admin/leases/index.php', [
+        // The quick-add popup lives on this page, so it needs the same option
+        // lists the full form uses and the entry kept back after a reject.
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
+
+        renderPage(VIEWS_PATH . '/admin/leases/index.php', array_merge(self::formLookups(), [
             'leases' => $leases, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
+            'formData' => $formData,
+            'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Leases',
             'breadcrumbs' => [['label' => 'Leases']],
-            'actionButton' => ['label' => 'New Lease', 'icon' => 'bi-plus-lg', 'url' => APP_URL . '/index.php?page=leases&action=create'],
-        ]);
+            'actionButton' => [
+                'label' => 'New Lease',
+                'icon'  => 'bi-plus-lg',
+                'url'   => APP_URL . '/index.php?page=leases&action=create',
+                'attrs' => ['data-modal-open' => 'leaseCreateModal'],
+            ],
+        ]));
+    }
+
+    /**
+     * Lettable properties and the customers allowed to hold a lease.
+     * Reachable from outside the controller so the quick-add popup offers the
+     * same lists wherever it is hosted.
+     *
+     * @return array{properties:array,customers:array}
+     */
+    public static function formLookups(): array
+    {
+        $db = getDBConnection();
+        return [
+            'properties' => $db->query("SELECT id, title, property_code, rent_amount, deposit_amount, owner_id FROM properties WHERE status='available' AND is_archived=0 AND property_type IN ('rent','both') ORDER BY created_at DESC")->fetchAll(),
+            'customers'  => $db->query("SELECT id, full_name, phone FROM customers WHERE is_blacklisted=0 ORDER BY full_name")->fetchAll(),
+        ];
     }
 
     public function create(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('leases.create');
         $db = getDBConnection();
-        $properties = $db->query("SELECT id, title, property_code, rent_amount, deposit_amount, owner_id FROM properties WHERE status='available' AND is_archived=0 AND property_type IN ('rent','both') ORDER BY created_at DESC")->fetchAll();
-        $customers = $db->query("SELECT id, full_name, phone FROM customers WHERE is_blacklisted=0 ORDER BY full_name")->fetchAll();
+        ['properties' => $properties, 'customers' => $customers] = self::formLookups();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
+            // A submit from a popup returns to that popup, so a rejected
+            // entry is corrected where it was made.
+            $failUrl = modalReturnUrl('leases', 'lease',
+                APP_URL . '/index.php?page=leases&action=create');
+
             $data = [
-                'customer_id'    => (int)$_POST['customer_id'],
-                'property_id'    => (int)$_POST['property_id'],
-                'start_date'     => $_POST['start_date'],
-                'end_date'       => $_POST['end_date'],
-                'rent_amount'    => (float)$_POST['rent_amount'],
+                'customer_id'    => (int)($_POST['customer_id'] ?? 0),
+                'property_id'    => (int)($_POST['property_id'] ?? 0),
+                'start_date'     => $_POST['start_date'] ?? '',
+                'end_date'       => $_POST['end_date'] ?? '',
+                'rent_amount'    => (float)($_POST['rent_amount'] ?? 0),
                 'deposit_amount' => (float)($_POST['deposit_amount'] ?? 0),
                 'payment_schedule'=> $_POST['payment_schedule'] ?? 'monthly',
                 'late_fee_rate'  => (float)(($_POST['late_fee_rate'] ?? '') !== '' ? $_POST['late_fee_rate'] : lateFeeRate()),
                 'terms'          => sanitize($_POST['terms'] ?? ''),
-                'move_in_date'   => $_POST['move_in_date'] ?: $_POST['start_date'],
+                'move_in_date'   => $_POST['move_in_date'] ?: ($_POST['start_date'] ?? ''),
             ];
             // Look up owner of the chosen property
             $stmt = $db->prepare("SELECT owner_id FROM properties WHERE id = ?");
@@ -79,7 +111,8 @@ class LeaseController
             }
             if ($errors) {
                 setFlash('error', implode(' ', $errors));
-                redirect(APP_URL . '/index.php?page=leases&action=create');
+                $_SESSION['form_data'] = $data;
+                redirect($failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {
@@ -88,11 +121,16 @@ class LeaseController
                 redirect(APP_URL . '/index.php?page=leases&action=show&id=' . $id);
             }
             setFlash('error', 'Failed to create lease.');
-            redirect(APP_URL . '/index.php?page=leases&action=create');
+            $_SESSION['form_data'] = $data;
+            redirect($failUrl);
         }
+
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
 
         renderPage(VIEWS_PATH . '/admin/leases/create.php', [
             'properties' => $properties, 'customers' => $customers,
+            'formData'   => $formData,
             'pageTitle' => 'New Lease',
             'breadcrumbs' => [
                 ['label' => 'Leases', 'url' => APP_URL . '/index.php?page=leases'],
@@ -103,7 +141,7 @@ class LeaseController
 
     public function show(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('leases.show');
         $id = (int)($_GET['id'] ?? 0);
         $lease = $this->model->findById($id);
         if (!$lease) { setFlash('error', 'Lease not found.'); redirect(APP_URL . '/index.php?page=leases'); }
@@ -122,7 +160,7 @@ class LeaseController
 
     public function renew(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('leases.renew');
         $id = (int)($_GET['id'] ?? 0);
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
@@ -147,7 +185,7 @@ class LeaseController
 
     public function terminate(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('leases.terminate');
         $id = (int)($_GET['id'] ?? 0);
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();

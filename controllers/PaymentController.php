@@ -16,7 +16,7 @@ class PaymentController
 
     public function index(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('payments.view');
         $filters = [
             'status'       => $_GET['status'] ?? '',
             'payment_type' => $_GET['payment_type'] ?? '',
@@ -29,21 +29,37 @@ class PaymentController
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
         $totals = $this->model->totalsByStatus();
 
+        // The quick-record popup lives on this page, so it needs the lease
+        // list the full form uses and the entry kept back after a reject.
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
+
         renderPage(VIEWS_PATH . '/admin/payments/index.php', [
             'payments' => $payments, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
             'totals' => $totals,
+            'leases'   => self::activeLeases(),
+            'formData' => $formData,
+            'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Payments',
             'breadcrumbs' => [['label' => 'Payments']],
-            'actionButton' => ['label' => 'Record Payment', 'icon' => 'bi-plus-lg', 'url' => APP_URL . '/index.php?page=payments&action=create'],
+            'actionButton' => [
+                'label' => 'Record Payment',
+                'icon'  => 'bi-plus-lg',
+                'url'   => APP_URL . '/index.php?page=payments&action=create',
+                'attrs' => ['data-modal-open' => 'paymentCreateModal'],
+            ],
         ]);
     }
 
-    public function create(): void
+    /**
+     * Active leases, with the customer and property each one implies.
+     * Reachable from outside the controller so the quick-record popup offers
+     * the same list wherever it is hosted.
+     */
+    public static function activeLeases(): array
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
-        $db = getDBConnection();
-        $leases = $db->query("
+        return getDBConnection()->query("
             SELECT l.id, l.lease_code, l.rent_amount, c.full_name AS customer_name, p.title AS property_title, p.id AS property_id, c.id AS customer_id
             FROM leases l
             JOIN customers c ON l.customer_id = c.id
@@ -51,6 +67,13 @@ class PaymentController
             WHERE l.status='active'
             ORDER BY l.created_at DESC
         ")->fetchAll();
+    }
+
+    public function create(): void
+    {
+        authorize('payments.create');
+        $db = getDBConnection();
+        $leases = self::activeLeases();
 
         $scheduleId = (int)($_GET['schedule'] ?? 0);
         $preset = null;
@@ -69,13 +92,18 @@ class PaymentController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
+            // A submit from a popup returns to that popup, so a rejected
+            // entry is corrected where it was made.
+            $failUrl = modalReturnUrl('payments', 'payment',
+                APP_URL . '/index.php?page=payments&action=create');
+
             $data = [
                 'payment_type'   => $_POST['payment_type'] ?? 'rent',
                 'reference_type' => $_POST['reference_type'] ?? 'lease',
                 'reference_id'   => (int)($_POST['reference_id'] ?? 0),
-                'customer_id'    => (int)$_POST['customer_id'],
+                'customer_id'    => (int)($_POST['customer_id'] ?? 0),
                 'property_id'    => (int)($_POST['property_id'] ?? 0) ?: null,
-                'amount'         => (float)$_POST['amount'],
+                'amount'         => (float)($_POST['amount'] ?? 0),
                 'due_date'       => $_POST['due_date'] ?? null,
                 'payment_date'   => $_POST['payment_date'] ?? date('Y-m-d'),
                 'payment_method' => $_POST['payment_method'] ?? 'cash',
@@ -88,7 +116,8 @@ class PaymentController
             if ($data['amount'] <= 0)  $errors[] = 'Amount must be positive.';
             if ($errors) {
                 setFlash('error', implode(' ', $errors));
-                redirect(APP_URL . '/index.php?page=payments&action=create');
+                $_SESSION['form_data'] = $data;
+                redirect($failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {
@@ -104,12 +133,17 @@ class PaymentController
                 redirect(APP_URL . '/index.php?page=payments&action=receipt&id=' . $id);
             }
             setFlash('error', 'Failed to record payment.');
-            redirect(APP_URL . '/index.php?page=payments&action=create');
+            $_SESSION['form_data'] = $data;
+            redirect($failUrl);
         }
+
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
 
         renderPage(VIEWS_PATH . '/admin/payments/create.php', [
             'leases' => $leases,
             'preset' => $preset,
+            'formData' => $formData,
             'scheduleId' => $scheduleId,
             'pageTitle' => 'Record Payment',
             'breadcrumbs' => [
@@ -126,7 +160,7 @@ class PaymentController
 
     public function receipt(): void
     {
-        requireLogin();
+        authorize('payments.receipt');
         $id = (int)($_GET['id'] ?? 0);
         $payment = $this->model->findById($id);
         if (!$payment) { setFlash('error', 'Payment not found.'); redirect(APP_URL . '/index.php?page=payments'); }

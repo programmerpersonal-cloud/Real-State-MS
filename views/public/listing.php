@@ -170,6 +170,12 @@ $amenities = [
                                 aria-controls="panel-specs" aria-selected="false" tabindex="-1">Specifications</button>
                         <button type="button" class="dtab" role="tab" id="tab-location"
                                 aria-controls="panel-location" aria-selected="false" tabindex="-1">Location</button>
+                        <?php /* Appended last, and only when there is something to show: public.js
+                                 selects tab 0 on load, so a conditional tab must never come first. */ ?>
+                        <?php if (!empty($publicDocuments)): ?>
+                        <button type="button" class="dtab" role="tab" id="tab-documents"
+                                aria-controls="panel-documents" aria-selected="false" tabindex="-1">Documents</button>
+                        <?php endif ?>
                     </div>
 
                     <div class="dpanel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
@@ -233,21 +239,16 @@ $amenities = [
                         <h3>Where it is</h3>
                         <p><strong><?= sanitize($fullAddress ?: 'Exact address available on request') ?></strong></p>
 
-                        <?php /* No map provider is wired up yet. Rather than embed a
-                                 fake map, this states the situation and offers the
-                                 action a visitor actually wants. */ ?>
-                        <div class="map-placeholder">
-                            <i class="bi bi-geo-alt" aria-hidden="true"></i>
-                            <strong>Interactive map coming soon</strong>
-                            <span>
-                                We're adding maps to listings. In the meantime, the agent can
-                                share the exact location and arrange a viewing.
-                            </span>
-                            <a href="#inquiry" class="btn btn--outline btn--sm" style="margin-top:var(--space-2)">
-                                Ask about the location
-                            </a>
-                        </div>
+                        <?php require VIEWS_PATH . '/components/property_map.php'; ?>
                     </div>
+
+                    <?php if (!empty($publicDocuments)): ?>
+                    <div class="dpanel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents">
+                        <h3>Documents</h3>
+                        <p>Plans and paperwork published for this property.</p>
+                        <?php require VIEWS_PATH . '/public/components/property_documents.php'; ?>
+                    </div>
+                    <?php endif ?>
                 </div>
             </div>
 
@@ -285,7 +286,8 @@ $amenities = [
                     </dl>
 
                     <div class="sidecard__split">
-                        <?php if (isLoggedIn()): ?>
+                        <?php // Permission, not merely a session — see property_card.php. ?>
+                        <?php if (can('favorites.add') || can('favorites.remove')): ?>
                             <form method="POST"
                                   action="<?= APP_URL ?>/index.php?page=favorites&amp;action=<?= $isSaved ? 'remove' : 'add' ?>&amp;property_id=<?= $pid ?>">
                                 <button type="submit" class="btn btn--outline btn--block"
@@ -294,7 +296,7 @@ $amenities = [
                                     <?= $isSaved ? 'Saved' : 'Save' ?>
                                 </button>
                             </form>
-                        <?php else: ?>
+                        <?php elseif (!isLoggedIn()): ?>
                             <a href="<?= APP_URL ?>/index.php?page=login" class="btn btn--outline btn--block">
                                 <i class="bi bi-heart" aria-hidden="true"></i> Save
                             </a>

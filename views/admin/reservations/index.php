@@ -2,6 +2,7 @@
 /**
  * Reservations — Index
  */
+$fd = $formData ?? [];
 ?>
 <form method="get" class="filter-bar">
     <input type="hidden" name="page" value="reservations">
@@ -25,7 +26,13 @@
     <div class="card__header"><h3 class="card__title"><?= $totalCount ?> Reservation<?= $totalCount === 1 ? '' : 's' ?></h3></div>
     <div class="card__body" style="padding:0">
         <?php if (empty($reservations)): ?>
-            <div class="empty-state"><div class="empty-state__icon"><i class="bi bi-calendar-check"></i></div><div class="empty-state__title">No reservations yet</div></div>
+            <div class="empty-state">
+                <div class="empty-state__icon"><i class="bi bi-calendar-check"></i></div>
+                <div class="empty-state__title">No reservations yet</div>
+                <button type="button" class="btn btn--primary btn--sm" data-modal-open="reservationCreateModal" style="margin-top:14px">
+                    <i class="bi bi-plus-lg"></i> New Reservation
+                </button>
+            </div>
         <?php else: ?>
         <div class="table-wrap">
             <table class="table">
@@ -62,3 +69,5 @@
         <?php endif ?>
     </div>
 </div>
+
+<?php require __DIR__ . '/_create_modal.php'; ?>

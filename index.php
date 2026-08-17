@@ -35,6 +35,25 @@ switch ($page) {
         (new AuthController())->logout();
         exit;
 
+    // ─── Document delivery ─────────────────────────────
+    // Documents are stored outside the web root and are never served by
+    // Apache, so every read goes through PHP. This is routed here, ahead of
+    // requireLogin(), because a document published on a listing has to work
+    // for a visitor with no account — download() checks visibility itself and
+    // demands a session for anything that is not public.
+    //
+    // Note the `break` rather than `exit`: every other arm in this switch ends
+    // the request, but the remaining document actions (the admin list, upload,
+    // archive…) belong to the authenticated switch further down, so this one
+    // has to fall through to it.
+    case 'documents':
+        if ($action === 'download') {
+            require_once BASE_PATH . '/controllers/DocumentController.php';
+            (new DocumentController())->download();
+            exit;
+        }
+        break;
+
     // ─── Public marketing & browsing pages ─────────────
     case 'home':
     case 'about':
@@ -200,6 +219,19 @@ switch ($page) {
             $images  = $propertyModel->getImages($id);
             $similar = $propertyModel->getSimilar($id, (string) $property['category'], 3);
             $similarCovers = $propertyModel->getCoversFor(array_column($similar, 'id'));
+
+            // Documents published with this listing. Scoped to public+active
+            // here as well as in the delivery endpoint: this page is rendered
+            // for anonymous visitors, so it must never load anything else.
+            $publicDocuments = [];
+            if (documentPublicEnabled() && propertyIsPubliclyVisible($property)) {
+                require_once BASE_PATH . '/models/Document.php';
+                $publicDocuments = (new Document())->forReference('property', $id, [
+                    'visibility_in' => ['public'],
+                    'state'         => 'active',
+                ]);
+            }
+
             $publicView = 'listing';
         }
         require VIEWS_PATH . '/public/layout.php';
@@ -360,12 +392,15 @@ switch ($page) {
     // ─── Customers ─────────────────────────────────────
     case 'customers':
         $method = match ($action) {
-            'create'    => 'create',
-            'edit'      => 'edit',
-            'show'      => 'show',
-            'blacklist' => 'blacklist',
-            'unlist'    => 'unlist',
-            default     => 'index',
+            'create'         => 'create',
+            'edit'           => 'edit',
+            'show'           => 'show',
+            'blacklist'      => 'blacklist',
+            'unlist'         => 'unlist',
+            'enable-login'   => 'enableLogin',
+            'disable-login'  => 'disableLogin',
+            'create-profile' => 'createProfileForUser',
+            default          => 'index',
         };
         dispatch('CustomerController', $method);
         break;
@@ -373,10 +408,13 @@ switch ($page) {
     // ─── Owners ────────────────────────────────────────
     case 'owners':
         $method = match ($action) {
-            'create' => 'create',
-            'edit'   => 'edit',
-            'show'   => 'show',
-            default  => 'index',
+            'create'        => 'create',
+            'edit'          => 'edit',
+            'show'          => 'show',
+            'enable-login'  => 'enableLogin',
+            'disable-login' => 'disableLogin',
+            'create-profile'=> 'createProfileForUser',
+            default         => 'index',
         };
         dispatch('OwnerController', $method);
         break;
@@ -486,6 +524,53 @@ switch ($page) {
     // ─── Audit Logs ────────────────────────────────────
     case 'audit-logs':
         dispatch('AuditController', 'index');
+        break;
+
+    // ─── Documents ─────────────────────────────────────
+    // action=download never reaches here: the public switch above handled and
+    // exited it before requireLogin() ran.
+    case 'documents':
+        $method = match ($action) {
+            'create'  => 'create',
+            'edit'    => 'edit',
+            'show'    => 'show',
+            'archive' => 'archive',
+            'restore' => 'restore',
+            'delete'  => 'delete',
+            default   => 'index',
+        };
+        dispatch('DocumentController', $method);
+        break;
+
+    // ─── Document categories ───────────────────────────
+    case 'document-categories':
+        $method = match ($action) {
+            'save'   => 'save',
+            'toggle' => 'toggle',
+            'move'   => 'move',
+            'delete' => 'delete',
+            default  => 'index',
+        };
+        dispatch('DocumentCategoryController', $method);
+        break;
+
+    // ─── Terms & Conditions ────────────────────────────
+    case 'legal':
+        $method = match ($action) {
+            'version'      => 'version',
+            'create'       => 'create',
+            'edit'         => 'edit',
+            'preview'      => 'preview',
+            'publish'      => 'publish',
+            'withdraw'     => 'withdraw',
+            'revise'       => 'revise',
+            'delete-draft' => 'deleteDraft',
+            'acceptances'  => 'acceptances',
+            'save-type'    => 'saveType',
+            'toggle-type'  => 'toggleType',
+            default        => 'index',
+        };
+        dispatch('LegalController', $method);
         break;
 
     // ─── Settings ──────────────────────────────────────

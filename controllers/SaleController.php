@@ -15,7 +15,7 @@ class SaleController
 
     public function index(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('sales.view');
         $filters = ['status' => $_GET['status'] ?? '', 'search' => $_GET['search'] ?? ''];
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
@@ -23,34 +23,64 @@ class SaleController
         $totalCount = $this->model->count($filters);
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
 
-        renderPage(VIEWS_PATH . '/admin/sales/index.php', [
+        // The quick-add popup lives on this page, so it needs the same option
+        // lists the full form uses and the entry kept back after a reject.
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
+
+        renderPage(VIEWS_PATH . '/admin/sales/index.php', array_merge($this->formLookups(), [
             'sales' => $sales, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
+            'formData' => $formData,
+            'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Sales',
             'breadcrumbs' => [['label' => 'Sales']],
-            'actionButton' => ['label' => 'New Sale', 'icon' => 'bi-plus-lg', 'url' => APP_URL . '/index.php?page=sales&action=create'],
-        ]);
+            'actionButton' => [
+                'label' => 'New Sale',
+                'icon'  => 'bi-plus-lg',
+                'url'   => APP_URL . '/index.php?page=sales&action=create',
+                'attrs' => ['data-modal-open' => 'saleCreateModal'],
+            ],
+        ]));
+    }
+
+    /**
+     * Sellable properties, eligible buyers and the agents who can close.
+     *
+     * @return array{properties:array,customers:array,agents:array}
+     */
+    private function formLookups(): array
+    {
+        $db = getDBConnection();
+        return [
+            'properties' => $db->query("SELECT id, title, property_code, price FROM properties WHERE status='available' AND is_archived=0 AND property_type IN ('sale','both') ORDER BY title")->fetchAll(),
+            'customers'  => $db->query("SELECT id, full_name, phone FROM customers WHERE is_blacklisted=0 ORDER BY full_name")->fetchAll(),
+            'agents'     => $db->query("SELECT id, full_name FROM users WHERE role_id=2 AND is_active=1 ORDER BY full_name")->fetchAll(),
+        ];
     }
 
     public function create(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
-        $db = getDBConnection();
-        $properties = $db->query("SELECT id, title, property_code, price FROM properties WHERE status='available' AND is_archived=0 AND property_type IN ('sale','both') ORDER BY title")->fetchAll();
-        $customers = $db->query("SELECT id, full_name, phone FROM customers WHERE is_blacklisted=0 ORDER BY full_name")->fetchAll();
-        $agents = $db->query("SELECT id, full_name FROM users WHERE role_id=2 AND is_active=1 ORDER BY full_name")->fetchAll();
+        authorize('sales.create');
+        ['properties' => $properties, 'customers' => $customers, 'agents' => $agents] = $this->formLookups();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
+            // A submit from the popup returns to the popup, so a rejected
+            // entry is corrected where it was made.
+            $failUrl = ($_POST['return_to'] ?? '') === 'modal'
+                ? APP_URL . '/index.php?page=sales&modal=create'
+                : APP_URL . '/index.php?page=sales&action=create';
+
             $data = [
-                'property_id'       => (int)$_POST['property_id'],
-                'customer_id'       => (int)$_POST['customer_id'],
-                'sale_amount'       => (float)$_POST['sale_amount'],
+                'property_id'       => (int)($_POST['property_id'] ?? 0),
+                'customer_id'       => (int)($_POST['customer_id'] ?? 0),
+                'sale_amount'       => (float)($_POST['sale_amount'] ?? 0),
                 // Tax defaults to the configured rate but the agent can override the
                 // figure; whatever is charged is stored with the rate it came from.
                 'tax_amount'        => ($_POST['tax_amount'] ?? '') !== ''
                     ? (float)$_POST['tax_amount']
-                    : round((float)$_POST['sale_amount'] * taxRate() / 100, 2),
+                    : round((float)($_POST['sale_amount'] ?? 0) * taxRate() / 100, 2),
                 'tax_rate'          => taxRate(),
                 'commission_amount' => (float)($_POST['commission_amount'] ?? 0),
                 'payment_type'      => $_POST['payment_type'] ?? 'full',
@@ -65,7 +95,8 @@ class SaleController
             if ($data['sale_amount'] <= 0) $errors[] = 'Sale amount required.';
             if ($errors) {
                 setFlash('error', implode(' ', $errors));
-                redirect(APP_URL . '/index.php?page=sales&action=create');
+                $_SESSION['form_data'] = $data;
+                redirect($failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {
@@ -74,11 +105,16 @@ class SaleController
                 redirect(APP_URL . '/index.php?page=sales&action=show&id=' . $id);
             }
             setFlash('error', 'Failed to record sale.');
-            redirect(APP_URL . '/index.php?page=sales&action=create');
+            $_SESSION['form_data'] = $data;
+            redirect($failUrl);
         }
+
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
 
         renderPage(VIEWS_PATH . '/admin/sales/create.php', [
             'properties' => $properties, 'customers' => $customers, 'agents' => $agents,
+            'formData'   => $formData,
             'pageTitle' => 'New Sale',
             'breadcrumbs' => [
                 ['label' => 'Sales', 'url' => APP_URL . '/index.php?page=sales'],
@@ -89,7 +125,7 @@ class SaleController
 
     public function show(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('sales.show');
         $id = (int)($_GET['id'] ?? 0);
         $sale = $this->model->findById($id);
         if (!$sale) { setFlash('error', 'Sale not found.'); redirect(APP_URL . '/index.php?page=sales'); }

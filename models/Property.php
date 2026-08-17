@@ -35,10 +35,12 @@ class Property
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO properties (property_code, title, property_type, category, description, location, address,
+                    latitude, longitude,
                     size_sqm, num_rooms, num_bathrooms, num_floors, price, rent_amount, deposit_amount,
                     is_furnished, has_parking, has_security, utilities_included, status, approval_status,
                     owner_id, agent_id, branch_id)
                 VALUES (:code, :title, :type, :cat, :desc, :loc, :addr,
+                    :lat, :lng,
                     :size, :rooms, :baths, :floors, :price, :rent, :deposit,
                     :furnished, :parking, :security, :utilities, :status, :approval,
                     :owner_id, :agent_id, :branch_id)
@@ -51,6 +53,8 @@ class Property
                 ':desc'      => $data['description'] ?? '',
                 ':loc'       => $data['location'] ?? '',
                 ':addr'      => $data['address'] ?? '',
+                ':lat'       => $data['latitude'] ?? null,
+                ':lng'       => $data['longitude'] ?? null,
                 ':size'      => $data['size_sqm'] ?? null,
                 ':rooms'     => $data['num_rooms'] ?? 0,
                 ':baths'     => $data['num_bathrooms'] ?? 0,
@@ -80,7 +84,7 @@ class Property
         $fields = [];
         $params = [':id' => $id];
         $allowed = ['title','property_type','category','description','location','address',
-            'size_sqm','num_rooms','num_bathrooms','num_floors','price','rent_amount','deposit_amount',
+            'latitude','longitude','size_sqm','num_rooms','num_bathrooms','num_floors','price','rent_amount','deposit_amount',
             'is_furnished','has_parking','has_security','utilities_included','status','approval_status',
             'owner_id','agent_id','branch_id','is_archived'];
 

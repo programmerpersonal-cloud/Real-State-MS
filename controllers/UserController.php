@@ -15,7 +15,7 @@ class UserController
 
     public function index(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('users.view');
         $filters = [
             'search'  => $_GET['search'] ?? '',
             'role_id' => $_GET['role_id'] ?? '',
@@ -27,31 +27,50 @@ class UserController
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
         $roles = getDBConnection()->query("SELECT * FROM roles ORDER BY id")->fetchAll();
 
+        // The quick-add popup lives on this page, so it needs the branch list
+        // and the entry kept back after a failed submit.
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
+
         renderPage(VIEWS_PATH . '/admin/users/index.php', [
             'users' => $users, 'filters' => $filters, 'roles' => $roles,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
+            'branches' => getDBConnection()->query("SELECT id, name FROM branches WHERE is_active=1")->fetchAll(),
+            'formData' => $formData,
+            'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Users & Roles',
             'breadcrumbs' => [['label' => 'Users']],
-            'actionButton' => ['label' => 'Add User', 'icon' => 'bi-plus-lg', 'url' => APP_URL . '/index.php?page=users&action=create'],
+            'actionButton' => [
+                'label' => 'Add User',
+                'icon'  => 'bi-plus-lg',
+                'url'   => APP_URL . '/index.php?page=users&action=create',
+                'attrs' => ['data-modal-open' => 'userCreateModal'],
+            ],
         ]);
     }
 
     public function create(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('users.create');
         $db = getDBConnection();
         $roles = $db->query("SELECT * FROM roles ORDER BY id")->fetchAll();
         $branches = $db->query("SELECT id, name FROM branches WHERE is_active=1")->fetchAll();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
+            // A submit from the popup returns to the popup, so a rejected
+            // entry is corrected where it was typed.
+            $failUrl = ($_POST['return_to'] ?? '') === 'modal'
+                ? APP_URL . '/index.php?page=users&modal=create'
+                : APP_URL . '/index.php?page=users&action=create';
+
             $data = [
-                'full_name' => sanitize($_POST['full_name']),
-                'email'     => sanitize($_POST['email']),
-                'username'  => sanitize($_POST['username']),
+                'full_name' => sanitize($_POST['full_name'] ?? ''),
+                'email'     => sanitize($_POST['email'] ?? ''),
+                'username'  => sanitize($_POST['username'] ?? ''),
                 'phone'     => sanitize($_POST['phone'] ?? ''),
                 'password'  => $_POST['password'] ?? '',
-                'role_id'   => (int)$_POST['role_id'],
+                'role_id'   => (int)($_POST['role_id'] ?? 0),
                 'branch_id' => $_POST['branch_id'] ?: null,
             ];
             $errors = [];
@@ -59,7 +78,13 @@ class UserController
             if (strlen($data['password']) < 8) $errors[] = 'Password must be at least 8 characters.';
             if ($this->model->emailExists($data['email'])) $errors[] = 'Email already exists.';
             if ($this->model->usernameExists($data['username'])) $errors[] = 'Username already taken.';
-            if ($errors) { setFlash('error', implode(' ', $errors)); redirect(APP_URL . '/index.php?page=users&action=create'); }
+            if ($errors) {
+                setFlash('error', implode(' ', $errors));
+                // Everything but the password comes back; a plaintext
+                // credential has no business sitting in the session.
+                $_SESSION['form_data'] = array_diff_key($data, ['password' => '']);
+                redirect($failUrl);
+            }
 
             $id = $this->model->create($data);
             if ($id) {
@@ -68,11 +93,16 @@ class UserController
                 redirect(APP_URL . '/index.php?page=users');
             }
             setFlash('error', 'Failed to create user.');
-            redirect(APP_URL . '/index.php?page=users&action=create');
+            $_SESSION['form_data'] = array_diff_key($data, ['password' => '']);
+            redirect($failUrl);
         }
+
+        $formData = $_SESSION['form_data'] ?? [];
+        unset($_SESSION['form_data']);
 
         renderPage(VIEWS_PATH . '/admin/users/form.php', [
             'user' => null, 'roles' => $roles, 'branches' => $branches,
+            'formData' => $formData,
             'pageTitle' => 'New User',
             'breadcrumbs' => [
                 ['label' => 'Users', 'url' => APP_URL . '/index.php?page=users'],
@@ -83,7 +113,7 @@ class UserController
 
     public function edit(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('users.edit');
         $id = (int)($_GET['id'] ?? 0);
         $user = $this->model->findById($id);
         if (!$user) { setFlash('error', 'User not found.'); redirect(APP_URL . '/index.php?page=users'); }
@@ -134,7 +164,7 @@ class UserController
 
     public function toggle(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('users.toggle');
         $id = (int)($_GET['id'] ?? 0);
         $user = $this->model->findById($id);
         if ($user) {
@@ -147,7 +177,7 @@ class UserController
 
     public function resetPassword(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('users.reset-pass');
         $id = (int)($_GET['id'] ?? 0);
         $newPass = bin2hex(random_bytes(5));
         $this->model->changePassword($id, $newPass);

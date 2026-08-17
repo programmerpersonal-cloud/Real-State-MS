@@ -22,6 +22,43 @@ function redirect(string $url): void
 }
 
 /**
+ * Where a rejected quick-add submit should be sent back to.
+ *
+ * The quick-add popups post to the same create action as their full page, and
+ * say where they were opened from:
+ *
+ *   return_to=modal             the module's own list, where the popup lives
+ *   return_to=modal:dashboard   the dashboard quick actions
+ *   anything else               the full page form
+ *
+ * Sending the entry back to the screen it was typed on is the whole point: a
+ * correction started on the dashboard should not strand the user in a module
+ * list they never asked for. $modalKey names which popup the host reopens —
+ * the module list only ever hosts one, the dashboard hosts them all.
+ *
+ * Only these three answers exist, so a tampered return_to can pick between our
+ * own screens and nothing else.
+ */
+function modalReturnUrl(string $module, string $modalKey, string $fullFormUrl): string
+{
+    return match ($_POST['return_to'] ?? '') {
+        'modal:dashboard' => APP_URL . '/index.php?page=dashboard&modal=' . $modalKey,
+        'modal'           => APP_URL . '/index.php?page=' . $module . '&modal=create',
+        default           => $fullFormUrl,
+    };
+}
+
+/**
+ * The return_to value a quick-add popup should carry, given its host.
+ * Hosts other than a module's own list name themselves; the list itself
+ * is the default and says nothing.
+ */
+function modalReturnTo(?string $host = null): string
+{
+    return $host ? 'modal:' . $host : 'modal';
+}
+
+/**
  * Set a flash message in session.
  */
 function setFlash(string $type, string $message): void
@@ -436,9 +473,81 @@ function getStatusBadgeClass(string $status): string
         'inactive'     => 'badge--muted',
         'sold'         => 'badge--purple',
         'maintenance'  => 'badge--orange',
+        // Document lifecycle and terms versioning
+        'expiring'     => 'badge--warning',
+        'archived'     => 'badge--muted',
+        'draft'        => 'badge--muted',
+        'superseded'   => 'badge--info',
+        'withdrawn'    => 'badge--danger',
     ];
 
     return $map[$status] ?? 'badge--muted';
+}
+
+/**
+ * Human-readable file size: 1536 becomes "1.5 KB".
+ *
+ * Sizes are stored in bytes so they stay exact; formatting happens here so
+ * every document listing prints them the same way.
+ */
+function formatBytes(int|float $bytes, int $precision = 1): string
+{
+    $bytes = max(0, (float) $bytes);
+    if ($bytes < 1024) {
+        return ((int) $bytes) . ' B';
+    }
+
+    $units = ['KB', 'MB', 'GB', 'TB'];
+    $i = -1;
+    do {
+        $bytes /= 1024;
+        $i++;
+    } while ($bytes >= 1024 && $i < count($units) - 1);
+
+    // Whole numbers read better without a trailing ".0"
+    $rounded = round($bytes, $precision);
+    $text    = $rounded == (int) $rounded ? (string) (int) $rounded : number_format($rounded, $precision);
+
+    return $text . ' ' . $units[$i];
+}
+
+/**
+ * Bootstrap Icons glyph for a MIME type or a bare extension.
+ * Falls back to a generic file icon rather than showing nothing.
+ */
+function fileTypeIcon(string $mimeOrExt): string
+{
+    $key = strtolower(trim($mimeOrExt));
+    // Accept either "application/pdf" or "pdf"
+    if (str_contains($key, '/')) {
+        $key = DOCUMENT_EXT_BY_MIME[$key] ?? substr($key, strrpos($key, '/') + 1);
+    }
+
+    return match ($key) {
+        'pdf'                  => 'bi-file-earmark-pdf',
+        'jpg', 'jpeg', 'png', 'webp', 'gif' => 'bi-file-earmark-image',
+        'doc', 'docx'          => 'bi-file-earmark-word',
+        'xls', 'xlsx', 'csv'   => 'bi-file-earmark-spreadsheet',
+        default                => 'bi-file-earmark',
+    };
+}
+
+/**
+ * Short badge label for a stored MIME type: "PDF", "JPEG", "Word", "Excel".
+ */
+function fileTypeLabel(string $mime): string
+{
+    return match (strtolower(trim($mime))) {
+        'application/pdf' => 'PDF',
+        'image/jpeg'      => 'JPEG',
+        'image/png'       => 'PNG',
+        'image/webp'      => 'WEBP',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'Word',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'       => 'Excel',
+        default => 'File',
+    };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -629,6 +738,62 @@ function statusTagClass(string $status): string
         'maintenance' => 'tag--warm',
         'inactive'    => 'tag--muted',
     ][$status] ?? 'tag--muted';
+}
+
+/**
+ * A property's map position, or null when it was never pinned.
+ *
+ * Both coordinates must be present and in range: a lone latitude places a
+ * property on the prime meridian, which is worse than showing no map at all.
+ *
+ * @return array{lat:float,lng:float,text:string}|null
+ */
+function propertyCoords(array $p): ?array
+{
+    $lat = $p['latitude'] ?? null;
+    $lng = $p['longitude'] ?? null;
+    if ($lat === null || $lng === null || $lat === '' || $lng === '') return null;
+    if (!is_numeric($lat) || !is_numeric($lng)) return null;
+
+    $lat = (float) $lat;
+    $lng = (float) $lng;
+    if (abs($lat) > 90 || abs($lng) > 180) return null;
+
+    return [
+        'lat'  => $lat,
+        'lng'  => $lng,
+        // Six decimals ≈ 0.1 m — the precision a phone fix actually carries.
+        'text' => rtrim(rtrim(number_format($lat, 6, '.', ''), '0'), '.') . ', '
+                . rtrim(rtrim(number_format($lng, 6, '.', ''), '0'), '.'),
+    ];
+}
+
+/**
+ * Map URLs for a pinned property: the embedded frame, the full map, and
+ * driving directions.
+ *
+ * The embed needs a bounding box rather than a centre point. Longitude
+ * degrees shrink towards the poles, so the east-west span is divided by
+ * cos(latitude) — without it the frame squashes the further north or south
+ * a property sits.
+ *
+ * @return array{embed:string,osm:string,directions:string}
+ */
+function mapUrls(float $lat, float $lng, float $span = 0.004): array
+{
+    $lngSpan = $span / max(cos(deg2rad($lat)), 0.15);
+    $bbox = implode(',', [
+        round($lng - $lngSpan, 6), round($lat - $span, 6),
+        round($lng + $lngSpan, 6), round($lat + $span, 6),
+    ]);
+    $point = $lat . ',' . $lng;
+
+    return [
+        'embed'      => 'https://www.openstreetmap.org/export/embed.html?'
+                        . http_build_query(['bbox' => $bbox, 'layer' => 'mapnik', 'marker' => $point]),
+        'osm'        => 'https://www.openstreetmap.org/?mlat=' . $lat . '&mlon=' . $lng . '#map=16/' . $lat . '/' . $lng,
+        'directions' => 'https://www.google.com/maps/dir/?api=1&destination=' . rawurlencode($point),
+    ];
 }
 
 /**

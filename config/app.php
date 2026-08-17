@@ -48,11 +48,51 @@ define('MAX_IMAGE_SIZE', 3 * 1024 * 1024); // 3MB
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 define('ALLOWED_DOC_TYPES', ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
 
+// ─── Document store ────────────────────────────────────────────────────
+// Property documents are deliberately kept out of assets/uploads: that tree
+// is served straight off disk by Apache, which is fine for listing photos and
+// wrong for a title deed. Everything below is delivered by
+// index.php?page=documents&action=download after an authorisation check.
+//
+// ALLOWED_DOC_TYPES above is left alone on purpose — LeaseController still
+// uses it for contract files that live under assets/uploads/documents, and
+// widening it there would widen what can be uploaded into a public directory.
+define('DOCS_STORAGE_PATH', BASE_PATH . '/storage/documents');
+define('MAX_DOCUMENT_SIZE', 10 * 1024 * 1024); // 10MB ceiling; Settings can lower it
+define('ALLOWED_DOCUMENT_TYPES', [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+// The stored extension is derived from the sniffed MIME type, never from the
+// uploaded filename, so "deed.php" cannot become an executable file on disk.
+define('DOCUMENT_EXT_BY_MIME', [
+    'application/pdf'  => 'pdf',
+    'image/jpeg'       => 'jpg',
+    'image/png'        => 'png',
+    'image/webp'       => 'webp',
+    'application/msword' => 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+    'application/vnd.ms-excel' => 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+]);
+// Types a browser may render in place. Anything else is force-downloaded, so
+// a stored file can never execute in the site's own origin.
+define('DOCUMENT_INLINE_TYPES', ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+
 // ─── Security ──────────────────────────────────────────────────────────
 define('SESSION_LIFETIME', 3600); // 1 hour
 define('MAX_LOGIN_ATTEMPTS', 5);
 define('LOCKOUT_DURATION', 900); // 15 minutes
 define('BCRYPT_COST', 12);
+// The minimum every password-setting screen enforces — user accounts, owner
+// login access, and password changes — so the rule lives in one place.
+define('PASSWORD_MIN_LENGTH', 8);
 
 // ─── Business Defaults ─────────────────────────────────────────────────
 define('DEFAULT_CURRENCY', 'USD');

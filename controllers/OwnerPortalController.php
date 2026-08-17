@@ -6,29 +6,54 @@ class OwnerPortalController
 {
     public function myProperties(): void
     {
-        requireRole(ROLE_OWNER);
+        authorize('my-properties.view');
         $db = getDBConnection();
-        $stmt = $db->prepare("SELECT id FROM owners WHERE user_id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $ownerId = (int)$stmt->fetchColumn();
+        // currentOwnerId() rather than a local lookup, so the portfolio and
+        // the record check on the detail page agree on which owner this is.
+        $ownerId = currentOwnerId();
 
         $properties = [];
         if ($ownerId) {
-            $stmt = $db->prepare("SELECT * FROM properties WHERE owner_id = ? AND is_archived = 0 ORDER BY created_at DESC");
+            // One query rather than four per row. Each subquery summarises a
+            // relationship the detail page re-checks when it is opened; this
+            // only decides what to show on the card.
+            $stmt = $db->prepare("
+                SELECT p.*,
+                       (SELECT file_path FROM property_images pi
+                         WHERE pi.property_id = p.id
+                         ORDER BY pi.is_cover DESC, pi.sort_order LIMIT 1) AS cover_image,
+                       (SELECT c.full_name FROM leases l
+                          JOIN customers c ON l.customer_id = c.id
+                         WHERE l.property_id = p.id AND l.status = 'active'
+                         ORDER BY l.start_date DESC LIMIT 1) AS tenant_name,
+                       (SELECT COUNT(*) FROM maintenance_requests m
+                         WHERE m.property_id = p.id
+                           AND m.status NOT IN ('completed','rejected','cancelled')) AS open_issues,
+                       (SELECT COUNT(*) FROM documents d
+                         WHERE d.reference_type = 'property' AND d.reference_id = p.id
+                           AND d.status = 'active') AS document_count
+                  FROM properties p
+                 WHERE p.owner_id = ? AND p.is_archived = 0
+                 ORDER BY p.created_at DESC
+            ");
             $stmt->execute([$ownerId]);
             $properties = $stmt->fetchAll();
         }
 
         renderPage(VIEWS_PATH . '/owner/my_properties.php', [
-            'properties' => $properties,
-            'pageTitle' => 'My Properties',
-            'breadcrumbs' => [['label' => 'Properties']],
+            'properties'   => $properties,
+            'ownerLinked'  => $ownerId !== null,
+            'pageTitle'    => 'My Properties',
+            'pageSubtitle' => $properties
+                ? count($properties) . ' propert' . (count($properties) === 1 ? 'y' : 'ies') . ' under your ownership'
+                : null,
+            'breadcrumbs'  => [['label' => 'Properties']],
         ]);
     }
 
     public function myIncome(): void
     {
-        requireRole(ROLE_OWNER);
+        authorize('my-income.view');
         $db = getDBConnection();
         $stmt = $db->prepare("SELECT id, commission_rate FROM owners WHERE user_id = ?");
         $stmt->execute([$_SESSION['user_id']]);

@@ -172,6 +172,18 @@ foreach (SettingsController::CURRENCIES as $code => [$name, $symbol]) {
                             </div>
                             <?php endforeach ?>
                         </div>
+
+                        <?php if (!empty($m['action'])): ?>
+                            <?php /* Some groups configure behaviour here but keep their content on
+                                     a page of its own — Terms wording is versioned, not a value. */ ?>
+                            <div class="card__footer">
+                                <a class="btn btn--outline btn--sm"
+                                   href="<?= APP_URL ?>/index.php?page=<?= sanitize($m['action']['page']) ?>">
+                                    <i class="bi <?= sanitize($m['action']['icon'] ?? 'bi-arrow-right') ?>"></i>
+                                    <?= sanitize($m['action']['label']) ?>
+                                </a>
+                            </div>
+                        <?php endif ?>
                     </div>
                 </section>
             <?php endforeach ?>

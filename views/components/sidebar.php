@@ -3,6 +3,16 @@
  * Sidebar Component
  * Light SaaS sidebar with profile-on-top, search, and active-link detection.
  * Expects: $currentUser (from getCurrentUser())
+ *
+ * Every entry is drawn only when can() says the signed-in user may open it, so
+ * the menu is a projection of the permission matrix rather than a second copy
+ * of it kept in step by hand. That is what the previous hard-coded role checks
+ * could not guarantee: Operations was rendered unconditionally while
+ * InquiryController admitted only staff, so owners and tenants were shown a
+ * link that bounced them to the dashboard.
+ *
+ * Sections disappear on their own once every item inside them is hidden, so a
+ * role never sees an empty heading.
  */
 $role = $currentUser['role'] ?? '';
 $page = $_GET['page'] ?? 'dashboard';
@@ -11,6 +21,79 @@ $page = $_GET['page'] ?? 'dashboard';
 function sb_link_class(string $current, array $matches): string {
     return in_array($current, $matches, true) ? 'sidebar__link sidebar__link--active' : 'sidebar__link';
 }
+
+/**
+ * Navigation, as data.
+ *
+ * Each item is [page slug, label, icon]. The permission checked is
+ * "{slug}.view" — the same string canAccessPage() and the controller use.
+ *
+ * Labels are per-role where the same module means a different thing to
+ * different people: an agent's Inquiries is the agency's lead inbox, an
+ * owner's is interest in their properties, a tenant's is their own
+ * correspondence. Same page, same permission, honest name.
+ */
+$sbInquiryLabel = match ($role) {
+    ROLE_OWNER    => 'Property Inquiries',
+    ROLE_CUSTOMER => 'My Inquiries',
+    default       => 'Inquiries',
+};
+$sbMaintenanceLabel = match ($role) {
+    ROLE_CUSTOMER    => 'My Requests',
+    ROLE_MAINTENANCE => 'My Jobs',
+    default          => 'Maintenance',
+};
+
+$sbSections = [
+    ['Main Menu', [
+        ['dashboard', 'Dashboard', 'bi-grid-1x2'],
+    ]],
+
+    ['Property', [
+        ['properties',   'Properties',   'bi-buildings'],
+        ['reservations', 'Reservations', 'bi-calendar-check'],
+        ['documents',    'Documents',    'bi-folder2-open'],
+    ]],
+
+    ['People', [
+        ['customers', 'Customers', 'bi-people'],
+        ['owners',    'Owners',    'bi-person-badge'],
+    ]],
+
+    ['Transactions', [
+        ['leases',   'Leases',   'bi-file-earmark-text'],
+        ['payments', 'Payments', 'bi-credit-card'],
+        ['sales',    'Sales',    'bi-cart-check'],
+    ]],
+
+    ['My Account', [
+        ['my-lease',    'My Lease',    'bi-file-earmark-text'],
+        ['my-payments', 'My Payments', 'bi-credit-card'],
+        ['favorites',   'Favorites',   'bi-heart'],
+    ]],
+
+    ['My Portfolio', [
+        ['my-properties', 'Properties', 'bi-buildings'],
+        ['my-income',     'Income',     'bi-graph-up'],
+    ]],
+
+    ['Operations', [
+        ['maintenance',   $sbMaintenanceLabel, 'bi-wrench-adjustable'],
+        ['inquiries',     $sbInquiryLabel,     'bi-chat-left-text'],
+        ['notifications', 'Notifications',     'bi-bell'],
+    ]],
+
+    ['Administration', [
+        ['users',               'Users & Roles',       'bi-shield-lock'],
+        ['testimonials',        'Testimonials',        'bi-chat-quote'],
+        ['branches',            'Branches',            'bi-diagram-3'],
+        ['reports',             'Reports',             'bi-bar-chart-line'],
+        ['document-categories', 'Document Categories', 'bi-tags'],
+        ['legal',               'Terms & Legal',       'bi-file-earmark-check'],
+        ['audit-logs',          'Audit Logs',          'bi-journal-text'],
+        ['settings',            'Settings',            'bi-gear'],
+    ]],
+];
 ?>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 <aside class="app__sidebar" id="sidebar">
@@ -49,118 +132,28 @@ function sb_link_class(string $current, array $matches): string {
     </div>
 
     <nav class="sidebar__nav">
-
-        <!-- Main -->
-        <div class="sidebar__section">
-            <div class="sidebar__label">Main Menu</div>
-            <a href="<?= APP_URL ?>/index.php?page=dashboard" class="<?= sb_link_class($page, ['dashboard']) ?>">
-                <i class="bi bi-grid-1x2"></i> Dashboard
-            </a>
-        </div>
-
-        <?php if (in_array($role, ['admin', 'agent'])): ?>
-        <!-- Property -->
-        <div class="sidebar__section">
-            <div class="sidebar__label">Property</div>
-            <a href="<?= APP_URL ?>/index.php?page=properties" class="<?= sb_link_class($page, ['properties']) ?>">
-                <i class="bi bi-buildings"></i> Properties
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=reservations" class="<?= sb_link_class($page, ['reservations']) ?>">
-                <i class="bi bi-calendar-check"></i> Reservations
-            </a>
-        </div>
-
-        <!-- People -->
-        <div class="sidebar__section">
-            <div class="sidebar__label">People</div>
-            <a href="<?= APP_URL ?>/index.php?page=customers" class="<?= sb_link_class($page, ['customers']) ?>">
-                <i class="bi bi-people"></i> Customers
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=owners" class="<?= sb_link_class($page, ['owners']) ?>">
-                <i class="bi bi-person-badge"></i> Owners
-            </a>
-        </div>
-
-        <!-- Transactions -->
-        <div class="sidebar__section">
-            <div class="sidebar__label">Transactions</div>
-            <a href="<?= APP_URL ?>/index.php?page=leases" class="<?= sb_link_class($page, ['leases']) ?>">
-                <i class="bi bi-file-earmark-text"></i> Leases
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=payments" class="<?= sb_link_class($page, ['payments']) ?>">
-                <i class="bi bi-credit-card"></i> Payments
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=sales" class="<?= sb_link_class($page, ['sales']) ?>">
-                <i class="bi bi-cart-check"></i> Sales
-            </a>
-        </div>
-        <?php endif; ?>
-
-        <?php if ($role === 'customer'): ?>
-        <div class="sidebar__section">
-            <div class="sidebar__label">My Account</div>
-            <a href="<?= APP_URL ?>/index.php?page=my-lease" class="<?= sb_link_class($page, ['my-lease']) ?>">
-                <i class="bi bi-file-earmark-text"></i> My Lease
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=my-payments" class="<?= sb_link_class($page, ['my-payments']) ?>">
-                <i class="bi bi-credit-card"></i> My Payments
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=favorites" class="<?= sb_link_class($page, ['favorites']) ?>">
-                <i class="bi bi-heart"></i> Favorites
-            </a>
-        </div>
-        <?php endif; ?>
-
-        <?php if ($role === 'owner'): ?>
-        <div class="sidebar__section">
-            <div class="sidebar__label">My Properties</div>
-            <a href="<?= APP_URL ?>/index.php?page=my-properties" class="<?= sb_link_class($page, ['my-properties']) ?>">
-                <i class="bi bi-buildings"></i> Properties
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=my-income" class="<?= sb_link_class($page, ['my-income']) ?>">
-                <i class="bi bi-graph-up"></i> Income
-            </a>
-        </div>
-        <?php endif; ?>
-
-        <!-- Operations -->
-        <div class="sidebar__section">
-            <div class="sidebar__label">Operations</div>
-            <a href="<?= APP_URL ?>/index.php?page=maintenance" class="<?= sb_link_class($page, ['maintenance']) ?>">
-                <i class="bi bi-wrench-adjustable"></i> Maintenance
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=inquiries" class="<?= sb_link_class($page, ['inquiries']) ?>">
-                <i class="bi bi-chat-left-text"></i> Inquiries
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=notifications" class="<?= sb_link_class($page, ['notifications']) ?>">
-                <i class="bi bi-bell"></i> Notifications
-            </a>
-        </div>
-
-        <?php if ($role === 'admin'): ?>
-        <!-- Admin -->
-        <div class="sidebar__section">
-            <div class="sidebar__label">Administration</div>
-            <a href="<?= APP_URL ?>/index.php?page=users" class="<?= sb_link_class($page, ['users']) ?>">
-                <i class="bi bi-shield-lock"></i> Users &amp; Roles
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=testimonials" class="<?= sb_link_class($page, ['testimonials']) ?>">
-                <i class="bi bi-chat-quote"></i> Testimonials
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=branches" class="<?= sb_link_class($page, ['branches']) ?>">
-                <i class="bi bi-diagram-3"></i> Branches
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=reports" class="<?= sb_link_class($page, ['reports']) ?>">
-                <i class="bi bi-bar-chart-line"></i> Reports
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=audit-logs" class="<?= sb_link_class($page, ['audit-logs']) ?>">
-                <i class="bi bi-journal-text"></i> Audit Logs
-            </a>
-            <a href="<?= APP_URL ?>/index.php?page=settings" class="<?= sb_link_class($page, ['settings']) ?>">
-                <i class="bi bi-gear"></i> Settings
-            </a>
-        </div>
-        <?php endif; ?>
+        <?php foreach ($sbSections as [$sectionLabel, $items]): ?>
+            <?php
+            // Resolve the section before opening any markup: a heading is only
+            // worth printing once we know something sits under it.
+            $visible = array_values(array_filter(
+                $items,
+                fn(array $item): bool => canAccessPage($item[0])
+            ));
+            if (!$visible) {
+                continue;
+            }
+            ?>
+            <div class="sidebar__section">
+                <div class="sidebar__label"><?= sanitize($sectionLabel) ?></div>
+                <?php foreach ($visible as [$slug, $label, $icon]): ?>
+                    <a href="<?= APP_URL ?>/index.php?page=<?= sanitize($slug) ?>"
+                       class="<?= sb_link_class($page, [$slug]) ?>">
+                        <i class="bi <?= sanitize($icon) ?>"></i> <?= sanitize($label) ?>
+                    </a>
+                <?php endforeach ?>
+            </div>
+        <?php endforeach ?>
     </nav>
 
     <div class="sidebar__footer">

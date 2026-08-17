@@ -6,7 +6,7 @@ class FavoritesController
 {
     public function index(): void
     {
-        requireLogin();
+        authorize('favorites.view');
         $db = getDBConnection();
         $stmt = $db->prepare("
             SELECT p.*, f.id AS fav_id, f.created_at AS saved_at,
@@ -28,7 +28,7 @@ class FavoritesController
 
     public function add(): void
     {
-        requireLogin();
+        authorize('favorites.add');
         $pid = (int)($_GET['property_id'] ?? 0);
         if ($pid) {
             $db = getDBConnection();
@@ -43,7 +43,7 @@ class FavoritesController
 
     public function remove(): void
     {
-        requireLogin();
+        authorize('favorites.remove');
         $pid = (int)($_GET['property_id'] ?? 0);
         if ($pid) {
             getDBConnection()->prepare("DELETE FROM favorites WHERE user_id = ? AND property_id = ?")

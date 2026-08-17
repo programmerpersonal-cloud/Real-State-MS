@@ -6,7 +6,7 @@ class CustomerPortalController
 {
     public function myLease(): void
     {
-        requireRole(ROLE_CUSTOMER);
+        authorize('my-lease.view');
         $db = getDBConnection();
         // Find customer record linked to this user
         $stmt = $db->prepare("SELECT * FROM customers WHERE user_id = ?");
@@ -44,7 +44,7 @@ class CustomerPortalController
 
     public function myPayments(): void
     {
-        requireRole(ROLE_CUSTOMER);
+        authorize('my-payments.view');
         $db = getDBConnection();
         $stmt = $db->prepare("SELECT id FROM customers WHERE user_id = ?");
         $stmt->execute([$_SESSION['user_id']]);

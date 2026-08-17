@@ -1,0 +1,9 @@
+# Uploaded documents are data, not source — never commit them.
+# The directory itself, and the guards that seal it, must stay in the repo.
+*
+!.gitignore
+!.htaccess
+!documents/
+documents/*
+!documents/.htaccess
+!documents/index.php

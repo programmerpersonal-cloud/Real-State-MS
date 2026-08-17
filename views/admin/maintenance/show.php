@@ -4,9 +4,12 @@
  */
 $r = $request;
 $priorityClass = ['urgent' => 'danger', 'high' => 'orange', 'medium' => 'warning', 'low' => 'info'];
-$role = getUserRole();
-$canAssign = in_array($role, [ROLE_ADMIN, ROLE_AGENT]);
-$canUpdate = in_array($role, [ROLE_ADMIN, ROLE_AGENT, ROLE_MAINTENANCE]);
+// Decided by the controller from the role *and* the property relationship —
+// an agent holds no panel over a colleague's listing, and a technician sees
+// the update form only for the job actually assigned to them. The matching
+// checks run again when either form posts.
+$canAssign = $canAssign ?? false;
+$canUpdate = $canManage ?? false;
 ?>
 <div class="grid-2">
     <div class="card">

@@ -6,7 +6,7 @@ class ReportController
 {
     public function index(): void
     {
-        requireRole(ROLE_ADMIN, ROLE_AGENT);
+        authorize('reports.view');
         $db = getDBConnection();
 
         $stats = [

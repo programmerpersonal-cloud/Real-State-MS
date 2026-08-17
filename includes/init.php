@@ -29,6 +29,18 @@ require_once __DIR__ . '/content.php';
 require_once __DIR__ . '/seo.php';
 require_once __DIR__ . '/auth.php';
 
+// Levels 1 and 2 of authorization — may this role open the module, may this
+// user perform the action. Loaded immediately after auth.php because it reads
+// the signed-in role, and before everything below because the navigation,
+// controllers and views all ask it first.
+require_once __DIR__ . '/permissions.php';
+
+// Loaded after auth.php: all three read the signed-in role through
+// getUserRole()/hasRole().
+require_once __DIR__ . '/documents.php';
+require_once __DIR__ . '/legal.php';
+require_once __DIR__ . '/property_access.php';
+
 // Security headers
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');

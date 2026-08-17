@@ -1,4 +1,7 @@
-<?php /* Properties — Index (vars provided by controller) */ ?>
+<?php
+/* Properties — Index (vars provided by controller) */
+$fd = $formData ?? [];
+?>
 <!-- Filters -->
 <div class="card mb-3">
     <div class="card__body" style="padding:16px 24px">
@@ -52,6 +55,9 @@
                 <div class="empty-state__icon"><i class="bi bi-buildings"></i></div>
                 <div class="empty-state__title">No properties found</div>
                 <div class="empty-state__desc">Try adjusting your filters or add a new property.</div>
+                <button type="button" class="btn btn--primary btn--sm" data-modal-open="propertyCreateModal" style="margin-top:14px">
+                    <i class="bi bi-plus-lg"></i> Add Property
+                </button>
             </div>
         <?php else: ?>
         <div class="table-wrap">
@@ -109,3 +115,5 @@
         <?php endif; ?>
     </div>
 </div>
+
+<?php require __DIR__ . '/_create_modal.php'; ?>

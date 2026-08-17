@@ -1,0 +1,38 @@
+# Saxane Real Estate — protected file store
+#
+# Nothing in this tree may be fetched over HTTP. Documents are delivered by
+# index.php?page=documents&action=download, which checks the signed-in user's
+# role against each document's visibility before it reads a single byte.
+#
+# This file only takes effect where AllowOverride permits it. It is one of
+# three layers, not the only one: the root .htaccess also refuses /storage/,
+# and stored filenames are unguessable random hex.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
+
+# Belt and braces: if the deny above is ever lost to a server reconfiguration,
+# an uploaded file still must not be executed as code.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+RemoveHandler .php .php3 .php4 .php5 .php7 .php8 .phtml .phar .cgi .pl .py .sh
+RemoveType    .php .php3 .php4 .php5 .php7 .php8 .phtml .phar
+
+<FilesMatch ".*">
+    SetHandler none
+</FilesMatch>
+
+Options -Indexes -ExecCGI

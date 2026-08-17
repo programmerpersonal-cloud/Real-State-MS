@@ -10,6 +10,14 @@
 
 /* ─── Tokens ────────────────────────────────────────────── */
 :root {
+  /* This is a light-only product, and saying so matters. The parts of a
+     form the browser paints itself — <select> dropdown lists, scrollbars,
+     autofill, date pickers — follow the OS scheme unless the page declares
+     one. On a dark-mode Windows that meant Chrome drew the option list in
+     pale system text over the white background --surface sets below, so
+     agent and owner names came out white on white and looked empty. */
+  color-scheme: light;
+
   /* ── Typefaces ─────────────────────────────────────────
      --font        UI + body copy (Inter: superb at small sizes)
      --font-display Headings (Raleway: elegant, property-brand feel)
@@ -171,6 +179,16 @@ img{max-width:100%;display:block}
 button{cursor:pointer;font-family:inherit}
 input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--text)}
 ::selection{background:var(--primary-light);color:var(--text)}
+
+/* Safety net for engines that render the dropdown list before honouring
+   color-scheme. Only under a dark OS, where the bug lives — the light path
+   is left alone so the list keeps its native highlight and hover feel. */
+@media (prefers-color-scheme: dark){
+  select option,select optgroup{background-color:var(--surface);color:var(--text)}
+  select option:checked{background-color:var(--primary-light);color:var(--primary-ink)}
+  select option:disabled{color:var(--text-subtle)}
+  select optgroup{font-weight:600;color:var(--text-muted)}
+}
 
 /* Global keyboard focus. Never removed — only restyled, and always
    visible against both light surfaces and dark/ink sections. */
@@ -389,6 +407,58 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 .stat-card__trend--up{color:var(--success)}
 .stat-card__trend--down{color:var(--danger)}
 
+/* ─── Quick action tiles (dashboard) ─────────────────────
+   Each tile opens a quick-add popup. Read as one object rather
+   than a button with decoration: the coloured glyph carries the
+   module, the label the verb, and the caption what will be
+   created — so the row can be scanned without reading it. */
+.quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:10px}
+.quick-action{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:12px 14px;text-align:left;text-decoration:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text);font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+  transition:border-color var(--transition),box-shadow var(--transition),
+             transform var(--transition),background var(--transition);
+}
+.quick-action:hover{
+  background:var(--surface-2);border-color:var(--primary-border);
+  box-shadow:var(--shadow-sm);transform:translateY(-1px);color:var(--text);
+}
+.quick-action:active{transform:none;box-shadow:none}
+.quick-action__icon{
+  flex-shrink:0;width:38px;height:38px;border-radius:var(--radius-sm);
+  display:grid;place-items:center;font-size:1.05rem;
+  background:var(--surface-3);color:var(--text);
+}
+.quick-action__icon--primary{background:var(--primary-light);color:var(--primary-ink)}
+.quick-action__icon--success{background:var(--success-bg);color:var(--success)}
+.quick-action__icon--warning{background:var(--warning-bg);color:var(--warning)}
+.quick-action__icon--danger {background:var(--danger-bg); color:var(--danger)}
+.quick-action__icon--info   {background:var(--info-bg);   color:var(--info)}
+.quick-action__icon--purple {background:var(--purple-bg); color:var(--purple)}
+.quick-action__icon--orange {background:var(--orange-bg); color:var(--orange)}
+.quick-action__text{display:flex;flex-direction:column;min-width:0}
+.quick-action__label{font-weight:600;line-height:1.3;color:var(--text)}
+/* The caption is the first thing to give way on a narrow tile. */
+.quick-action__hint{
+  font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.3;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* The chevron confirms the tile is live, without competing at rest. */
+.quick-action__go{
+  margin-left:auto;font-size:.8rem;color:var(--primary);
+  opacity:0;transform:translateX(-4px);
+  transition:opacity var(--transition),transform var(--transition);
+}
+.quick-action:hover .quick-action__go,
+.quick-action:focus-visible .quick-action__go{opacity:1;transform:none}
+
+@media(prefers-reduced-motion:reduce){
+  .quick-action,.quick-action__go{transition:none}
+  .quick-action:hover{transform:none}
+}
+
 /* ─── Buttons ───────────────────────────────────────────── */
 /* Min height 44px on --lg and on touch devices keeps tap targets legal
    without inflating dense admin toolbars. */
@@ -438,14 +508,27 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 .form-control::placeholder{color:var(--text-subtle)}
 .form-control--error{border-color:var(--danger)}
 .form-control--error:focus{box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+/* A field whose value is fixed by context — e.g. the single property a tenant
+   is allowed to report against. Deliberately not styled like :disabled: the
+   value still submits, stays selectable and keeps full text contrast, so only
+   the surface recedes and the caret is dropped. */
+.form-control[readonly]{background:var(--surface-2);border-color:var(--border);cursor:default}
+.form-control[readonly]:hover{border-color:var(--border)}
 .form-hint{font-size:.74rem;color:var(--text-subtle);margin-top:4px}
 .form-error{font-size:.74rem;color:var(--danger);margin-top:4px;display:flex;align-items:center;gap:4px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 select.form-control{
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E");
+  appearance:none;cursor:pointer;
+  /* Same stroked chevron, weight and colour as the search and filter bars —
+     the old one was a filled wedge in an off-palette grey. */
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%236b7688' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5L6 7.5l3-3'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;
 }
+/* An optional field left on "— None —" is a placeholder, not a value, and
+   should read like one — matching how ::placeholder treats empty inputs.
+   Still 5.1:1 on white, so it stays AA. Browsers without :has() simply
+   show it at full strength, which is readable either way. */
+select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 
 /* ─── Tables ────────────────────────────────────────────── */
 .table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
@@ -714,6 +797,9 @@ select.form-control{
 .upload-zone i{font-size:1.6rem;color:var(--text-subtle);margin-bottom:8px}
 .upload-zone__hint{font-size:.78rem;color:var(--text-muted);margin-top:4px}
 .upload-zone input[type=file]{display:none}
+/* A file has been chosen — confirm it without needing a separate line. */
+.upload-zone.is-filled{border-style:solid;border-color:var(--primary);background:var(--primary-tint)}
+.upload-zone.is-filled i{color:var(--primary)}
 
 /* ─── Property card (grid view) ─────────────────────────── */
 .prop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all var(--transition)}
@@ -2787,6 +2873,19 @@ body.has-drawer{overflow:hidden}
   margin:var(--space-8) 0 var(--space-3);
 }
 .legal h2:first-of-type{margin-top:0}
+/* Sub-headings arrive from "### " in stored terms text. */
+.legal h3{
+  font-family:var(--font-display);font-size:var(--fs-h5);
+  font-weight:700;color:var(--text);
+  margin:var(--space-6) 0 var(--space-2);
+}
+.legal ol{
+  margin:0 0 var(--space-4) var(--space-5);
+  display:flex;flex-direction:column;gap:10px;
+}
+.legal ol li::marker{color:var(--primary);font-weight:600}
+.legal a{color:var(--primary);text-decoration:underline}
+.legal em{font-style:italic}
 .legal p{
   font-size:var(--fs-body);color:var(--text-body);
   line-height:var(--lh-loose);margin-bottom:var(--space-4);
@@ -2802,6 +2901,24 @@ body.has-drawer{overflow:hidden}
 .legal li::marker{color:var(--primary)}
 .legal strong{color:var(--text);font-weight:700}
 .legal__footer{margin-top:var(--space-8);text-align:center}
+
+/* ─── Public document list (listing "Documents" tab) ────── */
+.doc-list{list-style:none;margin:var(--space-4) 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.doc-list__item{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface);transition:border-color var(--transition);
+}
+.doc-list__item:hover{border-color:var(--border-strong)}
+.doc-list__icon{font-size:1.6rem;color:var(--text-subtle);flex-shrink:0}
+.doc-list__body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.doc-list__name{font-weight:600;color:var(--text)}
+.doc-list__meta{font-size:var(--fs-xs);color:var(--text-muted)}
+.doc-list__desc{font-size:var(--fs-xs);color:var(--text-body)}
+@media(max-width:560px){
+  .doc-list__item{flex-wrap:wrap}
+  .doc-list__body{flex-basis:100%;order:2}
+}
 
 /* ════════════════════════════════════════════════════════════
    FOOTER — a fourth link column joined the grid
@@ -3216,3 +3333,216 @@ body.has-drawer{overflow:hidden}
   .navmenu__link{min-height:48px}
   .searchbar select,.filters select{background-position:right 14px center}
 }
+
+/* ════════════════════════════════════════════════════════════
+   MODAL — a dialog over a blurred page
+   The page behind is not merely dimmed: the backdrop blurs and
+   desaturates it, so the dialog reads as the only live surface
+   while the layout underneath stays recognisable.
+   ════════════════════════════════════════════════════════════ */
+.modal[hidden]{display:none}
+.modal{
+  position:fixed;inset:0;z-index:300;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:var(--space-8) var(--gutter);
+  overflow-y:auto;overscroll-behavior:contain;
+}
+.modal__backdrop{
+  position:fixed;inset:0;
+  background:rgba(16,34,44,.38);
+  backdrop-filter:blur(18px) saturate(135%);
+  -webkit-backdrop-filter:blur(18px) saturate(135%);
+  opacity:0;transition:opacity var(--transition-slow);
+}
+.modal.is-open .modal__backdrop{opacity:1}
+/* Without backdrop-filter the tint has to carry the separation alone. */
+@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  .modal__backdrop{background:rgba(16,34,44,.74)}
+}
+
+.modal__dialog{
+  position:relative;margin:auto;width:100%;max-width:680px;
+  max-height:calc(100vh - var(--space-16));
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);
+  opacity:0;transform:translateY(16px) scale(.98);
+  transition:opacity var(--transition-slow),transform var(--transition-slow);
+}
+.modal.is-open .modal__dialog{opacity:1;transform:none}
+.modal__dialog--lg{max-width:920px}
+
+.modal__header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);
+  padding:var(--space-5) var(--space-6);
+  border-bottom:1px solid var(--border);
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  background:linear-gradient(180deg,var(--primary-tint),var(--surface));
+}
+.modal__title{
+  font-family:var(--font-display);font-size:1.15rem;font-weight:700;
+  letter-spacing:-.02em;color:var(--text);display:flex;align-items:center;gap:10px;
+}
+.modal__title i{color:var(--primary)}
+.modal__subtitle{font-size:var(--fs-xs);color:var(--text-muted);margin-top:4px}
+.modal__close{
+  flex-shrink:0;width:34px;height:34px;border-radius:var(--radius-sm);
+  display:grid;place-items:center;cursor:pointer;
+  border:1px solid transparent;background:transparent;color:var(--text-muted);
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.modal__close:hover{background:var(--surface-3);color:var(--text);border-color:var(--border)}
+.modal__close:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+/* The form owns the scroll so the header and footer stay put. */
+.modal__form{display:flex;flex-direction:column;min-height:0;flex:1}
+.modal__body{padding:var(--space-6);overflow-y:auto;flex:1;min-height:0}
+.modal__body .form-group:last-child{margin-bottom:0}
+.modal__footer{
+  display:flex;align-items:center;gap:var(--space-3);
+  padding:var(--space-4) var(--space-6);
+  border-top:1px solid var(--border);background:var(--surface-2);
+  border-radius:0 0 var(--radius-lg) var(--radius-lg);
+}
+.modal__footer .modal__footer-note{margin-left:auto;font-size:var(--fs-xs);color:var(--text-subtle)}
+
+/* Section captions inside a long form */
+.form-section{
+  font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--text-muted);margin:var(--space-6) 0 var(--space-3);
+  padding-bottom:6px;border-bottom:1px solid var(--border);
+}
+.form-section:first-child{margin-top:0}
+
+body.is-modal-open{overflow:hidden}
+
+@media(max-width:768px){
+  .modal{padding:0}
+  .modal__dialog{max-width:none;min-height:100%;max-height:none;border:none;border-radius:0}
+  .modal__header,.modal__footer{border-radius:0}
+  .modal__body{padding:var(--space-5)}
+  .modal__footer{flex-wrap:wrap}
+  .modal__footer .btn{flex:1;min-width:140px}
+  .modal__footer .modal__footer-note{margin-left:0;flex-basis:100%}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .modal__backdrop,.modal__dialog{transition:none}
+}
+
+/* ════════════════════════════════════════════════════════════
+   GEO FIELD — location text, coordinates, device positioning
+   ════════════════════════════════════════════════════════════ */
+.geo{
+  border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface-2);padding:var(--space-4);margin-bottom:18px;
+}
+.geo__head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--space-3);margin-bottom:var(--space-4);flex-wrap:wrap;
+}
+.geo__title{
+  font-size:.82rem;font-weight:700;color:var(--text);
+  display:flex;align-items:center;gap:6px;
+}
+.geo__title i{color:var(--primary)}
+.geo__hint{font-size:var(--fs-xs);color:var(--text-muted);margin-top:3px;max-width:52ch}
+.geo__grid{display:grid;grid-template-columns:1fr 1fr auto;gap:var(--space-3);align-items:end}
+.geo .form-group{margin-bottom:var(--space-4)}
+.geo__grid .form-group{margin-bottom:0}
+.geo__map{
+  display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;
+  border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--text-muted);
+  font-size:var(--fs-xs);font-weight:600;white-space:nowrap;
+  transition:color var(--transition),border-color var(--transition),background var(--transition);
+}
+.geo__map:hover{color:var(--primary);border-color:var(--primary);background:var(--primary-tint)}
+.geo__map.is-disabled{opacity:.5;pointer-events:none}
+.geo__status{
+  display:none;align-items:flex-start;gap:6px;
+  font-size:var(--fs-xs);line-height:1.45;color:var(--text-muted);margin-top:var(--space-3);
+}
+.geo__status.is-shown{display:flex}
+.geo__status--ok{color:var(--success)}
+.geo__status--error{color:var(--danger)}
+.geo__status i{margin-top:1px}
+.spin{display:inline-block;animation:spin 900ms linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+
+@media(max-width:768px){
+  .geo__grid{grid-template-columns:1fr 1fr}
+  .geo__map{grid-column:1 / -1;justify-content:center}
+  .geo__head .btn{width:100%;justify-content:center}
+}
+
+/* Multi-column form rows as classes rather than inline styles, so the
+   narrow-screen rules below can actually override them — an inline
+   grid-template beats every stylesheet rule and forces the page wide. */
+.form-row--3{grid-template-columns:repeat(3,1fr)}
+.form-row--4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:768px){
+  .form-row--3,.form-row--4{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .form-row--3,.form-row--4{grid-template-columns:1fr}
+}
+
+/* ════════════════════════════════════════════════════════════
+   PROPERTY MAP — the pin, framed
+   Shared by the admin detail page and the public listing tab.
+   ════════════════════════════════════════════════════════════ */
+.propmap{display:flex;flex-direction:column;gap:var(--space-3)}
+.propmap__frame{
+  position:relative;aspect-ratio:16/9;min-height:240px;
+  border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;background:var(--surface-2);
+  box-shadow:var(--shadow-xs);
+}
+/* Give the tiles a moment's grace: a plain grey box while the frame
+   loads reads as "map arriving", not "map broken". */
+.propmap__frame::before{
+  content:'';position:absolute;inset:0;
+  background:
+    linear-gradient(var(--border) 1px,transparent 1px) 0 0/32px 32px,
+    linear-gradient(90deg,var(--border) 1px,transparent 1px) 0 0/32px 32px,
+    var(--surface-2);
+  opacity:.5;
+}
+.propmap__frame iframe{position:relative;display:block;width:100%;height:100%}
+
+.propmap__bar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:var(--space-3);flex-wrap:wrap;
+}
+.propmap__coords{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--font-mono);font-size:var(--fs-xs);
+  color:var(--text-muted);
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:6px 10px;
+  user-select:all;   /* one click selects the whole pair for copying */
+}
+.propmap__coords i{color:var(--primary);font-size:.85rem}
+.propmap__actions{display:flex;gap:var(--space-2);flex-wrap:wrap}
+/* Specific enough to beat the public page's .dpanel p rules, which set
+   a body size and pre-line wrapping that would break the credit across
+   three lines. */
+.propmap .propmap__credit{
+  font-size:.72rem;color:var(--text-subtle);
+  line-height:1.5;margin:0;white-space:normal;
+}
+.propmap .propmap__credit a{color:var(--text-muted);text-decoration:underline}
+.propmap .propmap__credit a:hover{color:var(--primary)}
+
+@media(max-width:520px){
+  .propmap__frame{aspect-ratio:4/3}
+  .propmap__bar{flex-direction:column;align-items:stretch}
+  .propmap__actions .btn{flex:1;justify-content:center}
+}
+
+/* The hidden attribute has to beat component display rules. Without this a
+   `<div class="form-error" hidden>` still shows, because any explicit display
+   overrides the user-agent's [hidden]{display:none}. */
+[hidden]{display:none!important}

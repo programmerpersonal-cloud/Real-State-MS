@@ -2,6 +2,7 @@
 /**
  * Maintenance — Index
  */
+$fd = $formData ?? [];
 ?>
 <form method="get" class="filter-bar">
     <input type="hidden" name="page" value="maintenance">
@@ -34,7 +35,17 @@
     <div class="card__header"><h3 class="card__title"><?= $totalCount ?> Request<?= $totalCount === 1 ? '' : 's' ?></h3></div>
     <div class="card__body" style="padding:0">
         <?php if (empty($requests)): ?>
-            <div class="empty-state"><div class="empty-state__icon"><i class="bi bi-tools"></i></div><div class="empty-state__title">No maintenance requests</div></div>
+            <div class="empty-state">
+                <div class="empty-state__icon"><i class="bi bi-tools"></i></div>
+                <div class="empty-state__title">No maintenance requests</div>
+                <?php if (!empty($canCreate)): ?>
+                    <button type="button" class="btn btn--primary btn--sm" data-modal-open="maintenanceCreateModal" style="margin-top:14px">
+                        <i class="bi bi-plus-lg"></i> New Request
+                    </button>
+                <?php else: ?>
+                    <p class="empty-state__desc"><?= sanitize(maintenanceEmptyScopeMessage()) ?></p>
+                <?php endif ?>
+            </div>
         <?php else: ?>
         <div class="table-wrap">
             <table class="table">
@@ -61,3 +72,11 @@
         <?php endif ?>
     </div>
 </div>
+
+<?php
+// The quick-add popup is only mounted when this user can actually file
+// something — otherwise its trigger is absent anyway.
+if (!empty($canCreate)) {
+    require __DIR__ . '/_create_modal.php';
+}
+?>

@@ -2,6 +2,7 @@
 /**
  * Sales — Index
  */
+$fd = $formData ?? [];
 ?>
 <form method="get" class="filter-bar">
     <input type="hidden" name="page" value="sales">
@@ -25,7 +26,13 @@
     <div class="card__header"><h3 class="card__title"><?= $totalCount ?> Sale<?= $totalCount === 1 ? '' : 's' ?></h3></div>
     <div class="card__body" style="padding:0">
         <?php if (empty($sales)): ?>
-            <div class="empty-state"><div class="empty-state__icon"><i class="bi bi-cart-check"></i></div><div class="empty-state__title">No sales yet</div></div>
+            <div class="empty-state">
+                <div class="empty-state__icon"><i class="bi bi-cart-check"></i></div>
+                <div class="empty-state__title">No sales yet</div>
+                <button type="button" class="btn btn--primary btn--sm" data-modal-open="saleCreateModal" style="margin-top:14px">
+                    <i class="bi bi-plus-lg"></i> New Sale
+                </button>
+            </div>
         <?php else: ?>
         <div class="table-wrap">
             <table class="table">
@@ -51,3 +58,5 @@
         <?php endif ?>
     </div>
 </div>
+
+<?php require __DIR__ . '/_create_modal.php'; ?>

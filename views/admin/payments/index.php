@@ -2,6 +2,7 @@
 /**
  * Payments — Index
  */
+$fd = $formData ?? [];
 ?>
 <div class="mini-stats">
     <?php
@@ -50,6 +51,9 @@
             <div class="empty-state">
                 <div class="empty-state__icon"><i class="bi bi-credit-card"></i></div>
                 <div class="empty-state__title">No payments recorded</div>
+                <button type="button" class="btn btn--primary btn--sm" data-modal-open="paymentCreateModal" style="margin-top:14px">
+                    <i class="bi bi-plus-lg"></i> Record Payment
+                </button>
             </div>
         <?php else: ?>
         <div class="table-wrap">
@@ -78,3 +82,5 @@
         <?php endif ?>
     </div>
 </div>
+
+<?php require __DIR__ . '/_create_modal.php'; ?>

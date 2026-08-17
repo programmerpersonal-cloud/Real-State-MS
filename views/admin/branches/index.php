@@ -2,6 +2,7 @@
 /**
  * Branches — Index
  */
+$fd = $formData ?? [];
 ?>
 <div class="card">
     <div class="card__body" style="padding:0">
@@ -10,6 +11,9 @@
                 <div class="empty-state__icon"><i class="bi bi-diagram-3"></i></div>
                 <div class="empty-state__title">No branches yet</div>
                 <div class="empty-state__desc">Add your first branch to start tracking multi-location operations.</div>
+                <button type="button" class="btn btn--primary btn--sm" data-modal-open="branchCreateModal" style="margin-top:14px">
+                    <i class="bi bi-plus-lg"></i> Add Branch
+                </button>
             </div>
         <?php else: ?>
         <div class="table-wrap">
@@ -32,3 +36,5 @@
         <?php endif ?>
     </div>
 </div>
+
+<?php require __DIR__ . '/_create_modal.php'; ?>

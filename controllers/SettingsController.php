@@ -26,6 +26,27 @@ class SettingsController
             'icon'  => 'bi-calendar-check',
             'desc'  => 'Rules that govern reservations and how long a hold stays valid.',
         ],
+        'documents' => [
+            'label' => 'Documents',
+            'icon'  => 'bi-folder2-open',
+            'desc'  => 'Upload limits, expiry warnings and whether public documents appear on listings.',
+            'action' => [
+                'label' => 'Manage document categories',
+                'icon'  => 'bi-tags',
+                'page'  => 'document-categories',
+            ],
+        ],
+        'legal' => [
+            'label' => 'Legal & Terms',
+            'icon'  => 'bi-file-earmark-check',
+            'desc'  => 'Where acceptance is enforced, and which terms the public site publishes. '
+                     . 'The wording itself is versioned separately so previous versions stay on record.',
+            'action' => [
+                'label' => 'Manage Terms & Conditions',
+                'icon'  => 'bi-arrow-right',
+                'page'  => 'legal',
+            ],
+        ],
     ];
 
     /** Currency presets — value => [name, symbol]. */
@@ -43,6 +64,31 @@ class SettingsController
         'AUD' => ['Australian Dollar', 'A$'],
         'INR' => ['Indian Rupee', '₹'],
     ];
+
+    /**
+     * Legal types available to the public terms page, as slug => name.
+     *
+     * Read straight from the table so a type added in Terms & Conditions shows
+     * up here without a code change. Degrades to the built-in default if the
+     * table is not present yet — the settings screen must still render on an
+     * install where the legal migration has not been imported.
+     */
+    private static function termsOptions(): array
+    {
+        try {
+            $rows = getDBConnection()
+                ->query("SELECT slug, name FROM terms_documents WHERE is_active = 1 ORDER BY sort_order, name")
+                ->fetchAll();
+        } catch (PDOException $e) {
+            return ['general' => 'General Terms & Conditions'];
+        }
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[$r['slug']] = $r['name'];
+        }
+        return $out ?: ['general' => 'General Terms & Conditions'];
+    }
 
     /**
      * Per-key metadata: label, help text, input type and validation bounds.
@@ -112,12 +158,34 @@ class SettingsController
                 'suffix' => 'days', 'hint' => 'Sets the default expiry date on new reservations. Holds past their expiry date are released automatically.',
             ],
 
+            'document_expiry_warning_days' => [
+                'label' => 'Expiry Warning', 'type' => 'number', 'min' => 1, 'max' => 365, 'step' => '1',
+                'suffix' => 'days', 'hint' => 'How far ahead a document is flagged as expiring. Expired documents are only ever flagged — nothing is deleted automatically.',
+            ],
+            'document_max_size_mb' => [
+                'label' => 'Maximum File Size', 'type' => 'number', 'min' => 1, 'max' => 10, 'step' => '1',
+                'suffix' => 'MB', 'hint' => 'Upload ceiling for a single document. The server\'s own upload limit still applies if it is lower.',
+            ],
+            'document_public_enabled' => [
+                'label' => 'Publish Public Documents', 'type' => 'toggle', 'full' => true,
+                'hint'  => 'When on, documents marked Public appear on the property\'s public listing. Private and Staff Only documents are never published, whatever this is set to.',
+            ],
+
+            'terms_require_on_reservation' => [
+                'label' => 'Require Terms on Booking', 'type' => 'toggle', 'full' => true,
+                'hint'  => 'When on, a reservation cannot be created until the booking terms are accepted, and the version accepted is recorded against it.',
+            ],
+            'terms_public_slug' => [
+                'label' => 'Public Terms Page', 'type' => 'select', 'options' => self::termsOptions(),
+                'hint'  => 'Which terms the public /terms page shows. Falls back to the built-in copy when nothing is published.',
+            ],
+
         ];
     }
 
     public function index(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('settings.view');
 
         $rows = getDBConnection()
             ->query("SELECT * FROM settings ORDER BY setting_group, id")
@@ -167,7 +235,7 @@ class SettingsController
 
     public function update(): void
     {
-        requireRole(ROLE_ADMIN);
+        authorize('settings.update');
         enforceCSRF();
 
         $db     = getDBConnection();

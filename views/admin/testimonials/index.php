@@ -6,6 +6,7 @@
  * rows sort first because they are the ones needing a decision.
  */
 $pending = array_filter($testimonials, fn($t) => !$t['is_approved']);
+$fd = $formData ?? [];
 ?>
 
 <div class="stats" style="margin-bottom:20px">
@@ -52,7 +53,8 @@ $pending = array_filter($testimonials, fn($t) => !$t['is_approved']);
         </div>
     </form>
     <div class="toolbar__right">
-        <a class="btn btn--primary" href="<?= APP_URL ?>/index.php?page=testimonials&action=form">
+        <a class="btn btn--primary" href="<?= APP_URL ?>/index.php?page=testimonials&action=form"
+           data-modal-open="testimonialCreateModal">
             <i class="bi bi-plus-lg"></i> Add testimonial
         </a>
     </div>
@@ -75,7 +77,8 @@ $pending = array_filter($testimonials, fn($t) => !$t['is_approved']);
                     Add a real review from a customer. Nothing is published until you approve it,
                     and the testimonials section stays hidden on the home page while this is empty.
                 </div>
-                <a class="btn btn--primary mt-1" href="<?= APP_URL ?>/index.php?page=testimonials&action=form">
+                <a class="btn btn--primary mt-1" href="<?= APP_URL ?>/index.php?page=testimonials&action=form"
+                   data-modal-open="testimonialCreateModal">
                     <i class="bi bi-plus-lg"></i> Add the first review
                 </a>
             </div>
@@ -153,3 +156,5 @@ $pending = array_filter($testimonials, fn($t) => !$t['is_approved']);
         <?php endif; ?>
     </div>
 </div>
+
+<?php require __DIR__ . '/_create_modal.php'; ?>

@@ -15,7 +15,7 @@ class ProfileController
 
     public function index(): void
     {
-        requireLogin();
+        authorize('profile.view');
         $user = $this->model->findById($_SESSION['user_id']);
         renderPage(VIEWS_PATH . '/admin/profile/index.php', [
             'user' => $user,
@@ -26,7 +26,7 @@ class ProfileController
 
     public function update(): void
     {
-        requireLogin();
+        authorize('profile.edit');
         enforceCSRF();
         $id = (int)$_SESSION['user_id'];
         $data = [
