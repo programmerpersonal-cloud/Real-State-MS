@@ -133,10 +133,27 @@ class Customer
         return $this->db->prepare("UPDATE customers SET " . implode(', ', $fields) . " WHERE id = :id")->execute($params);
     }
 
+    /**
+     * Every ordering this model accepts, and the only place a column name is
+     * allowed to reach the ORDER BY below. The request supplies a key, never a
+     * column: anything unrecognised falls to 'newest'.
+     */
+    public const SORTS = [
+        'newest'     => 'c.created_at DESC',
+        'oldest'     => 'c.created_at ASC',
+        'name_asc'   => 'c.full_name ASC',
+        'name_desc'  => 'c.full_name DESC',
+        'type_asc'   => 'c.customer_type ASC, c.full_name ASC',
+        'type_desc'  => 'c.customer_type DESC, c.full_name ASC',
+        'risk_desc'  => "FIELD(c.risk_level,'high','medium','low'), c.full_name ASC",
+        'risk_asc'   => "FIELD(c.risk_level,'low','medium','high'), c.full_name ASC",
+    ];
+
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
     {
         [$wc, $params] = $this->buildFilters($filters);
-        $stmt = $this->db->prepare(self::WITH_ACCOUNT . " {$wc} ORDER BY c.created_at DESC LIMIT :l OFFSET :o");
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
+        $stmt = $this->db->prepare(self::WITH_ACCOUNT . " {$wc} ORDER BY {$orderBy} LIMIT :l OFFSET :o");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
         $stmt->bindValue(':l', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':o', $offset, PDO::PARAM_INT);

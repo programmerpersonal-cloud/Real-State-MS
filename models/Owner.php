@@ -119,6 +119,20 @@ class Owner
         return $this->db->prepare("UPDATE owners SET " . implode(', ', $fields) . " WHERE id = :id")->execute($params);
     }
 
+    /**
+     * Every ordering this model accepts, and the only place a column name is
+     * allowed to reach the ORDER BY below. The request supplies a key, never a
+     * column: anything unrecognised falls to 'newest'.
+     */
+    public const SORTS = [
+        'newest'     => 'o.created_at DESC',
+        'oldest'     => 'o.created_at ASC',
+        'name_asc'   => 'o.full_name ASC',
+        'name_desc'  => 'o.full_name DESC',
+        'comm_desc'  => 'o.commission_rate DESC, o.full_name ASC',
+        'comm_asc'   => 'o.commission_rate ASC, o.full_name ASC',
+    ];
+
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
     {
         $where = []; $params = [];
@@ -133,7 +147,8 @@ class Owner
             $where[] = "(o.user_id IS NULL OR u.is_active = 0)";
         }
         $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $this->db->prepare(self::WITH_ACCOUNT . " {$wc} ORDER BY o.created_at DESC LIMIT :l OFFSET :o");
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
+        $stmt = $this->db->prepare(self::WITH_ACCOUNT . " {$wc} ORDER BY {$orderBy} LIMIT :l OFFSET :o");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
         $stmt->bindValue(':l', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':o', $offset, PDO::PARAM_INT);

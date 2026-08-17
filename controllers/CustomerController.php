@@ -24,6 +24,25 @@ class CustomerController
     private const RISKS  = ['low', 'medium', 'high'];
     private const GENDER = ['male', 'female', 'other'];
 
+    /**
+     * The same enums again, with the labels the filter controls show.
+     *
+     * Keyed by the value TYPES already validates, so the list offered in the
+     * UI and the list the query accepts cannot drift: a type added above but
+     * not here simply has no filter, rather than a filter that is refused.
+     */
+    private const TYPE_LABELS = [
+        'tenant' => 'Tenant',
+        'buyer'  => 'Buyer',
+        'both'   => 'Tenant & Buyer',
+    ];
+
+    /** Login-access filter. Not a column — Customer::buildFilters() reads it. */
+    private const LOGIN_STATES = [
+        'enabled'  => 'Can sign in',
+        'disabled' => 'No login access',
+    ];
+
     private Customer $model;
     private User $users;
 
@@ -33,13 +52,33 @@ class CustomerController
         $this->users = new User();
     }
 
+    /**
+     * A request value, but only if it is one we recognise; anything else
+     * becomes '' — an absent filter — so it never reaches the query.
+     *
+     * @param string[] $allowed
+     */
+    private static function pick(mixed $value, array $allowed): string
+    {
+        $value = is_string($value) ? $value : '';
+
+        return in_array($value, $allowed, true) ? $value : '';
+    }
+
     public function index(): void
     {
         authorize('customers.view');
+
+        // Enumerated filters are checked against the same lists the form builds
+        // its <option>s from, so a hand-edited value is an absent filter rather
+        // than something carried into the query. Free text stays a bound param.
         $filters = [
-            'search'        => $_GET['search'] ?? '',
-            'customer_type' => $_GET['customer_type'] ?? '',
-            'login'         => $_GET['login'] ?? '',
+            'search'        => trim((string) ($_GET['search'] ?? '')),
+            'customer_type' => self::pick($_GET['customer_type'] ?? '', self::TYPES),
+            'login'         => self::pick($_GET['login'] ?? '', array_keys(self::LOGIN_STATES)),
+            // Never interpolated: Customer::SORTS resolves this key and falls
+            // back to 'newest' for anything it does not recognise.
+            'sort'          => uiSortValue(array_keys(Customer::SORTS), 'newest'),
         ];
         if (isset($_GET['blacklisted']) && $_GET['blacklisted'] !== '') {
             $filters['is_blacklisted'] = (int)$_GET['blacklisted'];
@@ -78,6 +117,10 @@ class CustomerController
             'formErrors' => $formErrors,
             'grantCustomer' => $grantCustomer,
             'accountMatch'  => $accountMatch,
+            // The filter controls are built from the same lists the request was
+            // validated against, so the two can never disagree.
+            'typeLabels'    => self::TYPE_LABELS,
+            'loginStates'   => self::LOGIN_STATES,
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle'  => 'Customers',
             'breadcrumbs'=> [['label' => 'Customers']],

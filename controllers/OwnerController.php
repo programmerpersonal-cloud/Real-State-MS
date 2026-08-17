@@ -7,6 +7,16 @@ require_once BASE_PATH . '/models/User.php';
 
 class OwnerController
 {
+    /**
+     * Login-access filter. Not a column — Owner::getAll() reads it to answer
+     * "who can actually sign in". Keyed by the value, valued by the label the
+     * control shows, so the list offered and the list accepted are one list.
+     */
+    private const LOGIN_STATES = [
+        'enabled'  => 'Can sign in',
+        'disabled' => 'No login access',
+    ];
+
     private Owner $model;
     private User $users;
 
@@ -19,9 +29,14 @@ class OwnerController
     public function index(): void
     {
         authorize('owners.view');
+
+        // The login filter is checked against the same list the control offers,
+        // and the sort key against Owner::SORTS — neither reaches SQL as text.
         $filters = [
-            'search' => $_GET['search'] ?? '',
-            'login'  => $_GET['login'] ?? '',
+            'search' => trim((string) ($_GET['search'] ?? '')),
+            'login'  => in_array($_GET['login'] ?? '', array_keys(self::LOGIN_STATES), true)
+                ? (string) $_GET['login'] : '',
+            'sort'   => uiSortValue(array_keys(Owner::SORTS), 'newest'),
         ];
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
@@ -57,6 +72,9 @@ class OwnerController
             'formErrors' => $formErrors,
             'grantOwner'   => $grantOwner,
             'accountMatch' => $accountMatch,
+            // The filter control is built from the same list the request was
+            // validated against, so the two can never disagree.
+            'loginStates'  => self::LOGIN_STATES,
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle'  => 'Property Owners',
             'breadcrumbs'=> [['label' => 'Owners']],

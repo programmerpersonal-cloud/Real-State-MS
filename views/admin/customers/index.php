@@ -1,99 +1,206 @@
 <?php
-$pageTitle = 'Customers';
-$breadcrumbs = [['label' => 'Customers']];
+/**
+ * Customers — the register.
+ *
+ * A customer is a business record; a user account is a way to sign in. The
+ * two are separate rows and the Login column reports the account itself, so
+ * this page and Users & Roles can never disagree about who can get in.
+ *
+ * Vars from CustomerController::index().
+ */
+$pageTitle    = 'Customers';
+$pageSubtitle = 'Tenants and buyers, their contact details and their access to the portal.';
+$breadcrumbs  = [['label' => 'Customers']];
 $actionButton = [
     'label' => 'Add Customer',
     'icon'  => 'bi-person-plus',
     'url'   => APP_URL . '/index.php?page=customers&action=create',
     'attrs' => ['data-modal-open' => 'customerCreateModal'],
 ];
+
 $fd   = $formData ?? [];
 $errs = $formErrors ?? [];
+
+$listUrl = APP_URL . '/index.php?page=customers';
+$showUrl = static fn(int $id): string => $listUrl . '&action=show&id=' . $id;
+
+$applied = array_filter([
+    'search'        => $filters['search']        ?? '',
+    'customer_type' => $filters['customer_type'] ?? '',
+    'login'         => $filters['login']         ?? '',
+], static fn($v): bool => $v !== '' && $v !== null);
+
+$chipLabels = [
+    'search'        => ['Search', static fn($v) => '“' . $v . '”'],
+    'customer_type' => ['Type',   static fn($v) => $typeLabels[$v] ?? $v],
+    'login'         => ['Access', static fn($v) => $loginStates[$v] ?? $v],
+];
+
+$without = static function (string $key) use ($listUrl): string {
+    $params = $_GET;
+    unset($params[$key], $params['p'], $params['page']);
+    return $listUrl . ($params ? '&' . http_build_query($params) : '');
+};
+
+$toolbar = [
+    'page'   => 'customers',
+    'search' => [
+        'name'        => 'search',
+        'value'       => $filters['search'] ?? '',
+        'label'       => 'Search customers',
+        'placeholder' => 'Search by name, phone, email or ID…',
+    ],
+    'filters' => [
+        ['name' => 'customer_type', 'label' => 'Type', 'value' => $filters['customer_type'] ?? '',
+         'options' => $typeLabels, 'all' => 'Any type'],
+        ['name' => 'login', 'label' => 'Access', 'value' => $filters['login'] ?? '',
+         'options' => $loginStates, 'all' => 'Any access'],
+    ],
+    'actions' => [
+        ['label' => 'Add Customer', 'icon' => 'bi-person-plus', 'class' => 'btn--primary',
+         'can' => 'customers.create',
+         'url' => $listUrl . '&action=create',
+         'attrs' => ['data-modal-open' => 'customerCreateModal']],
+    ],
+];
 ?>
-<div class="card mb-3">
-    <div class="card__body" style="padding:16px 24px">
-        <form method="GET" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-            <input type="hidden" name="page" value="customers">
-            <div class="form-group" style="margin:0;flex:1;min-width:200px">
-                <label class="form-label">Search</label>
-                <input type="text" name="search" class="form-control" placeholder="Name, phone, email, ID..." value="<?= sanitize($filters['search'] ?? '') ?>">
-            </div>
-            <div class="form-group" style="margin:0">
-                <label class="form-label">Type</label>
-                <select name="customer_type" class="form-control">
-                    <option value="">All</option>
-                    <option value="tenant" <?= ($filters['customer_type'] ?? '') === 'tenant' ? 'selected' : '' ?>>Tenant</option>
-                    <option value="buyer" <?= ($filters['customer_type'] ?? '') === 'buyer' ? 'selected' : '' ?>>Buyer</option>
-                    <option value="both" <?= ($filters['customer_type'] ?? '') === 'both' ? 'selected' : '' ?>>Both</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin:0;min-width:170px">
-                <label class="form-label">Login Access</label>
-                <select name="login" class="form-control">
-                    <option value="">All customers</option>
-                    <option value="enabled"  <?= ($filters['login'] ?? '') === 'enabled'  ? 'selected' : '' ?>>Can sign in</option>
-                    <option value="disabled" <?= ($filters['login'] ?? '') === 'disabled' ? 'selected' : '' ?>>No login access</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn--primary btn--sm"><i class="bi bi-search"></i> Filter</button>
-        </form>
+
+<?php require VIEWS_PATH . '/components/ui/list_toolbar.php'; ?>
+
+<?php if ($applied): ?>
+    <div class="filter-chips">
+        <span class="filter-chips__label">Filtered by</span>
+        <?php foreach ($applied as $key => $value): ?>
+            <?php [$label, $format] = $chipLabels[$key]; ?>
+            <span class="filter-chip">
+                <span class="filter-chip__key"><?= sanitize($label) ?>:</span>
+                <?= sanitize((string) $format($value)) ?>
+                <a class="filter-chip__x" href="<?= sanitize($without($key)) ?>"
+                   aria-label="Remove the <?= sanitize(strtolower($label)) ?> filter">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </a>
+            </span>
+        <?php endforeach ?>
+        <a href="<?= $listUrl ?>" class="btn btn--ghost btn--sm">Clear all</a>
     </div>
-</div>
-<div class="card">
-    <div class="card__header"><h3 class="card__title"><?= $totalCount ?> Customers</h3></div>
-    <div class="card__body" style="padding:0">
-        <?php if (empty($customers)): ?>
-            <div class="empty-state">
-                <div class="empty-state__icon"><i class="bi bi-people"></i></div>
-                <div class="empty-state__title">No customers found</div>
-                <button type="button" class="btn btn--primary btn--sm" data-modal-open="customerCreateModal" style="margin-top:14px">
-                    <i class="bi bi-person-plus"></i> Add Customer
-                </button>
+<?php endif ?>
+
+<div class="table-card">
+    <?php if (empty($customers)): ?>
+        <?= uiEmptyState([
+            'icon'     => 'bi-people',
+            'filtered' => (bool) $applied,
+            'title'    => $applied ? 'No customers match these filters' : 'No customers yet',
+            'desc'     => $applied
+                ? 'Nothing in the register matches what you have selected.'
+                : 'Add your first tenant or buyer to start recording leases and payments.',
+            'clearUrl' => $listUrl,
+            'actions'  => [[
+                'label' => 'Add Customer', 'icon' => 'bi-person-plus', 'can' => 'customers.create',
+                'url'   => $listUrl . '&action=create',
+                'attrs' => ['data-modal-open' => 'customerCreateModal'],
+            ]],
+        ]) ?>
+    <?php else: ?>
+        <div class="table-head">
+            <div class="table-head__title">
+                <?= number_format($totalCount) ?> <?= $totalCount === 1 ? 'customer' : 'customers' ?>
+                <?php if ($applied): ?><span class="table-head__count">matching</span><?php endif ?>
             </div>
-        <?php else: ?>
+        </div>
+
         <div class="table-wrap">
             <table class="table">
-                <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Type</th><th>Risk</th><th>Login Access</th><th>Actions</th></tr></thead>
+                <thead>
+                    <tr>
+                        <?= uiSortHeader('Customer', ['asc' => 'name_asc', 'desc' => 'name_desc']) ?>
+                        <th>Contact</th>
+                        <?= uiSortHeader('Type', ['asc' => 'type_asc', 'desc' => 'type_desc']) ?>
+                        <?= uiSortHeader('Risk', ['desc' => 'risk_desc', 'asc' => 'risk_asc']) ?>
+                        <th>Portal access</th>
+                        <th class="cell-actions"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
                 <tbody>
-                <?php foreach ($customers as $c): ?>
-                <tr>
-                    <td><a href="<?= APP_URL ?>/index.php?page=customers&action=show&id=<?= $c['id'] ?>"><strong><?= sanitize($c['full_name']) ?></strong></a>
-                        <?php if ($c['is_blacklisted']): ?><span class="badge badge--danger" style="margin-left:6px">Blacklisted</span><?php endif; ?>
-                    </td>
-                    <td><?= sanitize($c['phone']) ?></td>
-                    <td><?= sanitize($c['email'] ?: '—') ?></td>
-                    <td><?= ucfirst($c['customer_type']) ?></td>
-                    <td><span class="badge badge--<?= $c['risk_level'] === 'high' ? 'danger' : ($c['risk_level'] === 'medium' ? 'warning' : 'success') ?>"><?= ucfirst($c['risk_level']) ?></span></td>
-                    <td>
-                        <?php /* Read from the linked account itself, so this column
-                                 and the Users page can never disagree. */ ?>
-                        <?php if (!$c['account_id']): ?>
-                            <span class="badge badge--muted" title="Business record only — no account">No account</span>
-                        <?php elseif ($c['account_active']): ?>
-                            <span class="badge badge--success">Enabled</span>
-                            <div class="text-subtle" style="font-size:.72rem"><?= sanitize($c['account_email']) ?></div>
-                        <?php else: ?>
-                            <span class="badge badge--warning">Disabled</span>
-                            <div class="text-subtle" style="font-size:.72rem"><?= sanitize($c['account_email']) ?></div>
-                        <?php endif ?>
-                    </td>
-                    <td>
-                        <a href="<?= APP_URL ?>/index.php?page=customers&action=show&id=<?= $c['id'] ?>" class="btn btn--outline btn--sm"><i class="bi bi-eye"></i></a>
-                        <a href="<?= APP_URL ?>/index.php?page=customers&action=edit&id=<?= $c['id'] ?>" class="btn btn--outline btn--sm"><i class="bi bi-pencil"></i></a>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
+                    <?php foreach ($customers as $c): ?>
+                        <tr>
+                            <td>
+                                <?= uiPersonCell(
+                                    $c['full_name'],
+                                    $c['avatar'] ?? null,
+                                    $c['national_id'] ? 'ID ' . $c['national_id'] : '',
+                                    $showUrl((int) $c['id'])
+                                ) ?>
+                                <?php if ($c['is_blacklisted']): ?>
+                                    <?= uiStatus('rejected', 'Blacklisted') ?>
+                                <?php endif ?>
+                            </td>
+                            <td>
+                                <div><?= sanitize($c['phone'] ?: '—') ?></div>
+                                <?php if (!empty($c['email'])): ?>
+                                    <div class="person__meta"><?= sanitize($c['email']) ?></div>
+                                <?php endif ?>
+                            </td>
+                            <td><?= sanitize(uiLabel((string) $c['customer_type'])) ?></td>
+                            <td>
+                                <?php /* Risk is its own vocabulary, so it is mapped onto the
+                                         shared status tones rather than given a private set. */ ?>
+                                <?= uiStatus(
+                                    ['high' => 'overdue', 'medium' => 'pending'][$c['risk_level']] ?? 'active',
+                                    uiLabel((string) $c['risk_level']) . ' risk'
+                                ) ?>
+                            </td>
+                            <td>
+                                <?php /* Read from the linked account itself, so this column
+                                         and the Users page can never disagree. */ ?>
+                                <?php if (!$c['account_id']): ?>
+                                    <span class="text-subtle" title="Business record only — no account">No account</span>
+                                <?php else: ?>
+                                    <?= uiStatus($c['account_active'] ? 'active' : 'inactive',
+                                                 $c['account_active'] ? 'Enabled' : 'Disabled') ?>
+                                    <div class="person__meta"><?= sanitize($c['account_email']) ?></div>
+                                <?php endif ?>
+                            </td>
+                            <td class="cell-actions">
+                                <?= uiRowActions([
+                                    ['label' => 'View profile', 'icon' => 'bi-eye', 'can' => 'customers.show',
+                                     'url' => $showUrl((int) $c['id'])],
+                                    ['label' => 'Edit', 'icon' => 'bi-pencil', 'can' => 'customers.edit',
+                                     'url' => $listUrl . '&action=edit&id=' . (int) $c['id']],
+                                    /* Both go by POST with a CSRF token: they change state, and a
+                                       state-changing link is one a prefetcher or a crawler can fire.
+                                       blacklist() only acts on POST in any case — before this menu
+                                       existed there was no control anywhere that reached it. */
+                                    ...($c['is_blacklisted'] ? [[
+                                        'label' => 'Remove from blacklist', 'icon' => 'bi-check2-circle',
+                                        'can' => 'customers.unlist', 'method' => 'post',
+                                        'url' => $listUrl . '&action=unlist&id=' . (int) $c['id'],
+                                        'confirm' => ['title' => 'Remove from the blacklist?', 'tone' => 'info',
+                                                      'action' => 'Remove', 'record' => $c['full_name'],
+                                                      'body' => 'They can be given new leases and reservations again.'],
+                                    ]] : [[
+                                        'label' => 'Blacklist', 'icon' => 'bi-slash-circle',
+                                        'can' => 'customers.blacklist', 'danger' => true, 'method' => 'post',
+                                        'url' => $listUrl . '&action=blacklist&id=' . (int) $c['id'],
+                                        'confirm' => ['title' => 'Blacklist this customer?',
+                                                      'action' => 'Blacklist', 'record' => $c['full_name'],
+                                                      'body' => 'They are flagged across the system and blocked from new leases and reservations. Existing leases, payments and documents are kept.'],
+                                    ]]),
+                                ]) ?>
+                            </td>
+                        </tr>
+                    <?php endforeach ?>
                 </tbody>
             </table>
         </div>
+
         <?php if ($totalPages > 1): ?>
-        <div class="card__footer" style="display:flex;justify-content:center;gap:6px">
-            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-            <a href="<?= APP_URL ?>/index.php?page=customers&p=<?= $i ?>" class="btn btn--sm <?= $i === $page ? 'btn--primary' : 'btn--outline' ?>"><?= $i ?></a>
-            <?php endfor; ?>
-        </div>
-        <?php endif; endif; ?>
-    </div>
+            <div class="table-foot">
+                <span class="table-foot__note">Page <?= $page ?> of <?= $totalPages ?></span>
+                <?php require VIEWS_PATH . '/components/pagination.php'; ?>
+            </div>
+        <?php endif ?>
+    <?php endif ?>
 </div>
 
 <?php require __DIR__ . '/_create_modal.php'; ?>
