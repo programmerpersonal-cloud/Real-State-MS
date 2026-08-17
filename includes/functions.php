@@ -485,6 +485,85 @@ function getStatusBadgeClass(string $status): string
 }
 
 /**
+ * Badge tone → the design token that paints it.
+ *
+ * getStatusBadgeClass() says which tone a status wears; this says what that
+ * tone actually is, so anything drawing a status outside a badge — a ring
+ * segment, a legend dot, a chart series — can be the same colour as the badge
+ * by asking rather than by keeping its own copy of the palette.
+ */
+function statusToneVar(string $status): string
+{
+    $tone = substr(getStatusBadgeClass($status), strlen('badge--'));
+
+    return [
+        'success' => '--success', 'warning' => '--warning', 'danger' => '--danger',
+        'info'    => '--info',    'primary' => '--primary', 'purple' => '--purple',
+        'orange'  => '--orange',  'muted'   => '--text-subtle',
+    ][$tone] ?? '--text-subtle';
+}
+
+/**
+ * The live portfolio broken down by listing status.
+ *
+ * Archived listings are left out: they are kept for the record rather than
+ * managed, so counting them would answer a different question than the one
+ * "where do our properties stand today?" asks.
+ *
+ * Statuses are returned in the enum's own order, which runs roughly from
+ * "on the market" to "off it", and an empty status is omitted — a nought is
+ * not worth a row or a slice. A status the column gains later still appears,
+ * named from the value itself.
+ *
+ * @return list<array{status:string,label:string,count:int,var:string,pct:float}>
+ */
+function propertyStatusBreakdown(): array
+{
+    $labels = [
+        'available'   => 'Available',
+        'reserved'    => 'Reserved',
+        'rented'      => 'Rented',
+        'sold'        => 'Sold',
+        'maintenance' => 'Under Maintenance',
+        'inactive'    => 'Inactive',
+    ];
+
+    try {
+        $rows = getDBConnection()
+            ->query("SELECT status, COUNT(*) AS c FROM properties WHERE is_archived = 0 GROUP BY status")
+            ->fetchAll();
+    } catch (PDOException $e) {
+        // The topbar asks for this on every page; a database hiccup should
+        // cost the widget, not the whole shell around it.
+        return [];
+    }
+
+    $counts = [];
+    foreach ($rows as $r) {
+        $counts[(string) $r['status']] = (int) $r['c'];
+    }
+    foreach (array_keys($counts) as $st) {
+        $labels[$st] ??= ucfirst(str_replace('_', ' ', $st));
+    }
+
+    $total = array_sum($counts);
+    if ($total === 0) return [];
+
+    $out = [];
+    foreach ($labels as $status => $label) {
+        if (empty($counts[$status])) continue;
+        $out[] = [
+            'status' => $status,
+            'label'  => $label,
+            'count'  => $counts[$status],
+            'var'    => statusToneVar($status),
+            'pct'    => $counts[$status] / $total * 100,
+        ];
+    }
+    return $out;
+}
+
+/**
  * Human-readable file size: 1536 becomes "1.5 KB".
  *
  * Sizes are stored in bytes so they stay exact; formatting happens here so

@@ -88,14 +88,35 @@
   --text-muted: #5f6b7e;  /* secondary/meta         6.0:1 */
   --text-subtle: #6b7688; /* tertiary, still AA     5.1:1 */
 
-  /* Sidebar (admin shell) */
-  --sidebar-bg: #ffffff;
-  --sidebar-border: #e4eaee;
-  --sidebar-text: #4c566a;
-  --sidebar-text-strong: #1d3340;
-  --sidebar-active-bg: #eef3f6;
-  --sidebar-active-text: #1d3340;
-  --sidebar-width: 268px;
+  /* Sidebar (admin shell) — deep navy rail
+     The rail is the one dark surface in a light product. That is deliberate:
+     it separates "where you are in the system" from "what you are looking
+     at", so the white content column reads as the whole page rather than a
+     panel floating inside a frame.
+
+     Every value below is measured against --sidebar-bg, because a dark
+     surface fails quietly — grey that is comfortable on white disappears
+     here. Resting labels 8.6:1, section headings and meta 5.3:1, and the
+     active row is a solid brand fill (white on --primary is 4.9:1) rather
+     than a tint, which has nowhere near enough separation on navy. */
+  /* A true navy rather than the teal-leaning ink used elsewhere. It is the
+     bluest this can go and still clear every threshold: pushing further
+     toward #152a45 drops the active pill's edge to 2.97:1 against the rail,
+     under the 3:1 a filled control needs to read as a distinct surface. */
+  --sidebar-bg: #14263d;
+  --sidebar-bg-soft: rgba(255,255,255,.055);   /* profile card, search field */
+  --sidebar-border: rgba(255,255,255,.09);
+  --sidebar-border-strong: rgba(255,255,255,.16);
+  --sidebar-text: #a9c0d0;        /* resting nav label        8.1:1 */
+  --sidebar-text-strong: #ffffff; /* brand, active, profile  15.3:1 */
+  --sidebar-muted: #7d97a9;       /* headings, meta, kbd      5.0:1 */
+  --sidebar-active-bg: var(--primary);
+  --sidebar-active-text: #ffffff;
+  --sidebar-hover-bg: rgba(255,255,255,.07);
+  /* One column width for the icon box, so every label starts on the same
+     x regardless of how wide each glyph happens to draw. */
+  --sidebar-icon-col: 20px;
+  --sidebar-width: 248px;
 
   /* ── Status ────────────────────────────────────────────
      Kept semantic: green still means available/paid, never brand. */
@@ -136,11 +157,14 @@
   --gutter: 24px;
 
   /* ── Elevation ─────────────────────────────────────────
-     Deliberately faint. Depth comes from borders + imagery. */
-  --shadow-xs: 0 1px 2px rgba(29,51,64,.04);
-  --shadow-sm: 0 1px 3px rgba(29,51,64,.06);
-  --shadow-md: 0 4px 12px rgba(29,51,64,.07);
-  --shadow-lg: 0 12px 32px rgba(29,51,64,.10);
+     Deliberately faint. Depth comes from borders + imagery.
+     Two-layer from --sm upward: a tight contact shadow keeps the card
+     anchored to the page while the wider, softer layer does the lifting,
+     which is what stops a raised card looking like it is floating free. */
+  --shadow-xs: 0 1px 2px rgba(29,51,64,.05);
+  --shadow-sm: 0 1px 2px rgba(29,51,64,.05), 0 2px 6px -2px rgba(29,51,64,.06);
+  --shadow-md: 0 2px 4px -2px rgba(29,51,64,.06), 0 8px 20px -6px rgba(29,51,64,.11);
+  --shadow-lg: 0 4px 10px -4px rgba(29,51,64,.07), 0 16px 38px -10px rgba(29,51,64,.15);
   --shadow-xl: 0 20px 48px rgba(29,51,64,.14);
   --ring: 0 0 0 3px var(--primary-ring);
 
@@ -149,7 +173,11 @@
   --transition-slow: 320ms cubic-bezier(.4,0,.2,1);
   --ease-out: cubic-bezier(.16,1,.3,1);
 
-  --header-height: 64px;
+  /* Drives both the admin topbar and the sidebar's brand row, so the two
+     stay on one line across the top of the shell. Every pixel here is one
+     the dashboard does not get, so it is kept to what the 38px controls
+     inside it actually need. */
+  --header-height: 62px;
   --navbar-height: 72px;
 }
 
@@ -199,143 +227,442 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 }
 .on-ink :focus-visible,.section--dark :focus-visible{outline-color:#fff}
 
-/* ─── Layout shell ──────────────────────────────────────── */
-.app{display:flex;min-height:100vh;background:var(--bg)}
+/* ─── Layout shell ──────────────────────────────────────────
+   Three parts, and only one of them is allowed to grow: the rail is fixed
+   to the viewport, the topbar and footer are sized by their contents, and
+   .app__content takes whatever is left. That is what keeps the footer at
+   the foot of a short page without pinning it there — it is pushed down by
+   a flexible content row rather than held up by a hard-coded height.
+
+   min-height is doubled up on purpose: 100vh is the honest fallback, and
+   100dvh corrects it on mobile browsers where the address bar makes the
+   visual viewport shorter than 100vh claims. */
+.app{display:flex;min-height:100vh;min-height:100dvh;background:var(--bg)}
 .app__sidebar{
   position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-width);
   background:var(--sidebar-bg);
   border-right:1px solid var(--sidebar-border);
   z-index:100;display:flex;flex-direction:column;
   transition:transform .25s ease;
+  /* Declared for the rail's own sake: the browser paints the scrollbar and
+     any native affordance inside it, and the page-level `color-scheme:light`
+     would otherwise hand this dark column a light scrollbar. */
+  color-scheme:dark;
 }
 .app__main{margin-left:var(--sidebar-width);flex:1;min-width:0;display:flex;flex-direction:column}
 .app__header{
-  position:sticky;top:0;z-index:90;background:rgba(255,255,255,.85);
-  backdrop-filter:saturate(180%) blur(8px);-webkit-backdrop-filter:saturate(180%) blur(8px);
+  position:sticky;top:0;z-index:90;background:rgba(255,255,255,.88);
+  backdrop-filter:saturate(180%) blur(10px);-webkit-backdrop-filter:saturate(180%) blur(10px);
   border-bottom:1px solid var(--border);
-  height:var(--header-height);display:flex;align-items:center;padding:0 28px;
+  height:var(--header-height);display:flex;align-items:center;padding:0 28px;gap:16px;
 }
-.app__content{padding:24px 28px 40px;flex:1}
+/* min-width:0 so a wide table inside can shrink instead of stretching the
+   column; flex:1 is what pushes the footer down on a short page. */
+.app__content{padding:14px 24px 24px;flex:1;min-width:0}
 .app__footer{
-  padding:16px 28px;text-align:center;font-size:.78rem;color:var(--text-subtle);
+  padding:11px 24px;text-align:center;font-size:.76rem;color:var(--text-subtle);
   border-top:1px solid var(--border);background:var(--surface);
 }
 
 /* ─── Sidebar ───────────────────────────────────────────── */
+/* The brand sits in its own banded row so the rail reads as three parts —
+   identity, who you are, where you can go — rather than one long list that
+   happens to start with a logo. */
+/* No divider under the brand: the reference reads as one continuous rail,
+   and a rule here chops the identity off from the menu it belongs to. Its
+   height still tracks the topbar so the two line up across the shell. */
+/* The gap under the brand is small on purpose: the menu now starts here, and
+   the section's own top padding already separates the two. Its height still
+   tracks the topbar so the brand and the breadcrumb sit on one line across
+   the shell. */
 .sidebar__brand{
-  padding:18px 20px 14px;display:flex;align-items:center;gap:10px;
+  padding:0 14px;height:var(--header-height);flex-shrink:0;
+  display:flex;align-items:center;gap:10px;min-width:0;
+  margin-bottom:4px;
 }
+/* The company name is user-supplied and can be any length — it ellipses
+   rather than pushing the rail's contents out of alignment. */
+.sidebar__brand > div:last-child{min-width:0}
+.sidebar__title,.sidebar__subtitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sidebar__logo{
-  width:34px;height:34px;background:linear-gradient(135deg,var(--primary) 0%,#2b9fe0 100%);
-  border-radius:9px;display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;background:linear-gradient(135deg,var(--primary) 0%,#3aa8e6 100%);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
   font-weight:700;color:#fff;font-size:1rem;
-  box-shadow:0 2px 6px rgba(0,117,192,.28);
+  box-shadow:0 4px 12px rgba(0,117,192,.42);
   overflow:hidden;flex-shrink:0;
 }
 /* An uploaded logo replaces the gradient tile — the brand gradient behind a
-   logo of unknown colour reads as a mistake. */
-.sidebar__logo--image{background:var(--surface);border:1px solid var(--border);box-shadow:none;padding:3px}
+   logo of unknown colour reads as a mistake. The white plate stays: a mark
+   drawn for light backgrounds would otherwise vanish into the navy. */
+.sidebar__logo--image{background:#fff;border:1px solid var(--sidebar-border);box-shadow:none;padding:3px}
 .sidebar__logo img{width:100%;height:100%;object-fit:contain}
-.sidebar__title{font-size:.98rem;font-weight:700;color:var(--sidebar-text-strong);letter-spacing:-.2px;line-height:1.1}
-.sidebar__subtitle{font-size:.66rem;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.6px;margin-top:2px;font-weight:600}
+.sidebar__title{font-size:1rem;font-weight:700;color:var(--sidebar-text-strong);letter-spacing:-.2px;line-height:1.15}
+.sidebar__subtitle{font-size:.64rem;color:var(--sidebar-muted);text-transform:uppercase;letter-spacing:.9px;margin-top:3px;font-weight:600}
 
-.sidebar__profile{
-  margin:0 12px 10px;padding:10px 12px;display:flex;align-items:center;gap:10px;
-  border-radius:var(--radius-sm);transition:background var(--transition);cursor:pointer;
-  border:1px solid var(--border);
-}
-.sidebar__profile:hover{background:var(--surface-3)}
-.sidebar__profile-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--surface-3)}
-.sidebar__profile-info{flex:1;min-width:0}
-.sidebar__profile-name{font-size:.84rem;font-weight:600;color:var(--sidebar-text-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sidebar__profile-email{font-size:.72rem;color:var(--text-subtle);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sidebar__profile-chevron{color:var(--text-subtle);font-size:.7rem}
+/* flex:1 + min-height:0 is what confines the scroll to the menu itself: the
+   rail never grows past the viewport, so the brand stays at the top and the
+   account at the bottom while only the list in between moves. It scrolls
+   only when the menu is genuinely taller than the space left for it.
 
-.sidebar__search{position:relative;margin:0 12px 14px}
-.sidebar__search-input{
-  width:100%;padding:9px 56px 9px 34px;
-  font-size:.84rem;color:var(--text);
-  background:var(--surface);
-  border:1px solid var(--border);border-radius:var(--radius-sm);
-  transition:all var(--transition);
-}
-.sidebar__search-input::placeholder{color:var(--text-subtle)}
-.sidebar__search-input:focus{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
-.sidebar__search i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-subtle);font-size:.9rem}
-.sidebar__search-kbd{
-  position:absolute;right:8px;top:50%;transform:translateY(-50%);
-  font-size:.66rem;color:var(--text-subtle);background:var(--surface-3);
-  border:1px solid var(--border);border-radius:var(--radius-xs);
-  padding:2px 6px;font-weight:600;letter-spacing:.4px;
-}
+   The bottom padding is the gap between the last row and the account block,
+   and it belongs to the scrolling area rather than to the footer so that it
+   survives the scroll: a margin on the footer would leave the final item
+   butted against the divider the moment the menu overflows.
 
-.sidebar__nav{flex:1;padding:4px 12px 16px;overflow-y:auto}
-.sidebar__nav::-webkit-scrollbar{width:6px}
-.sidebar__nav::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
-.sidebar__section{margin-bottom:14px}
+   The scrollbar is kept faint at rest and only firms up while the pointer is
+   in the menu — on a rail this dark a bright track reads as a piece of
+   chrome sitting on top of the navigation. */
+.sidebar__nav{
+  flex:1;min-height:0;padding:0 10px 14px;overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent;
+}
+.sidebar__nav:hover{scrollbar-color:rgba(255,255,255,.26) transparent}
+.sidebar__nav::-webkit-scrollbar{width:5px}
+.sidebar__nav::-webkit-scrollbar-track{background:transparent}
+.sidebar__nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;transition:background var(--transition)}
+.sidebar__nav:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.26)}
+
+/* Density is deliberate, and it is the whole reason the account moved out of
+   the top of the rail: an admin sees 20 destinations under 6 headings, and a
+   row that has to be scrolled to is a row that might as well not be there.
+   26 rows into the ~870px a rail has left over is a hard budget of ~33px
+   each, which is what sets the numbers below — the full admin menu then
+   stands without scrolling from roughly 910px of viewport height up, and
+   every lighter role fits from 800px.
+
+   30px rows are dense, not cramped: this is a desktop rail, where the
+   pointer-target minimum is 24px, and the icon column and label keep their
+   own sizes so only the dead space between rows is spent. On a phone it is
+   a drawer, and a drawer is expected to scroll. */
+.sidebar__section{margin-bottom:4px}
+.sidebar__section:last-child{margin-bottom:0}
 .sidebar__label{
-  font-size:.66rem;text-transform:uppercase;letter-spacing:.9px;
-  color:var(--text-subtle);padding:8px 12px 6px;font-weight:600;
+  font-size:.615rem;text-transform:uppercase;letter-spacing:1.15px;line-height:1.2;
+  color:var(--sidebar-muted);padding:6px 10px 2px;font-weight:700;
 }
+.sidebar__section:first-child .sidebar__label{padding-top:2px}
+
+/* One row shape for every item: a fixed icon column, a fixed gap, and a
+   fixed min-height, so labels start on the same x and rows keep the same
+   rhythm whether the text wraps or not. */
 .sidebar__link{
-  display:flex;align-items:center;gap:11px;padding:8px 12px;
-  border-radius:var(--radius-sm);
-  color:var(--sidebar-text);font-size:.86rem;font-weight:500;
-  transition:all var(--transition);margin-bottom:1px;position:relative;
+  display:flex;align-items:center;gap:11px;padding:5px 10px;min-height:30px;
+  border-radius:var(--radius);
+  color:var(--sidebar-text);font-size:.83rem;font-weight:500;line-height:1.3;
+  transition:background var(--transition),color var(--transition),transform var(--transition);
+  margin-bottom:1px;position:relative;
 }
-.sidebar__link i{font-size:1.05rem;width:18px;text-align:center;color:var(--text-subtle)}
-.sidebar__link:hover{background:var(--surface-3);color:var(--sidebar-text-strong)}
+.sidebar__link i{
+  font-size:1rem;width:var(--sidebar-icon-col);flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--sidebar-muted);
+  transition:color var(--transition);
+}
+/* The whole row slides as one unit. The glyph is deliberately not scaled on
+   top of that — two transforms compounding is what makes an icon look like
+   it jumps out of its column while the label stays put. */
+.sidebar__link:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text-strong);transform:translateX(2px)}
 .sidebar__link:hover i{color:var(--sidebar-text-strong)}
-.sidebar__link--active{
+/* Active is a solid brand fill, not a tint: on navy a tinted row is barely
+   a shade off its neighbours, and the eye has to hunt for where it is. It
+   also stays put on hover — the current page is not going anywhere. */
+.sidebar__link--active,
+.sidebar__link--active:hover{
   background:var(--sidebar-active-bg);
   color:var(--sidebar-active-text);font-weight:600;
+  box-shadow:0 2px 8px rgba(0,117,192,.28);
+  transform:none;
 }
-.sidebar__link--active i{color:var(--text)}
-.sidebar__link .chev{margin-left:auto;font-size:.7rem;color:var(--text-subtle)}
+.sidebar__link--active i,
+.sidebar__link--active:hover i{color:var(--sidebar-active-text)}
+.sidebar__link .chev{margin-left:auto;font-size:.7rem;color:var(--sidebar-muted)}
+.sidebar__link:focus-visible{outline:2px solid #fff;outline-offset:-2px}
 
-.sidebar__footer{padding:12px 20px;border-top:1px solid var(--sidebar-border);display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--text-subtle)}
+/* ─── Rail footer: the signed-in account ──────────────────
+   Opaque and outside the scroll box, so the menu passes behind the divider
+   rather than under a translucent panel — a half-visible nav row peeking
+   through the account block is the thing that makes a rail look unfinished. */
+.sidebar__footer{
+  flex-shrink:0;padding:8px 10px 10px;
+  border-top:1px solid var(--sidebar-border);
+  background:var(--sidebar-bg);
+}
+/* Deliberately the same card shape as a nav row's hover state rather than a
+   louder one: it is the same rail, and the account is a destination like any
+   other — the chevron, not the styling, is what says it leads somewhere. */
+.sidebar__account{
+  display:flex;align-items:center;gap:10px;min-width:0;
+  padding:8px 9px;border-radius:var(--radius);
+  border:1px solid var(--sidebar-border);background:var(--sidebar-bg-soft);
+  transition:background var(--transition),border-color var(--transition);
+}
+.sidebar__account:hover{
+  background:var(--sidebar-hover-bg);border-color:var(--sidebar-border-strong);
+}
+.sidebar__account:hover .sidebar__account-chevron{
+  color:var(--sidebar-text-strong);transform:translateX(2px);
+}
+.sidebar__account:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+.sidebar__account-avatar{
+  width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  background:var(--sidebar-hover-bg);box-shadow:0 0 0 2px var(--sidebar-border-strong);
+}
+/* min-width:0 is what lets the two lines ellipse instead of forcing the card
+   wider than the rail — a full name and an email are both unbounded. */
+.sidebar__account-info{flex:1;min-width:0}
+.sidebar__account-name{
+  font-size:.83rem;font-weight:600;line-height:1.3;color:var(--sidebar-text-strong);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sidebar__account-meta{
+  font-size:.71rem;line-height:1.35;color:var(--sidebar-muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sidebar__account-chevron{
+  flex-shrink:0;font-size:.7rem;color:var(--sidebar-muted);
+  transition:color var(--transition),transform var(--transition);
+}
+
+@media(prefers-reduced-motion:reduce){
+  .sidebar__link,.sidebar__link i{transition:none}
+  .sidebar__link:hover,.sidebar__link:hover i{transform:none}
+  .sidebar__account,.sidebar__account-chevron{transition:none}
+  .sidebar__account:hover .sidebar__account-chevron{transform:none}
+}
 
 /* ─── Header / Topbar ───────────────────────────────────── */
 .header__left{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
-.header__toggle{display:none;background:transparent;border:none;font-size:1.3rem;color:var(--text);padding:6px;border-radius:var(--radius-xs)}
-.header__toggle:hover{background:var(--surface-3)}
-.header__breadcrumb{display:flex;align-items:center;gap:8px;font-size:.84rem;color:var(--text-muted);min-width:0;overflow:hidden}
-.header__breadcrumb a{color:var(--text-muted);display:inline-flex;align-items:center;gap:6px}
-.header__breadcrumb a:hover{color:var(--text)}
-.header__breadcrumb span{color:var(--text);font-weight:500}
-.header__breadcrumb i.sep{font-size:.6rem;color:var(--text-subtle)}
+.header__toggle{
+  display:none;background:transparent;border:1px solid transparent;font-size:1.25rem;
+  color:var(--text);width:40px;height:40px;align-items:center;justify-content:center;
+  border-radius:var(--radius);transition:background var(--transition),border-color var(--transition);
+}
+.header__toggle:hover{background:var(--surface-3);border-color:var(--border)}
+.header__breadcrumb{display:flex;align-items:center;gap:9px;font-size:.84rem;color:var(--text-muted);min-width:0;overflow:hidden;flex-wrap:nowrap}
+.header__breadcrumb a{color:var(--text-muted);display:inline-flex;align-items:center;gap:6px;transition:color var(--transition);flex-shrink:0}
+.header__breadcrumb a:hover{color:var(--primary)}
+.header__breadcrumb span{color:var(--text);font-weight:600}
+.header__breadcrumb i.sep{font-size:.58rem;color:var(--border-strong);flex-shrink:0}
+/* The trail is the one thing here that can be any length, so it is the one
+   thing allowed to shrink — and it ellipses rather than being sliced off
+   mid-word by the parent's overflow. */
+.header__breadcrumb > span:last-child{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* ─── Header search ─────────────────────────────────────────
+   The one control in the topbar that is a field rather than a chip, so it is
+   the one thing given a resting fill: at 380px it reads as an input without
+   having to be outlined heavily, and it shrinks before the account cluster
+   does because a search box narrowed to 260px still works and a clipped
+   avatar does not. */
+.header__search{position:relative;flex:0 1 380px;min-width:0}
+.header__search-input{
+  width:100%;height:38px;padding:0 78px 0 38px;
+  font-family:inherit;font-size:.83rem;color:var(--text);
+  background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius-pill);
+  transition:background var(--transition),border-color var(--transition),box-shadow var(--transition);
+}
+.header__search-input::placeholder{color:var(--text-subtle)}
+.header__search-input:hover{background:var(--surface);border-color:var(--border-strong)}
+.header__search-input:focus{
+  outline:none;background:var(--surface);
+  border-color:var(--primary);box-shadow:var(--ring);
+}
+.header__search-icon{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  font-size:.9rem;color:var(--text-subtle);pointer-events:none;
+  transition:color var(--transition);
+}
+.header__search:focus-within .header__search-icon{color:var(--primary)}
+/* Advertised, not decorative — the shortcut it names is bound in main.js.
+   It steps aside for the clear button the moment there is a query to clear. */
+.header__search-kbd{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font-family:var(--font);font-size:.66rem;font-weight:600;letter-spacing:.4px;
+  color:var(--text-subtle);background:var(--surface-3);
+  border:1px solid var(--border);border-radius:var(--radius-xs);
+  padding:3px 7px;pointer-events:none;
+}
+.header__search-clear{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;border-radius:50%;cursor:pointer;
+  color:var(--text-subtle);font-size:.72rem;
+  transition:background var(--transition),color var(--transition);
+}
+.header__search-clear:hover{background:var(--surface-3);color:var(--text)}
+
+/* The listbox. Header content and footer hints stay put while only the
+   results scroll, so the "Enter to open" legend cannot scroll out of reach
+   on a long list. */
+.header__search-panel{
+  position:absolute;top:calc(100% + 8px);left:0;right:0;
+  display:flex;flex-direction:column;min-width:300px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
+  z-index:200;overflow:hidden;
+  animation:dropdownIn 160ms var(--ease-out);
+}
+.header__search-panel[hidden]{display:none}
+.gs-list{
+  padding:6px;overflow-y:auto;overscroll-behavior:contain;
+  max-height:min(58vh,420px);
+  scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+}
+.gs-group__label{
+  font-size:.62rem;text-transform:uppercase;letter-spacing:1.1px;font-weight:700;
+  color:var(--text-subtle);padding:9px 10px 5px;
+}
+.gs-group:first-child .gs-group__label{padding-top:5px}
+
+/* One active row, driven by JS, whether it was reached by arrow key or by
+   pointer — a separate :hover style would let the mouse light up one row
+   while Enter opened another. */
+.gs-item{
+  display:flex;align-items:center;gap:11px;padding:7px 10px;min-height:44px;
+  border-radius:var(--radius-sm);color:var(--text);font-size:.855rem;
+  transition:background var(--transition);
+}
+.gs-item__icon{
+  width:30px;height:30px;flex-shrink:0;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-3);color:var(--text-muted);font-size:.95rem;
+  transition:background var(--transition),color var(--transition);
+}
+.gs-item__label{
+  flex:1;min-width:0;font-weight:500;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+/* The matched run is marked by weight and colour, not a highlighter block —
+   a yellow band inside a result row fights the active state for attention. */
+.gs-item__label mark{background:transparent;color:var(--primary-ink);font-weight:700}
+.gs-item__enter{font-size:.8rem;color:var(--primary);opacity:0;transition:opacity var(--transition)}
+.gs-item__here{
+  font-size:.64rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--primary);background:var(--primary-light);
+  border-radius:var(--radius-pill);padding:2px 8px;flex-shrink:0;
+}
+.gs-item.is-active{background:var(--primary-tint)}
+.gs-item.is-active .gs-item__icon{background:var(--primary-light);color:var(--primary)}
+.gs-item.is-active .gs-item__enter{opacity:1}
+
+/* A dead end is a bad answer: name what was searched for and hand back a
+   query that does return something. */
+.gs-empty{padding:24px 18px 26px;text-align:center}
+.gs-empty__icon{
+  width:42px;height:42px;margin:0 auto 10px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-3);color:var(--text-subtle);font-size:1.05rem;
+}
+.gs-empty__title{font-size:.86rem;font-weight:600;color:var(--text);word-break:break-word}
+.gs-empty__desc{font-size:.78rem;color:var(--text-muted);margin-top:5px;line-height:1.55}
+.gs-foot{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;
+  padding:8px 12px;border-top:1px solid var(--border);background:var(--surface-2);
+  font-size:.7rem;color:var(--text-subtle);
+}
+.gs-foot span{display:inline-flex;align-items:center;gap:5px}
+.gs-foot kbd{
+  font-family:var(--font);font-size:.66rem;font-weight:600;
+  min-width:18px;text-align:center;padding:1px 5px;
+  color:var(--text-muted);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-xs);
+}
+@media(prefers-reduced-motion:reduce){
+  .header__search-panel{animation:none}
+  .header__search-input,.gs-item,.gs-item__icon,.gs-item__enter{transition:none}
+}
+
+/* The shortcut legend is the first thing to go: on a laptop the field is
+   still wide enough to type in, and a pointer user has never needed it. */
+@media (max-width:1180px){
+  .header__search{flex:0 1 300px}
+  .header__search-input{padding-right:38px}
+  .header__search-kbd{display:none}
+}
+/* Below the tablet break the field folds to its glyph — a 40px circle that
+   matches the other topbar buttons — and unfolds across the bar when focused.
+   Collapsing rather than dropping it matters here: this is the width where
+   the rail becomes a drawer, so search is the fastest way left to reach a
+   module, and it stays one tap away instead of two. */
+@media (max-width:900px){
+  .header__search{flex:0 0 40px;width:40px}
+  .header__search-input{
+    width:40px;height:40px;padding:0;border-radius:50%;
+    color:transparent;cursor:pointer;
+  }
+  .header__search-input::placeholder{color:transparent}
+  .header__search-icon{left:50%;transform:translate(-50%,-50%)}
+
+  /* .is-open is set by main.js alongside the panel. Focus alone would do for
+     the keyboard, but a result reached by pointer takes focus out of the
+     input, and the bar must not fold up underneath the click. */
+  .header__search:focus-within,
+  .header__search.is-open{
+    position:absolute;left:14px;right:14px;top:50%;transform:translateY(-50%);
+    width:auto;z-index:5;
+  }
+  .header__search:focus-within .header__search-input,
+  .header__search.is-open .header__search-input{
+    width:100%;height:40px;padding:0 44px 0 40px;
+    border-radius:var(--radius-pill);color:var(--text);cursor:auto;
+  }
+  .header__search:focus-within .header__search-input::placeholder,
+  .header__search.is-open .header__search-input::placeholder{color:var(--text-subtle)}
+  .header__search:focus-within .header__search-icon,
+  .header__search.is-open .header__search-icon{left:15px;transform:translateY(-50%)}
+  /* The panel takes the width of the unfolded bar rather than the 40px
+     trigger that spawned it — the desktop min-width would overflow the
+     viewport at this size. It is also nudged down to clear the topbar's own
+     edge, so it reads as hanging off the header rather than straddling it. */
+  .header__search-panel{min-width:0;top:calc(100% + 12px)}
+  .gs-list{max-height:min(64vh,380px)}
+}
 
 .header__right{display:flex;align-items:center;gap:6px}
 .header__icon-btn{
-  position:relative;width:36px;height:36px;border-radius:var(--radius-sm);
+  position:relative;width:40px;height:40px;border-radius:var(--radius);
   border:1px solid transparent;background:transparent;color:var(--text-muted);
   font-size:1.05rem;display:flex;align-items:center;justify-content:center;
-  transition:all var(--transition);
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
 }
-.header__icon-btn:hover{background:var(--surface-3);color:var(--text);border-color:var(--border)}
+.header__icon-btn:hover{background:var(--primary-tint);color:var(--primary);border-color:var(--primary-border)}
+.header__icon-btn i{transition:transform var(--transition)}
+.header__icon-btn:hover i{transform:scale(1.1)}
 .header__visit{
-  display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;
+  display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;
   border-radius:var(--radius-pill);border:1px solid var(--border);
-  background:transparent;color:var(--text-muted);
+  background:var(--surface);color:var(--text-muted);
   font-size:.8rem;font-weight:600;text-decoration:none;
-  transition:all var(--transition);
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
 }
-.header__visit:hover{background:var(--surface-3);color:var(--text);border-color:var(--primary)}
+.header__visit:hover{background:var(--primary-tint);color:var(--primary);border-color:var(--primary-border)}
 .header__visit i{font-size:.95rem}
-@media (max-width:560px){.header__visit span{display:none}.header__visit{padding:0;width:36px;justify-content:center}}
+/* Collapses to its glyph well before the phone breakpoint: between the rail
+   and the account chip the topbar runs out of room around 900px, and the
+   breadcrumb is the wrong thing to spend the last of it on. */
+@media (max-width:900px){.header__visit span{display:none}.header__visit{padding:0;width:38px;justify-content:center;flex-shrink:0}}
 .header__badge{
-  position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;
+  position:absolute;top:3px;right:3px;min-width:17px;height:17px;padding:0 4px;
   background:var(--danger);color:#fff;border-radius:999px;
-  font-size:.62rem;font-weight:700;display:flex;align-items:center;justify-content:center;
-  border:2px solid var(--surface);
+  font-size:.62rem;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--surface);font-variant-numeric:tabular-nums;
 }
 
-.header__user{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:var(--radius-pill);cursor:pointer;transition:background var(--transition);margin-left:6px}
-.header__user:hover{background:var(--surface-3)}
-.header__user img{width:30px;height:30px;border-radius:50%;object-fit:cover}
-.header__user-info{text-align:left;line-height:1.15}
+.header__user{
+  display:flex;align-items:center;gap:9px;padding:4px 10px 4px 4px;
+  border-radius:var(--radius-pill);cursor:pointer;margin-left:4px;
+  border:1px solid transparent;
+  transition:background var(--transition),border-color var(--transition);
+}
+.header__user:hover{background:var(--surface-2);border-color:var(--border)}
+.header__user img{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--surface-3)}
+.header__user-info{text-align:left;line-height:1.2}
 .header__user-name{font-size:.82rem;font-weight:600;color:var(--text)}
 .header__user-role{font-size:.7rem;color:var(--text-subtle)}
+@media (max-width:640px){.header__user-info{display:none}}
 
 /* ─── Dropdown ──────────────────────────────────────────── */
 .dropdown{position:relative}
@@ -345,7 +672,9 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
   border-radius:var(--radius);box-shadow:var(--shadow-lg);
   padding:5px;display:none;z-index:200;
 }
-.dropdown__menu.show{display:block}
+.dropdown__menu.show{display:block;animation:dropdownIn 160ms var(--ease-out)}
+@keyframes dropdownIn{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.dropdown__menu.show{animation:none}}
 .dropdown__item{
   display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius-sm);
   font-size:.85rem;color:var(--text);transition:background var(--transition);
@@ -358,9 +687,15 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 .dropdown__item--danger:hover{background:var(--danger-bg)}
 
 /* ─── Page Header ───────────────────────────────────────── */
-.page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:14px}
-.page-header__title{font-family:var(--font-display);font-size:1.6rem;font-weight:700;color:var(--text);letter-spacing:-.02em;line-height:1.2}
-.page-header__subtitle{font-size:.86rem;color:var(--text-muted);margin-top:4px}
+/* Tightened so the first real content on a page — the KPI row on the
+   dashboard, the table on a module page — starts higher up the screen. The
+   title is still comfortably the largest thing on the page (a card title is
+   1.05rem), it just stops claiming a full band of its own before anything
+   useful appears. Shared by every page on purpose: a dashboard whose heading
+   sat at a different size from every other page's would read as a mistake. */
+.page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:12px}
+.page-header__title{font-family:var(--font-display);font-size:1.35rem;font-weight:700;color:var(--text);letter-spacing:-.028em;line-height:1.15}
+.page-header__subtitle{font-size:.82rem;color:var(--text-muted);margin-top:2px;max-width:72ch;line-height:1.4}
 .page-header__breadcrumb{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-muted);margin-bottom:6px}
 .page-header__breadcrumb a{color:var(--text-muted)}
 .page-header__breadcrumb a:hover{color:var(--text)}
@@ -369,67 +704,139 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 
 /* ─── Cards ─────────────────────────────────────────────── */
 .card{
-  background:var(--surface);border-radius:var(--radius);
+  background:var(--surface);border-radius:var(--radius-lg);
   border:1px solid var(--border);box-shadow:var(--shadow-xs);
   transition:box-shadow var(--transition),border-color var(--transition);
 }
-.card:hover{box-shadow:var(--shadow-sm)}
-.card__header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
-.card__title{font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
-.card__subtitle{font-size:.78rem;color:var(--text-muted);margin-top:2px}
-.card__body{padding:20px}
-.card__footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.card:hover{box-shadow:var(--shadow-sm);border-color:var(--border-strong)}
+.card__header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card__title{font-family:var(--font-display);font-size:.98rem;font-weight:700;color:var(--text);letter-spacing:-.015em;line-height:1.3}
+.card__subtitle{font-size:.76rem;color:var(--text-muted);margin-top:2px;line-height:1.35}
+.card__body{padding:16px 18px}
+.card__footer{padding:11px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
 
-/* ─── Stat cards (KPI) — minimal SaaS row ───────────────── */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:22px}
-.stat-card{
-  background:var(--surface);border-radius:var(--radius);
-  border:1px solid var(--border);padding:18px 20px;
-  display:flex;align-items:center;gap:14px;
-  box-shadow:var(--shadow-xs);transition:all var(--transition);
+/* ─── Stat cards (KPI) — minimal SaaS row ─────────────────
+   The row is the first thing read on every dashboard, so it is built to be
+   scanned rather than studied: one tinted glyph carries the subject, the
+   label sits above the number so the eye lands on the figure last, and the
+   whole card holds one height regardless of how long a label wraps. Colour
+   is decoration on top of an already-labelled card, never the only cue. */
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));
+  gap:13px;margin-bottom:16px;
 }
-.stat-card:hover{box-shadow:var(--shadow-sm);border-color:var(--border-strong)}
+/* Quantity queries — the column count is chosen to divide the number of
+   cards present, so the row never ends with a stranded pair beside two
+   empty tracks. The dashboards carry three, four or six figures depending
+   on the role, and auto-fill alone lands 6 in a 4-wide grid as "4 + 2 and a
+   hole". Each rule fires only where its own count fits: four across needs
+   more room than three before the labels start breaking badly. */
+@media(min-width:1024px){
+  .stats:has(.stat-card:nth-child(3):last-child),
+  .stats:has(.stat-card:nth-child(6):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(min-width:1240px){
+  .stats:has(.stat-card:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+.stat-card{
+  position:relative;overflow:hidden;
+  background:var(--surface);border-radius:var(--radius-lg);
+  border:1px solid var(--border);padding:13px 15px;
+  display:flex;align-items:center;gap:12px;min-height:78px;
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition),transform var(--transition);
+}
+/* A hairline of the card's own accent along the top edge. Zero-width at
+   rest so nothing shifts — it grows across on hover. */
+.stat-card::after{
+  content:'';position:absolute;left:0;top:0;height:3px;width:0;
+  background:var(--stat-accent,var(--primary));
+  transition:width var(--transition-slow);
+}
+.stat-card:hover{
+  box-shadow:var(--shadow-md);border-color:var(--border-strong);transform:translateY(-3px);
+}
+.stat-card:hover::after{width:100%}
+.stat-card:hover .stat-card__icon{transform:scale(1.07)}
 .stat-card__icon{
-  width:44px;height:44px;border-radius:10px;
+  width:42px;height:42px;border-radius:11px;
   display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;
   background:var(--surface-3);color:var(--text);
+  transition:transform var(--transition);
 }
-.stat-card__icon--primary{background:var(--primary-light);color:var(--primary)}
+.stat-card__icon--primary{background:var(--primary-light);color:var(--primary-ink)}
 .stat-card__icon--success{background:var(--success-bg);color:var(--success)}
 .stat-card__icon--warning{background:var(--warning-bg);color:var(--warning)}
 .stat-card__icon--danger{background:var(--danger-bg);color:var(--danger)}
 .stat-card__icon--info{background:var(--info-bg);color:var(--info)}
 .stat-card__icon--purple{background:var(--purple-bg);color:var(--purple)}
-.stat-card__body{display:flex;flex-direction:column;min-width:0}
-.stat-card__label{font-size:.78rem;color:var(--text-muted);font-weight:500;order:1}
-.stat-card__value{font-family:var(--font-display);font-size:1.6rem;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:var(--text);order:2;margin-top:2px}
-.stat-card__trend{font-size:.72rem;font-weight:600;margin-top:6px;display:inline-flex;align-items:center;gap:3px;order:3}
+.stat-card__icon--orange{background:var(--orange-bg);color:var(--orange)}
+/* The accent each card paints its top hairline with, taken from the glyph so
+   the two can never drift apart. */
+.stat-card:has(.stat-card__icon--primary){--stat-accent:var(--primary)}
+.stat-card:has(.stat-card__icon--success){--stat-accent:var(--success)}
+.stat-card:has(.stat-card__icon--warning){--stat-accent:var(--warning)}
+.stat-card:has(.stat-card__icon--danger) {--stat-accent:var(--danger)}
+.stat-card:has(.stat-card__icon--info)   {--stat-accent:var(--info)}
+.stat-card:has(.stat-card__icon--purple) {--stat-accent:var(--purple)}
+.stat-card:has(.stat-card__icon--orange) {--stat-accent:var(--orange)}
+.stat-card__body,
+/* Most dashboards wrap the text in a bare <div> rather than .stat-card__body.
+   The label/value ordering below is a flex concern, so on those pages it was
+   doing nothing at all and the card read value-then-label, while the ones
+   using the proper class read label-then-value. Treating an unclassed
+   wrapper as the body makes one component render one way everywhere,
+   without editing six views to say what the markup already means. */
+.stat-card > div:not([class]){display:flex;flex-direction:column;min-width:0}
+.stat-card__label{
+  font-size:.74rem;color:var(--text-muted);font-weight:600;order:1;
+  letter-spacing:.02em;line-height:1.3;
+}
+.stat-card__value{
+  font-family:var(--font-display);font-size:1.6rem;font-weight:700;
+  letter-spacing:-.03em;line-height:1.1;color:var(--text);order:2;margin-top:2px;
+  font-variant-numeric:tabular-nums;
+}
+.stat-card__trend{font-size:.72rem;font-weight:600;margin-top:5px;display:inline-flex;align-items:center;gap:4px;order:3}
 .stat-card__trend--up{color:var(--success)}
 .stat-card__trend--down{color:var(--danger)}
+
+@media(prefers-reduced-motion:reduce){
+  .stat-card,.stat-card::after,.stat-card__icon{transition:none}
+  .stat-card:hover{transform:none}
+  .stat-card:hover .stat-card__icon{transform:none}
+}
 
 /* ─── Quick action tiles (dashboard) ─────────────────────
    Each tile opens a quick-add popup. Read as one object rather
    than a button with decoration: the coloured glyph carries the
    module, the label the verb, and the caption what will be
    created — so the row can be scanned without reading it. */
-.quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:10px}
+.quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(188px,1fr));gap:10px}
+/* The glyph and the insets are kept tight on purpose: the label is what has
+   to survive here, and a tile paired with another inside the narrow column
+   has only so much room before "Record Payment" breaks across two lines and
+   the row stops lining up. */
 .quick-action{
-  display:flex;align-items:center;gap:12px;width:100%;
-  padding:12px 14px;text-align:left;text-decoration:none;
-  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  display:flex;align-items:center;gap:10px;width:100%;min-height:56px;
+  padding:9px 12px;text-align:left;text-decoration:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
   color:var(--text);font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
   transition:border-color var(--transition),box-shadow var(--transition),
              transform var(--transition),background var(--transition);
 }
 .quick-action:hover{
-  background:var(--surface-2);border-color:var(--primary-border);
-  box-shadow:var(--shadow-sm);transform:translateY(-1px);color:var(--text);
+  background:var(--surface);border-color:var(--primary-border);
+  box-shadow:var(--shadow-md);transform:translateY(-3px);color:var(--text);
 }
-.quick-action:active{transform:none;box-shadow:none}
+.quick-action:hover .quick-action__icon{transform:scale(1.08) rotate(-3deg)}
+.quick-action:active{transform:translateY(-1px);box-shadow:var(--shadow-xs)}
+.quick-action:focus-visible{border-color:var(--primary)}
 .quick-action__icon{
-  flex-shrink:0;width:38px;height:38px;border-radius:var(--radius-sm);
+  flex-shrink:0;width:36px;height:36px;border-radius:10px;
   display:grid;place-items:center;font-size:1.05rem;
   background:var(--surface-3);color:var(--text);
+  transition:transform var(--transition);
 }
 .quick-action__icon--primary{background:var(--primary-light);color:var(--primary-ink)}
 .quick-action__icon--success{background:var(--success-bg);color:var(--success)}
@@ -439,7 +846,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 .quick-action__icon--purple {background:var(--purple-bg); color:var(--purple)}
 .quick-action__icon--orange {background:var(--orange-bg); color:var(--orange)}
 .quick-action__text{display:flex;flex-direction:column;min-width:0}
-.quick-action__label{font-weight:600;line-height:1.3;color:var(--text)}
+.quick-action__label{font-weight:600;line-height:1.3;color:var(--text);letter-spacing:-.01em}
 /* The caption is the first thing to give way on a narrow tile. */
 .quick-action__hint{
   font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.3;margin-top:1px;
@@ -455,9 +862,190 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 .quick-action:focus-visible .quick-action__go{opacity:1;transform:none}
 
 @media(prefers-reduced-motion:reduce){
-  .quick-action,.quick-action__go{transition:none}
-  .quick-action:hover{transform:none}
+  .quick-action,.quick-action__go,.quick-action__icon{transition:none}
+  .quick-action:hover,.quick-action:active{transform:none}
+  .quick-action:hover .quick-action__icon{transform:none}
 }
+
+/* ─── Dashboard layout ───────────────────────────────────
+   The activity feed takes the wider track because it is the column that
+   actually grows — the audit log is as long as the day was — while the
+   action tiles are a fixed set and sit to the side of it. They stop being
+   side by side well before the tablet breakpoint: at around 1180px the
+   narrow track is too tight for a tile to hold its label and caption on
+   one line, which is earlier than a generic two-column rule would guess. */
+.dash-grid{
+  display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
+  gap:16px;align-items:start;
+}
+@media(max-width:1180px){.dash-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* The feed is the one block on this page whose height is set by the data —
+   the audit log fills it to whatever eight entries happen to measure, and
+   at full height it pushed the rest of the dashboard past the fold and left
+   a tall gap beside the shorter action column. Capping it relative to the
+   viewport keeps the page inside one screen and brings the two columns to
+   comparable heights; every entry is still there, just reached by scrolling
+   the card, and "View all" still leads to the complete log.
+
+   Only where it helps: below 1181px the columns are already stacked, and on
+   a short viewport this would nest a second scrollbar inside a page that is
+   scrolling anyway. */
+@media (min-width:1181px) and (min-height:700px){
+  .dash-grid > .card:first-child{
+    display:flex;flex-direction:column;
+    /* Scales with the monitor instead of being pinned to one number: a
+       short laptop gives the feed less, a tall screen more, and the upper
+       bound stops it from sprawling on a very tall display. */
+    max-height:clamp(240px,44vh,400px);
+  }
+  /* min-height:0 — without it the flex child refuses to shrink below its
+     content and the cap does nothing. */
+  .dash-grid > .card:first-child > .card__body{
+    min-height:0;overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+  }
+  .dash-grid > .card:first-child > .card__body::-webkit-scrollbar{width:6px}
+  .dash-grid > .card:first-child > .card__body::-webkit-scrollbar-track{background:transparent}
+  .dash-grid > .card:first-child > .card__body::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+}
+
+/* The activity feed's own inset, so the timeline rail has room to the left
+   of it and the hover highlight has room to bleed into. */
+.dash-feed{padding:6px 18px 10px}
+
+/* ─── Dashboard charts ───────────────────────────────────
+   The revenue trend and the portfolio's split by status sit between the
+   KPI row and the activity feed: figures first, then how those figures
+   got there, then what people did today.
+
+   auto-fit is what a single chart falls back on — either card alone
+   takes the whole width rather than sitting in half a row. */
+.chart-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+  gap:16px;margin-bottom:16px;
+}
+
+/* Both charts present: the six-month line takes the wider half, because
+   it is the one figure on this page that reads better the more
+   horizontal room it is given. The ring beside it does not — it is round
+   at any width. Below 1000px there is no wider half to give, and they
+   stack. */
+@media(min-width:1000px){
+  .chart-grid--split{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
+}
+
+/* A canvas has no intrinsic height, and Chart.js is told not to keep an
+   aspect ratio, so the height lives here. position:relative is required:
+   the library sizes to the parent box. */
+.chart-box{position:relative;height:240px;min-width:0}
+
+/* The period total, in the card header opposite the title. */
+.chart-figure{
+  font-family:var(--font-display);font-size:1.05rem;font-weight:700;
+  color:var(--text);letter-spacing:-.015em;font-variant-numeric:tabular-nums;
+}
+
+/* ─── Properties by status ───────────────────────────────
+   The ring and, beside it, the naming and the figures in text. Colour is
+   never the only thing distinguishing a status here — every slice has its
+   name, its count and its share written out.
+
+   Centred in the card body so the pair sits level with the revenue chart
+   next to it, whose card is the taller of the two. */
+.statbreak{
+  display:flex;align-items:center;justify-content:center;gap:22px;
+  flex-wrap:wrap;min-height:240px;
+}
+
+/* The proportions as one conic-gradient. Drawn in CSS rather than on a
+   canvas: the shares are already known when the page is built, so the
+   figure is complete before any script has run — and stays right if the
+   charting library never arrives.
+
+   Where mask is unsupported the ring fills in as a pie. Still correct,
+   still the same proportions — only the hole is lost. */
+.statring{
+  flex-shrink:0;border-radius:50%;
+  -webkit-mask:radial-gradient(closest-side,transparent calc(100% - var(--ring-w)),#000 calc(100% - var(--ring-w) + .5px));
+          mask:radial-gradient(closest-side,transparent calc(100% - var(--ring-w)),#000 calc(100% - var(--ring-w) + .5px));
+}
+/* The large ring carries the total in its middle, which the mask would
+   eat — so the hole is an inner circle and the number sits over it. */
+.statring--lg{--ring-w:17px;width:124px;height:124px;position:relative;-webkit-mask:none;mask:none}
+.statring--lg::before{
+  content:'';position:absolute;inset:var(--ring-w);border-radius:50%;
+  background:var(--surface);
+}
+.statring__total{
+  position:absolute;inset:0;display:grid;place-items:center;
+  font-family:var(--font-display);font-size:1.65rem;font-weight:700;
+  color:var(--text);letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+}
+
+.statbreak__legend{
+  flex:1;min-width:180px;list-style:none;margin:0;padding:0;
+  display:flex;flex-direction:column;gap:9px;
+}
+/* Four columns, not a flex row: the counts and the shares line up in
+   their own tracks, so the numbers can be read down the list instead of
+   being chased across each label's ragged end. */
+.statbreak__row{
+  display:grid;grid-template-columns:9px minmax(0,1fr) auto auto;
+  align-items:center;gap:9px;
+  font-size:var(--fs-sm);line-height:1.3;
+}
+.statbreak__dot{width:9px;height:9px;border-radius:3px}
+.statbreak__label{
+  color:var(--text-body);min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.statbreak__count{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.statbreak__pct{
+  font-size:var(--fs-xs);font-weight:600;color:var(--text-subtle);
+  font-variant-numeric:tabular-nums;min-width:32px;text-align:right;
+}
+
+/* ── Document-expiry notice ───────────────────────────────
+   Not an .alert: this one carries a list, links and badges, and a wash of
+   warning colour over all of it would make the permit titles harder to read
+   than the plain rows they link to. The colour is kept to the rail and the
+   glyph, and the content stays on white where it is legible. */
+/* A banner, not a section: it sits between the page title and the first real
+   content, so every pixel it takes is pushed onto everything below it. Kept
+   legible but compact — the warning tone and the left rule do the work that
+   generous padding was doing. */
+.notice{
+  display:flex;gap:11px;align-items:flex-start;
+  background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--warning);
+  border-radius:var(--radius-lg);padding:9px 12px;margin-bottom:10px;
+  box-shadow:var(--shadow-xs);
+}
+.notice__icon{
+  flex-shrink:0;width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;font-size:.92rem;
+  background:var(--warning-bg);color:var(--warning);
+}
+.notice__body{flex:1;min-width:0}
+.notice__title{font-size:.85rem;font-weight:700;color:var(--text);line-height:1.3}
+.notice__list{margin:3px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.notice__item{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  font-size:.8rem;color:var(--text-muted);line-height:1.4;
+}
+.notice__item a{font-weight:600;color:var(--text);text-decoration:none}
+.notice__item a:hover{color:var(--primary);text-decoration:underline}
+.notice__link{
+  display:inline-flex;align-items:center;gap:6px;margin-top:4px;
+  font-size:.8rem;font-weight:600;color:var(--primary);
+}
+.notice__link i{transition:transform var(--transition)}
+.notice__link:hover i{transform:translateX(3px)}
+@media(prefers-reduced-motion:reduce){.notice__link i{transition:none}.notice__link:hover i{transform:none}}
+/* The glyph goes rather than the padding: on a narrow screen the text needs
+   the full width more than the banner needs an ornament. */
+@media(max-width:560px){.notice{padding:10px 12px}.notice__icon{display:none}}
 
 /* ─── Buttons ───────────────────────────────────────────── */
 /* Min height 44px on --lg and on touch devices keeps tap targets legal
@@ -708,32 +1296,98 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .empty-state__title{font-size:1rem;font-weight:600;margin-bottom:4px;color:var(--text)}
 .empty-state__desc{color:var(--text-muted);font-size:.85rem;max-width:360px;margin:0 auto}
 
-/* ─── Activity feed ─────────────────────────────────────── */
-.activity{list-style:none}
-.activity__item{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
-.activity__item:last-child{border-bottom:none}
-.activity__dot{width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:7px;flex-shrink:0;box-shadow:0 0 0 3px var(--primary-light)}
-.activity__text{font-size:.86rem;line-height:1.5;color:var(--text)}
-.activity__time{font-size:.74rem;color:var(--text-subtle);margin-top:2px}
+/* ─── Activity feed ─────────────────────────────────────────
+   A timeline rather than a list of rows: the rail carries the eye down the
+   sequence, and each marker sits on it with the surface colour punched out
+   around the dot so the line reads as continuous behind it. The rail is
+   drawn per item and hidden on the last one, which is what keeps it from
+   dangling past the final entry however many entries there are. */
+.activity{list-style:none;position:relative;--activity-inset:10px}
+.activity__item{
+  position:relative;display:flex;gap:12px;
+  padding:8px var(--activity-inset);
+  margin:0 calc(var(--activity-inset) * -1);
+  border-radius:var(--radius-sm);
+  transition:background var(--transition);
+}
+.activity__item::before{
+  content:'';position:absolute;left:calc(var(--activity-inset) + 4px);
+  top:0;bottom:0;width:2px;background:var(--border);
+}
+/* Starts at the first dot's centre — padding-top + the dot's own offset +
+   half its height — so the rail has no stub above the first marker. */
+.activity__item:first-child::before{top:17px}
+.activity__item:last-child::before{display:none}
+.activity__item:hover{background:var(--surface-2)}
+.activity__item > :last-child{min-width:0;flex:1}
+.activity__dot{
+  position:relative;z-index:1;width:10px;height:10px;border-radius:50%;
+  background:var(--primary);margin-top:4px;flex-shrink:0;
+  /* Inner halo for emphasis, outer ring in the card colour to mask the rail. */
+  box-shadow:0 0 0 3px var(--primary-light),0 0 0 5px var(--surface);
+}
+.activity__text{font-size:.845rem;line-height:1.4;color:var(--text-body)}
+.activity__text strong{color:var(--text);font-weight:600}
+/* The entity a change was made to — a tag, so it can be picked out of the
+   sentence without being read as part of it. */
+.activity__tag{
+  display:inline-flex;align-items:center;
+  padding:1px 8px;margin-left:2px;border-radius:var(--radius-pill);
+  background:var(--surface-3);border:1px solid var(--border);
+  font-size:.68rem;font-weight:600;color:var(--text-muted);
+  letter-spacing:.02em;text-transform:capitalize;vertical-align:middle;
+}
+.activity__time{
+  font-size:.72rem;color:var(--text-subtle);margin-top:1px;
+  display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;
+}
+.activity__time i{font-size:.72rem;opacity:.8}
+
+@media(prefers-reduced-motion:reduce){.activity__item{transition:none}}
 
 /* ─── Responsive ────────────────────────────────────────── */
 @media(max-width:1024px){
   .auth__brand{display:none}
   .auth__form-side{padding:24px}
 }
+@media(max-width:1024px){
+  .app__content{padding:13px 18px 20px}
+  .app__header{padding:0 18px}
+  .app__footer{padding:10px 18px}
+}
 @media(max-width:768px){
   .app__sidebar{transform:translateX(-100%);box-shadow:var(--shadow-lg)}
   .app__sidebar.open{transform:translateX(0)}
   .app__main{margin-left:0}
   .header__toggle{display:flex}
-  .stats{grid-template-columns:1fr 1fr}
+  /* Two up is held down to the narrowest common phone rather than dropping
+     to one: a KPI is a short label and a number, and a full-width card for
+     that leaves the row scrolling for no gain. */
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+  .stat-card{padding:12px 14px;gap:11px;min-height:74px}
+  .stat-card__icon{width:40px;height:40px;border-radius:10px;font-size:1.05rem}
+  .stat-card__value{font-size:1.5rem}
   .form-row{grid-template-columns:1fr}
-  .page-header{flex-direction:column;align-items:flex-start}
-  .app__content{padding:18px}
+  .page-header{flex-direction:column;align-items:flex-start;gap:10px}
+  .page-header__actions{width:100%}
+  .app__content{padding:14px 14px 18px}
+  .app__header{padding:0 14px;gap:10px}
+  .app__footer{padding:10px 14px}
+  .dash-feed{padding:4px 14px 8px}
+  .card__header,.card__body{padding-left:14px;padding-right:14px}
+  .card__footer{padding-left:14px;padding-right:14px}
 }
 @media(max-width:480px){
-  .stats{grid-template-columns:1fr}
-  .app__content{padding:14px}
+  /* Still two up, but the glyph moves above the text: side by side inside a
+     ~160px card leaves the label a column too narrow to break sensibly. */
+  .app__content{padding:12px 12px 16px}
+  .stats{gap:9px}
+  .stat-card{flex-direction:column;align-items:flex-start;gap:8px;padding:11px 12px;min-height:0}
+  .stat-card__icon{width:36px;height:36px;border-radius:9px;font-size:.95rem}
+  .stat-card__value{font-size:1.4rem}
+  .stat-card__label{font-size:.71rem}
+  .page-header__title{font-size:1.2rem}
+  .quick-actions{grid-template-columns:minmax(0,1fr)}
 }
 
 /* ─── Sidebar overlay (mobile) ──────────────────────────── */

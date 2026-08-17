@@ -1,11 +1,26 @@
 <?php
 /**
  * Header / Topbar
- * Minimal SaaS header — breadcrumb on the left, actions on the right.
+ * Minimal SaaS header — breadcrumb on the left, search in the middle, actions
+ * on the right.
  * Expects: $currentUser, optional $breadcrumbs ([['label'=>..., 'url'=>...], ...])
+ *
+ * Search sits here rather than in the rail because it is a way of *acting* on
+ * the application, not a place inside it: the topbar is where the page-level
+ * controls live, it stays put while the rail scrolls, and one width serves it
+ * on every screen where the rail is a drawer the user has to open first.
  */
 $notifCount = getUnreadNotificationCount();
 $role       = $currentUser['role'] ?? '';
+
+// What the search can find is exactly what this user is allowed to open —
+// the navigation itself, flattened. Emitted as a JSON island rather than
+// inlined into a script literal so a role-specific label can never break out
+// of the tag; JSON_HEX_TAG keeps "</script>" impossible in the payload.
+$searchIndexJson = json_encode(
+    appNavSearchIndex(),
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+);
 ?>
 <header class="app__header">
     <div class="header__left">
@@ -31,6 +46,52 @@ $role       = $currentUser['role'] ?? '';
                 <span><?= sanitize($pageTitle) ?></span>
             <?php endif; ?>
         </nav>
+    </div>
+
+    <!--
+      Combobox, not a decorative field: the input owns the query, the panel
+      below it is the listbox, and aria-activedescendant is what lets the
+      arrow keys walk the results while focus and typing stay in the input.
+    -->
+    <div class="header__search" data-global-search>
+        <i class="bi bi-search header__search-icon" aria-hidden="true"></i>
+        <input type="text"
+               id="globalSearch"
+               class="header__search-input"
+               placeholder="Search pages and modules"
+               aria-label="Search pages and modules"
+               autocomplete="off"
+               spellcheck="false"
+               role="combobox"
+               aria-expanded="false"
+               aria-controls="globalSearchList"
+               aria-autocomplete="list"
+               aria-haspopup="listbox">
+        <button type="button" class="header__search-clear" aria-label="Clear search" hidden>
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+        <kbd class="header__search-kbd" aria-hidden="true">Ctrl K</kbd>
+
+        <!--
+          The listbox is the result list alone. The dead-end message and the
+          shortcut legend are siblings rather than children of it: a listbox
+          that contains anything other than options is read back as a broken
+          list, and the legend is decoration a screen reader has no use for.
+        -->
+        <div class="header__search-panel" id="globalSearchPanel" hidden>
+            <div class="gs-list" id="globalSearchList" role="listbox" aria-label="Search results"></div>
+            <div class="gs-empty" data-search-empty role="status" hidden>
+                <div class="gs-empty__icon"><i class="bi bi-search" aria-hidden="true"></i></div>
+                <div class="gs-empty__title">No page matches &ldquo;<span data-empty-query></span>&rdquo;</div>
+                <div class="gs-empty__desc">Search by module &mdash; try &ldquo;properties&rdquo;, &ldquo;payments&rdquo; or &ldquo;reports&rdquo;.</div>
+            </div>
+            <div class="gs-foot" aria-hidden="true">
+                <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> Move</span>
+                <span><kbd>&crarr;</kbd> Open</span>
+                <span><kbd>Esc</kbd> Close</span>
+            </div>
+        </div>
+        <script type="application/json" data-search-index><?= $searchIndexJson ?></script>
     </div>
 
     <div class="header__right">

@@ -1,18 +1,23 @@
 <?php
 /**
  * Sidebar Component
- * Light SaaS sidebar with profile-on-top, search, and active-link detection.
+ * Light SaaS sidebar — brand, menu, and the signed-in account at the foot.
  * Expects: $currentUser (from getCurrentUser())
  *
- * Every entry is drawn only when can() says the signed-in user may open it, so
- * the menu is a projection of the permission matrix rather than a second copy
- * of it kept in step by hand. That is what the previous hard-coded role checks
- * could not guarantee: Operations was rendered unconditionally while
- * InquiryController admitted only staff, so owners and tenants were shown a
- * link that bounced them to the dashboard.
+ * The account sits under the menu rather than above it. The top of a rail is
+ * the most valuable space in the column and identity does not earn it: the
+ * menu is what people came for, so it starts directly under the brand and
+ * gets every row the viewport can give it. Putting the account last also
+ * keeps the route to Sign Out away from a mis-tap on a navigation row.
  *
- * Sections disappear on their own once every item inside them is hidden, so a
- * role never sees an empty heading.
+ * The menu itself lives in includes/navigation.php, where the header's global
+ * search reads the same list — the rail renders that list rather than owning
+ * a copy of it. Every entry is drawn only when can() says the signed-in user
+ * may open it, so the menu is a projection of the permission matrix rather
+ * than a second copy kept in step by hand.
+ *
+ * Search is not in the rail: it is a page-level action, not a destination,
+ * and it now sits in the topbar beside the other application-wide controls.
  */
 $role = $currentUser['role'] ?? '';
 $page = $_GET['page'] ?? 'dashboard';
@@ -21,79 +26,6 @@ $page = $_GET['page'] ?? 'dashboard';
 function sb_link_class(string $current, array $matches): string {
     return in_array($current, $matches, true) ? 'sidebar__link sidebar__link--active' : 'sidebar__link';
 }
-
-/**
- * Navigation, as data.
- *
- * Each item is [page slug, label, icon]. The permission checked is
- * "{slug}.view" — the same string canAccessPage() and the controller use.
- *
- * Labels are per-role where the same module means a different thing to
- * different people: an agent's Inquiries is the agency's lead inbox, an
- * owner's is interest in their properties, a tenant's is their own
- * correspondence. Same page, same permission, honest name.
- */
-$sbInquiryLabel = match ($role) {
-    ROLE_OWNER    => 'Property Inquiries',
-    ROLE_CUSTOMER => 'My Inquiries',
-    default       => 'Inquiries',
-};
-$sbMaintenanceLabel = match ($role) {
-    ROLE_CUSTOMER    => 'My Requests',
-    ROLE_MAINTENANCE => 'My Jobs',
-    default          => 'Maintenance',
-};
-
-$sbSections = [
-    ['Main Menu', [
-        ['dashboard', 'Dashboard', 'bi-grid-1x2'],
-    ]],
-
-    ['Property', [
-        ['properties',   'Properties',   'bi-buildings'],
-        ['reservations', 'Reservations', 'bi-calendar-check'],
-        ['documents',    'Documents',    'bi-folder2-open'],
-    ]],
-
-    ['People', [
-        ['customers', 'Customers', 'bi-people'],
-        ['owners',    'Owners',    'bi-person-badge'],
-    ]],
-
-    ['Transactions', [
-        ['leases',   'Leases',   'bi-file-earmark-text'],
-        ['payments', 'Payments', 'bi-credit-card'],
-        ['sales',    'Sales',    'bi-cart-check'],
-    ]],
-
-    ['My Account', [
-        ['my-lease',    'My Lease',    'bi-file-earmark-text'],
-        ['my-payments', 'My Payments', 'bi-credit-card'],
-        ['favorites',   'Favorites',   'bi-heart'],
-    ]],
-
-    ['My Portfolio', [
-        ['my-properties', 'Properties', 'bi-buildings'],
-        ['my-income',     'Income',     'bi-graph-up'],
-    ]],
-
-    ['Operations', [
-        ['maintenance',   $sbMaintenanceLabel, 'bi-wrench-adjustable'],
-        ['inquiries',     $sbInquiryLabel,     'bi-chat-left-text'],
-        ['notifications', 'Notifications',     'bi-bell'],
-    ]],
-
-    ['Administration', [
-        ['users',               'Users & Roles',       'bi-shield-lock'],
-        ['testimonials',        'Testimonials',        'bi-chat-quote'],
-        ['branches',            'Branches',            'bi-diagram-3'],
-        ['reports',             'Reports',             'bi-bar-chart-line'],
-        ['document-categories', 'Document Categories', 'bi-tags'],
-        ['legal',               'Terms & Legal',       'bi-file-earmark-check'],
-        ['audit-logs',          'Audit Logs',          'bi-journal-text'],
-        ['settings',            'Settings',            'bi-gear'],
-    ]],
-];
 ?>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 <aside class="app__sidebar" id="sidebar">
@@ -114,39 +46,11 @@ $sbSections = [
         </div>
     </div>
 
-    <!-- Profile card -->
-    <a href="<?= APP_URL ?>/index.php?page=profile" class="sidebar__profile" title="View profile">
-        <img src="<?= getAvatarUrl($currentUser['avatar'] ?? null) ?>" alt="Avatar" class="sidebar__profile-avatar">
-        <div class="sidebar__profile-info">
-            <div class="sidebar__profile-name"><?= sanitize($currentUser['full_name'] ?? 'User') ?></div>
-            <div class="sidebar__profile-email"><?= sanitize($currentUser['email'] ?? ucfirst($role)) ?></div>
-        </div>
-        <i class="bi bi-chevron-down sidebar__profile-chevron"></i>
-    </a>
-
-    <!-- Search -->
-    <div class="sidebar__search">
-        <i class="bi bi-search"></i>
-        <input type="text" class="sidebar__search-input" placeholder="Search" id="globalSearch" autocomplete="off">
-        <span class="sidebar__search-kbd">Ctrl + K</span>
-    </div>
-
     <nav class="sidebar__nav">
-        <?php foreach ($sbSections as [$sectionLabel, $items]): ?>
-            <?php
-            // Resolve the section before opening any markup: a heading is only
-            // worth printing once we know something sits under it.
-            $visible = array_values(array_filter(
-                $items,
-                fn(array $item): bool => canAccessPage($item[0])
-            ));
-            if (!$visible) {
-                continue;
-            }
-            ?>
+        <?php foreach (appNavSections() as [$sectionLabel, $items]): ?>
             <div class="sidebar__section">
                 <div class="sidebar__label"><?= sanitize($sectionLabel) ?></div>
-                <?php foreach ($visible as [$slug, $label, $icon]): ?>
+                <?php foreach ($items as [$slug, $label, $icon]): ?>
                     <a href="<?= APP_URL ?>/index.php?page=<?= sanitize($slug) ?>"
                        class="<?= sb_link_class($page, [$slug]) ?>">
                         <i class="bi <?= sanitize($icon) ?>"></i> <?= sanitize($label) ?>
@@ -156,8 +60,31 @@ $sbSections = [
         <?php endforeach ?>
     </nav>
 
+    <!--
+      Account. The copyright strip that used to sit here is gone: the company
+      name is already the brand at the top of this rail and the full notice is
+      in the page footer, so a third copy was spending rail height the menu
+      needed more.
+    -->
     <div class="sidebar__footer">
-        <i class="bi bi-shield-check"></i>
-        <span><?= sanitize(companyName()) ?> &copy; <?= date('Y') ?></span>
+        <?php
+        // ?: rather than ??, because getCurrentUser() always returns these
+        // keys and defaults them to '' — an account with no email on file
+        // would otherwise render a blank second line and an empty tooltip.
+        // The full address goes in the title: at 248px the rail always
+        // ellipses it, so hovering has to be able to finish the sentence.
+        $acctName  = $currentUser['full_name'] ?: 'User';
+        $acctEmail = $currentUser['email'] ?: '';
+        ?>
+        <a href="<?= APP_URL ?>/index.php?page=profile"
+           class="sidebar__account"
+           title="<?= sanitize($acctEmail ?: 'View profile') ?>">
+            <img src="<?= getAvatarUrl($currentUser['avatar'] ?? null) ?>" alt="" class="sidebar__account-avatar">
+            <div class="sidebar__account-info">
+                <div class="sidebar__account-name"><?= sanitize($acctName) ?></div>
+                <div class="sidebar__account-meta"><?= sanitize($acctEmail ?: ucfirst($role)) ?></div>
+            </div>
+            <i class="bi bi-chevron-right sidebar__account-chevron" aria-hidden="true"></i>
+        </a>
     </div>
 </aside>

@@ -75,83 +75,227 @@ if ($hostsAction('property')) {
 ?>
 
 <?php if ($expiringDocs): ?>
-<div class="alert alert--warning" style="margin-bottom:18px">
-    <i class="bi bi-calendar-x"></i>
-    <div style="flex:1">
-        <strong>
+<div class="notice" role="status">
+    <div class="notice__icon"><i class="bi bi-calendar-x" aria-hidden="true"></i></div>
+    <div class="notice__body">
+        <div class="notice__title">
             <?php if ($docCounts['expired'] > 0): ?>
                 <?= $docCounts['expired'] ?> document<?= $docCounts['expired'] === 1 ? '' : 's' ?> expired<?= $docCounts['expiring'] > 0 ? ', ' : '' ?>
             <?php endif ?>
             <?php if ($docCounts['expiring'] > 0): ?>
                 <?= $docCounts['expiring'] ?> expiring within <?= documentExpiryWarningDays() ?> days
             <?php endif ?>
-        </strong>
-        <ul style="margin:8px 0 0;padding-left:18px;font-size:.82rem">
+        </div>
+        <ul class="notice__list">
             <?php foreach (array_slice($expiringDocs, 0, 5) as $d): $st = documentStatus($d); ?>
-                <li style="margin-bottom:3px">
+                <li class="notice__item">
                     <a href="<?= APP_URL ?>/index.php?page=documents&amp;action=show&amp;id=<?= (int) $d['id'] ?>">
                         <?= sanitize($d['title']) ?>
                     </a>
                     <?php if (!empty($d['property_title'])): ?>
                         <span class="text-muted">· <?= sanitize($d['property_title']) ?></span>
                     <?php endif ?>
-                    — <span class="badge <?= $st['badge'] ?>" style="font-size:.6rem"><?= sanitize(documentExpiryNote($d)) ?></span>
+                    <span class="badge <?= $st['badge'] ?>"><?= sanitize(documentExpiryNote($d)) ?></span>
                 </li>
             <?php endforeach ?>
         </ul>
-        <a href="<?= APP_URL ?>/index.php?page=documents&amp;state=expired" style="font-size:.82rem">
-            Review all expiring documents <i class="bi bi-arrow-right"></i>
+        <a href="<?= APP_URL ?>/index.php?page=documents&amp;state=expired" class="notice__link">
+            Review all expiring documents <i class="bi bi-arrow-right" aria-hidden="true"></i>
         </a>
     </div>
 </div>
 <?php endif ?>
 
+<?php
+/* The KPI row, as data — same six figures, same labels, same order. Keeping
+   them in a list rather than six copies of the same markup means the glyph,
+   the tone and the number can never drift apart, and the tone drives both
+   the icon tile and the card's accent from one place.
+
+   Glyphs match the module each figure belongs to, so the row and the rail
+   name the same things the same way: Maintenance is the sidebar's wrench,
+   Payments is money, Users is the shield. */
+$statCards = [
+    ['icon' => 'bi-buildings',         'tone' => 'primary', 'label' => 'Total Properties',    'value' => $totalProperties],
+    ['icon' => 'bi-key',               'tone' => 'success', 'label' => 'Active Rentals',      'value' => $activeRentals],
+    ['icon' => 'bi-people',            'tone' => 'info',    'label' => 'Customers',           'value' => $totalCustomers],
+    ['icon' => 'bi-wrench-adjustable', 'tone' => 'warning', 'label' => 'Pending Maintenance', 'value' => $pendingMaint],
+    ['icon' => 'bi-cash-stack',        'tone' => 'danger',  'label' => 'Overdue Payments',    'value' => $overduePayments],
+    ['icon' => 'bi-shield-check',      'tone' => 'purple',  'label' => 'Active Users',        'value' => $totalUsers],
+];
+?>
 <div class="stats">
-    <div class="stat-card">
-        <div class="stat-card__icon stat-card__icon--primary"><i class="bi bi-buildings"></i></div>
-        <div class="stat-card__body">
-            <div class="stat-card__label">Total Properties</div>
-            <div class="stat-card__value"><?= $totalProperties ?></div>
+    <?php foreach ($statCards as $sc): ?>
+        <div class="stat-card">
+            <div class="stat-card__icon stat-card__icon--<?= $sc['tone'] ?>">
+                <i class="bi <?= $sc['icon'] ?>" aria-hidden="true"></i>
+            </div>
+            <div class="stat-card__body">
+                <div class="stat-card__label"><?= sanitize($sc['label']) ?></div>
+                <div class="stat-card__value"><?= $sc['value'] ?></div>
+            </div>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card__icon stat-card__icon--success"><i class="bi bi-key"></i></div>
-        <div class="stat-card__body">
-            <div class="stat-card__label">Active Rentals</div>
-            <div class="stat-card__value"><?= $activeRentals ?></div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card__icon stat-card__icon--info"><i class="bi bi-people"></i></div>
-        <div class="stat-card__body">
-            <div class="stat-card__label">Customers</div>
-            <div class="stat-card__value"><?= $totalCustomers ?></div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card__icon stat-card__icon--warning"><i class="bi bi-wrench"></i></div>
-        <div class="stat-card__body">
-            <div class="stat-card__label">Pending Maintenance</div>
-            <div class="stat-card__value"><?= $pendingMaint ?></div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card__icon stat-card__icon--danger"><i class="bi bi-exclamation-circle"></i></div>
-        <div class="stat-card__body">
-            <div class="stat-card__label">Overdue Payments</div>
-            <div class="stat-card__value"><?= $overduePayments ?></div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card__icon stat-card__icon--purple"><i class="bi bi-shield-check"></i></div>
-        <div class="stat-card__body">
-            <div class="stat-card__label">Active Users</div>
-            <div class="stat-card__value"><?= $totalUsers ?></div>
-        </div>
-    </div>
+    <?php endforeach ?>
 </div>
 
-<div class="grid-2">
+<?php
+/* ── Revenue ─────────────────────────────────────────────────────
+   The question the KPI row above cannot answer: is money still
+   arriving at the rate it was. It reads the payments table the
+   Payments module reads, so this page can never quote a figure that
+   module would disagree with.
+
+   Beside it sits the portfolio's other half of the same question —
+   how the listings are split by status — so the two charts that
+   describe the business as a whole are read together, on the one
+   page whose job is the overview.
+
+   Money follows the same permission as the Reports link in the
+   Quick Actions header: a role that may not open Reports is not
+   handed the revenue trend here by a side door. */
+$canSeeRevenue = can('reports.view');
+
+/* Six whole calendar months, zero-filled before the query runs.
+   Grouping payments by month returns only the months that had one,
+   and a month with no takings has to read as a zero on the line —
+   dropping it closes the gap and flatters the trend. */
+$revenueSeries = [];
+if ($canSeeRevenue) {
+    $thisMonth = new DateTimeImmutable('first day of this month');
+    $months    = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $m = $thisMonth->modify("-{$i} month");
+        $months[$m->format('Y-m')] = [
+            'label' => $m->format('M'),      // axis: short, six of them fit
+            // Tooltip: unambiguous across a year end, and the last bucket says
+            // out loud that it is still filling — otherwise a month that is
+            // three days old reads as a collapse in takings.
+            'full'  => $m->format('F Y') . ($i === 0 ? ' (so far)' : ''),
+            'total' => 0.0,
+        ];
+    }
+
+    // Anchored to the first of the earliest bucket rather than "six months
+    // back from today", which would open a seventh, part-month bucket.
+    $stmt = $db->prepare("
+        SELECT DATE_FORMAT(payment_date, '%Y-%m') AS ym, SUM(amount) AS total
+        FROM payments
+        WHERE status = 'paid' AND payment_date >= :from
+        GROUP BY ym
+    ");
+    $stmt->execute([':from' => $thisMonth->modify('-5 month')->format('Y-m-d')]);
+    foreach ($stmt->fetchAll() as $r) {
+        if (isset($months[$r['ym']])) {
+            $months[$r['ym']]['total'] = (float) $r['total'];
+        }
+    }
+    $revenueSeries = array_values($months);
+}
+$revenueTotal = array_sum(array_column($revenueSeries, 'total'));
+
+/* ── Properties by status ────────────────────────────────────────
+   Shown only to the roles that hold the property register — an owner
+   or a tenant reaches individual listings but never the agency's
+   book, so the same permission that opens Properties governs this. */
+$statusBreakdown = can('properties.view') ? propertyStatusBreakdown() : [];
+$statusTotal     = array_sum(array_column($statusBreakdown, 'count'));
+
+/* The ring is one conic-gradient built from running totals, so each
+   segment starts where the last one stopped and the last one lands
+   exactly on 100% rather than a rounding error short of it. Drawn in
+   CSS rather than on a canvas: the shares are already known here, so
+   the figure is complete before any script has run — and stays right
+   if the charting library never arrives. */
+$ringStops = [];
+$ringAt    = 0.0;
+foreach ($statusBreakdown as $s) {
+    $from    = $ringAt;
+    $ringAt += $s['pct'];
+    $ringStops[] = sprintf('var(%s) %.3f%% %.3f%%', $s['var'], $from, $ringAt);
+}
+$ringGradient = $ringStops ? 'conic-gradient(' . implode(',', $ringStops) . ')' : '';
+
+/* What the number inside the ring means, spelled out — the glyph alone
+   is just a figure floating in a circle. */
+$statusLabel = $statusTotal . ' live listing' . ($statusTotal === 1 ? '' : 's');
+
+/* Two charts share the row and the line gets the wider half; one chart
+   on its own takes the full width rather than leaving a column empty. */
+$showStatus = $statusBreakdown !== [];
+$splitRow   = $canSeeRevenue && $showStatus;
+?>
+
+<?php if ($canSeeRevenue || $showStatus): ?>
+<div class="chart-grid<?= $splitRow ? ' chart-grid--split' : '' ?>">
+    <?php if ($canSeeRevenue): ?>
+    <div class="card">
+        <div class="card__header">
+            <div>
+                <h3 class="card__title">Revenue</h3>
+                <div class="card__subtitle">Payments received, last 6 months</div>
+            </div>
+            <div class="chart-figure"><?= formatCurrency($revenueTotal) ?></div>
+        </div>
+        <div class="card__body">
+            <?php if ($revenueTotal <= 0): ?>
+                <div class="empty-state">
+                    <div class="empty-state__icon"><i class="bi bi-graph-up"></i></div>
+                    <div class="empty-state__title">No payments recorded</div>
+                    <div class="empty-state__desc">Received payments will chart here.</div>
+                </div>
+            <?php else: ?>
+                <?php /* The canvas is the only version of this figure, so it
+                         carries its own summary for a screen reader; the total
+                         beside the title says the same thing in text. */ ?>
+                <div class="chart-box">
+                    <canvas id="dashRevenueChart" role="img"
+                            aria-label="Payments received per month over the last six months, totalling <?= sanitize(formatCurrency($revenueTotal)) ?>."></canvas>
+                </div>
+            <?php endif ?>
+        </div>
+    </div>
+    <?php endif ?>
+
+    <?php if ($showStatus): ?>
+    <div class="card">
+        <div class="card__header">
+            <div>
+                <h3 class="card__title">Properties by Status</h3>
+                <div class="card__subtitle">Live listings, archived excluded</div>
+            </div>
+            <a href="<?= APP_URL ?>/index.php?page=properties" class="btn btn--ghost btn--sm">
+                View all <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        <div class="card__body">
+            <div class="statbreak">
+                <?php /* The ring names itself and nothing else: the total it
+                         carries is read from the label, and the slices are
+                         read from the legend beside it rather than twice. */ ?>
+                <div class="statring statring--lg" style="background:<?= $ringGradient ?>"
+                     role="img" aria-label="<?= sanitize($statusLabel) ?>">
+                    <span class="statring__total" aria-hidden="true"><?= $statusTotal ?></span>
+                </div>
+                <?php /* The figures in text as well as in the ring: colour is
+                         never the only thing saying which status is which. */ ?>
+                <ul class="statbreak__legend">
+                    <?php foreach ($statusBreakdown as $s): ?>
+                        <li class="statbreak__row">
+                            <span class="statbreak__dot" style="background:var(<?= $s['var'] ?>)" aria-hidden="true"></span>
+                            <span class="statbreak__label"><?= sanitize($s['label']) ?></span>
+                            <span class="statbreak__count"><?= $s['count'] ?></span>
+                            <span class="statbreak__pct"><?= round($s['pct']) ?>%</span>
+                        </li>
+                    <?php endforeach ?>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <?php endif ?>
+</div>
+<?php endif ?>
+
+<div class="dash-grid">
     <!-- Recent Activity -->
     <div class="card">
         <div class="card__header">
@@ -169,19 +313,22 @@ if ($hostsAction('property')) {
                     <div class="empty-state__desc">System activity will appear here.</div>
                 </div>
             <?php else: ?>
-                <ul class="activity" style="padding:8px 20px 16px">
+                <ul class="activity dash-feed">
                     <?php foreach ($recentActivity as $act): ?>
                     <li class="activity__item">
-                        <div class="activity__dot"></div>
+                        <div class="activity__dot" aria-hidden="true"></div>
                         <div>
                             <div class="activity__text">
                                 <strong><?= sanitize($act['full_name'] ?? 'System') ?></strong>
                                 <?= sanitize($act['action']) ?>
                                 <?php if ($act['entity_type']): ?>
-                                    <span class="text-subtle">· <?= sanitize($act['entity_type']) ?></span>
+                                    <span class="activity__tag"><?= sanitize($act['entity_type']) ?></span>
                                 <?php endif; ?>
                             </div>
-                            <div class="activity__time"><?= formatDateTime($act['created_at']) ?></div>
+                            <div class="activity__time">
+                                <i class="bi bi-clock" aria-hidden="true"></i>
+                                <?= formatDateTime($act['created_at']) ?>
+                            </div>
                         </div>
                     </li>
                     <?php endforeach; ?>
@@ -192,8 +339,9 @@ if ($hostsAction('property')) {
 
     <!-- Quick Actions -->
     <?php /* Sized to its tiles rather than stretched to match the activity
-             feed beside it, which is as long as the audit log makes it. */ ?>
-    <div class="card" style="align-self:start">
+             feed beside it, which is as long as the audit log makes it.
+             .dash-grid aligns both columns to the start for this reason. */ ?>
+    <div class="card">
         <div class="card__header">
             <div>
                 <h3 class="card__title">Quick Actions</h3>
@@ -217,7 +365,7 @@ if ($hostsAction('property')) {
                                  full form behind it stays reachable if scripting is off. */ ?>
                         <a class="quick-action" href="<?= $quickActionUrl($qa) ?>" data-modal-open="<?= $qa['modal'] ?>">
                             <span class="quick-action__icon quick-action__icon--<?= $qa['tone'] ?>">
-                                <i class="bi <?= $qa['icon'] ?>"></i>
+                                <i class="bi <?= $qa['icon'] ?>" aria-hidden="true"></i>
                             </span>
                             <span class="quick-action__text">
                                 <span class="quick-action__label"><?= sanitize($qa['label']) ?></span>
@@ -299,3 +447,118 @@ endif ?>
     $properties = $maintenanceProperties;   // scoped by role, not the lease list above
     require VIEWS_PATH . '/admin/maintenance/_create_modal.php';
 endif ?>
+
+<?php
+/* ── Drawing the chart ───────────────────────────────────────────
+   Loaded only when there is something to draw, so a fresh install
+   showing an empty state does not also fetch the charting library
+   to do nothing with it.
+
+   Every colour is read back out of the stylesheet rather than
+   written twice, so a change to a token moves the chart with it.
+   The fallbacks are what the tokens currently hold, for the case
+   where the canvas is drawn before the stylesheet has applied. */
+$drawRevenue = $canSeeRevenue && $revenueTotal > 0;
+?>
+<?php if ($drawRevenue): ?>
+<script src="<?= VENDOR_URL ?>/chartjs/chart.umd.min.js"></script>
+<script>
+(function () {
+    if (!window.Chart) return;   // vendor file missing: the text total still stands
+
+    var css   = getComputedStyle(document.documentElement);
+    var token = function (name, fallback) { return css.getPropertyValue(name).trim() || fallback; };
+
+    var ink     = token('--text-muted', '#5f6b7e');
+    var line    = token('--border', '#e4eaee');
+    var surface = token('--surface', '#ffffff');
+    var brand   = token('--primary', '#0075c0');
+
+    Chart.defaults.font.family = token('--font', 'Inter, sans-serif');
+    Chart.defaults.font.size   = 11;
+    Chart.defaults.color       = ink;
+    // The rest of the page drops its motion under this query; so does this.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        Chart.defaults.animation = false;
+    }
+
+    // The fill under the revenue line is the brand colour at low alpha.
+    // Derived from the token so it cannot drift away from the stroke.
+    function rgba(hex, alpha) {
+        var h = hex.replace('#', '');
+        if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        var n = parseInt(h, 16);
+        return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+    }
+
+    var symbol = <?= json_encode(currencySymbol(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var money  = function (v) { return symbol + v.toLocaleString(undefined, { maximumFractionDigits: 0 }); };
+    // Axis labels abbreviate so six months of ticks stay readable; the
+    // tooltip is where the exact figure is.
+    var brief = function (v) {
+        if (Math.abs(v) >= 1e6) return symbol + (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+        if (Math.abs(v) >= 1e3) return symbol + (v / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+        return symbol + v;
+    };
+
+    var revenue = <?= json_encode($revenueSeries, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var revenueEl = document.getElementById('dashRevenueChart');
+    if (revenueEl) {
+        new Chart(revenueEl, {
+            type: 'line',
+            data: {
+                labels: revenue.map(function (p) { return p.label; }),
+                datasets: [{
+                    label: 'Revenue',
+                    data: revenue.map(function (p) { return p.total; }),
+                    borderColor: brand,
+                    backgroundColor: rgba(brand, 0.12),
+                    borderWidth: 2,
+                    fill: true,
+                    // Monotone rather than a plain tension: a month with no
+                    // takings sits on zero, and ordinary cubic smoothing
+                    // overshoots through it and draws the curve below the
+                    // axis, which reads as money going out.
+                    cubicInterpolationMode: 'monotone',
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: brand,
+                    pointBorderColor: surface,
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                // Hovering anywhere in a month's column reads that month,
+                // rather than requiring the pointer to find a 3px dot.
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },   // one series, already named by the card
+                    tooltip: {
+                        displayColors: false,
+                        callbacks: {
+                            title: function (items) { return revenue[items[0].dataIndex].full; },
+                            label: function (item) { return money(item.parsed.y); }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid:   { display: false },
+                        border: { color: line },
+                        ticks:  { color: ink }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid:   { color: line },
+                        ticks:  { color: ink, maxTicksLimit: 5, callback: brief }
+                    }
+                }
+            }
+        });
+    }
+})();
+</script>
+<?php endif ?>

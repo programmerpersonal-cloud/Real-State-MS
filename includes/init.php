@@ -35,6 +35,10 @@ require_once __DIR__ . '/auth.php';
 // controllers and views all ask it first.
 require_once __DIR__ . '/permissions.php';
 
+// The menu, as data — read by the sidebar rail and by the header's global
+// search. After permissions.php because every entry is gated by canAccessPage().
+require_once __DIR__ . '/navigation.php';
+
 // Loaded after auth.php: all three read the signed-in role through
 // getUserRole()/hasRole().
 require_once __DIR__ . '/documents.php';

@@ -19,18 +19,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ─── Dropdown Toggle ───────────────────────────────────
+  // Closing goes through one function so every route out — clicking the
+  // trigger again, clicking away, Escape — leaves aria-expanded telling
+  // the truth. A trigger that says "expanded" over a closed panel is
+  // worse than one that never said anything.
+  const closeDropdowns = (except) => {
+    document.querySelectorAll('.dropdown__menu.show').forEach(menu => {
+      if (menu === except) return;
+      menu.classList.remove('show');
+      menu.previousElementSibling?.setAttribute?.('aria-expanded', 'false');
+    });
+  };
+
   document.querySelectorAll('[data-dropdown]').forEach(trigger => {
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       const menu = trigger.nextElementSibling;
-      document.querySelectorAll('.dropdown__menu.show').forEach(m => {
-        if (m !== menu) m.classList.remove('show');
-      });
-      menu?.classList.toggle('show');
+      closeDropdowns(menu);
+      const open = menu?.classList.toggle('show');
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
   });
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.dropdown__menu.show').forEach(m => m.classList.remove('show'));
+  document.addEventListener('click', () => closeDropdowns());
+
+  // Escape closes the open panel and hands focus back to what opened it,
+  // so a keyboard user is not left adrift at the top of the page.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('.dropdown__menu.show');
+    if (!open) return;
+    const trigger = open.previousElementSibling;
+    closeDropdowns();
+    trigger?.focus?.();
   });
 
   // ─── Flash Message Auto-dismiss ────────────────────────
@@ -75,15 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ─── Ctrl/Cmd + K → focus sidebar search ───────────────
-  const search = document.getElementById('globalSearch');
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      search?.focus();
-      search?.select();
-    }
-  });
+  // ─── Global search (topbar) ────────────────────────────
+  document.querySelectorAll('[data-global-search]').forEach(initGlobalSearch);
 
   // ─── Tabs ──────────────────────────────────────────────
   document.querySelectorAll('[data-tabs]').forEach(group => {
@@ -124,6 +137,309 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-upload-input]').forEach(initUploadZone);
   document.querySelectorAll('[data-doc-category]').forEach(initCategoryVisibility);
 });
+
+/* ═══════════════════════════════════════════════════════════
+   GLOBAL SEARCH
+   ═══════════════════════════════════════════════════════════ */
+
+const GS_RECENT_KEY = 'saxane.recentPages';
+const GS_RECENT_MAX = 4;
+
+/** Escaping for the one place in this file that builds markup from data. */
+function gsEscape(value) {
+  return String(value).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+/** Recently opened pages, newest first. A blocked or full store is not an error. */
+function gsReadRecent() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GS_RECENT_KEY));
+    return Array.isArray(raw) ? raw.filter((s) => typeof s === 'string') : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function gsPushRecent(slug) {
+  if (!slug) return;
+  try {
+    const next = [slug, ...gsReadRecent().filter((s) => s !== slug)].slice(0, GS_RECENT_MAX);
+    localStorage.setItem(GS_RECENT_KEY, JSON.stringify(next));
+  } catch (_) { /* private mode / quota — the search works without history */ }
+}
+
+/**
+ * Rank one entry against a query, or null when it does not match.
+ *
+ * The order is what makes short queries feel right: a label that *starts*
+ * with what was typed beats one that merely contains it, and a word boundary
+ * beats the middle of a word, so "pay" offers Payments before My Payments and
+ * never leads with a section that happens to share the letters. Slug and
+ * section are matched last so "admin" and "settings" still find their pages.
+ *
+ * `at` is where to underline in the label; -1 when the match was found
+ * somewhere the user cannot see.
+ */
+function gsMatch(item, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+
+  const label = item.label.toLowerCase();
+  const at = label.indexOf(q);
+  if (at === 0) return { rank: 0, at, len: q.length };
+  if (at > 0) return { rank: /[\s&/-]/.test(label[at - 1]) ? 1 : 2, at, len: q.length };
+  if (item.slug.toLowerCase().includes(q)) return { rank: 3, at: -1, len: q.length };
+  if (item.section.toLowerCase().includes(q)) return { rank: 4, at: -1, len: q.length };
+
+  // Last chance for a typed-out phrase: every word has to land somewhere in
+  // the entry, in any order, so "doc cat" still reaches Document Categories.
+  const words = q.split(/\s+/).filter(Boolean);
+  if (words.length < 2) return null;
+  const hay = (item.label + ' ' + item.section + ' ' + item.slug).toLowerCase();
+  return words.every((w) => hay.includes(w)) ? { rank: 5, at: -1, len: 0 } : null;
+}
+
+/**
+ * The topbar's global search: a combobox over every page the signed-in user
+ * is allowed to open, printed into the header by header.php.
+ *
+ * The whole index is a couple of dozen entries, so it is filtered in place on
+ * each keystroke — a request per character would be slower and could answer
+ * out of order. Focus never leaves the input; the arrow keys move an
+ * aria-activedescendant instead, which is what lets a screen reader announce
+ * the highlighted result while the user keeps typing.
+ */
+function initGlobalSearch(root) {
+  const input  = root.querySelector('.header__search-input');
+  const panel  = root.querySelector('.header__search-panel');
+  const list   = root.querySelector('.gs-list');
+  const empty  = root.querySelector('[data-search-empty]');
+  const echo   = root.querySelector('[data-empty-query]');
+  const clear  = root.querySelector('.header__search-clear');
+  const kbd    = root.querySelector('.header__search-kbd');
+  const source = root.querySelector('[data-search-index]');
+  if (!input || !panel || !list || !source) return;
+
+  let items = [];
+  try { items = JSON.parse(source.textContent) || []; } catch (_) { items = []; }
+
+  // A field that can return nothing is worse than no field at all.
+  if (!items.length) { root.hidden = true; return; }
+
+  const currentSlug = new URLSearchParams(window.location.search).get('page') || 'dashboard';
+  let options = [];
+  let active  = -1;
+
+  /* ── markup ─────────────────────────────────────────── */
+
+  const labelHtml = (hit) => {
+    const label = hit.item.label;
+    if (hit.at < 0 || !hit.len) return gsEscape(label);
+    return gsEscape(label.slice(0, hit.at))
+         + '<mark>' + gsEscape(label.slice(hit.at, hit.at + hit.len)) + '</mark>'
+         + gsEscape(label.slice(hit.at + hit.len));
+  };
+
+  const itemHtml = (hit, i) => {
+    const here = hit.item.slug === currentSlug;
+    return '<a class="gs-item" role="option" id="gs-opt-' + i + '" aria-selected="false"'
+         + ' href="' + gsEscape(hit.item.url) + '" data-slug="' + gsEscape(hit.item.slug) + '" tabindex="-1">'
+         + '<span class="gs-item__icon"><i class="bi ' + gsEscape(hit.item.icon) + '" aria-hidden="true"></i></span>'
+         + '<span class="gs-item__label">' + labelHtml(hit) + '</span>'
+         + (here
+             ? '<span class="gs-item__here">Here</span>'
+             : '<i class="bi bi-arrow-return-left gs-item__enter" aria-hidden="true"></i>')
+         + '</a>';
+  };
+
+  // role="group" keeps the section headings inside the listbox legal: a
+  // listbox may own groups of options, but not loose text. The heading stays
+  // visible and is hidden from the accessibility tree, because the group's
+  // own label already carries it.
+  const groupsHtml = (groups) => {
+    let i = 0;
+    return groups.map(([label, hits]) =>
+      '<div class="gs-group" role="group" aria-label="' + gsEscape(label) + '">'
+      + '<div class="gs-group__label" aria-hidden="true">' + gsEscape(label) + '</div>'
+      + hits.map((hit) => itemHtml(hit, i++)).join('')
+      + '</div>'
+    ).join('');
+  };
+
+  /* ── what to show ───────────────────────────────────── */
+
+  // Nothing typed yet: where the user has just been, then a short standing
+  // list, so the panel opens onto something useful rather than a blank sheet.
+  const restingGroups = () => {
+    const recent = gsReadRecent()
+      .map((slug) => items.find((item) => item.slug === slug))
+      .filter(Boolean);
+    const groups = [];
+    if (recent.length) {
+      groups.push(['Recent', recent.map((item) => ({ item, at: -1, len: 0 }))]);
+    }
+    const rest = items
+      .filter((item) => !recent.includes(item))
+      .slice(0, Math.max(3, 7 - recent.length));
+    if (rest.length) {
+      groups.push([recent.length ? 'Jump to' : 'Quick access',
+        rest.map((item) => ({ item, at: -1, len: 0 }))]);
+    }
+    return groups;
+  };
+
+  // Ranked globally, then bucketed by section: the strongest hit decides
+  // which section heads the list, and grouping tells the user where a result
+  // lives without repeating the section on every row.
+  const resultGroups = (query) => {
+    const hits = [];
+    items.forEach((item) => {
+      const m = gsMatch(item, query);
+      if (m) hits.push({ item, ...m });
+    });
+    hits.sort((a, b) => a.rank - b.rank || a.item.label.localeCompare(b.item.label));
+
+    const bySection = new Map();
+    hits.forEach((hit) => {
+      if (!bySection.has(hit.item.section)) bySection.set(hit.item.section, []);
+      bySection.get(hit.item.section).push(hit);
+    });
+    return [...bySection.entries()];
+  };
+
+  /* ── state ──────────────────────────────────────────── */
+
+  const setActive = (i, scroll = true) => {
+    options.forEach((el, n) => {
+      const on = n === i;
+      el.classList.toggle('is-active', on);
+      el.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    active = i;
+    const el = options[i];
+    if (!el) { input.removeAttribute('aria-activedescendant'); return; }
+    input.setAttribute('aria-activedescendant', el.id);
+    if (scroll) el.scrollIntoView({ block: 'nearest' });
+  };
+
+  const render = () => {
+    const query  = input.value.trim();
+    const groups = query ? resultGroups(query) : restingGroups();
+    const found  = groups.length > 0;
+
+    list.innerHTML = found ? groupsHtml(groups) : '';
+    list.hidden = !found;
+    if (empty) {
+      if (echo && !found) echo.textContent = query;
+      empty.hidden = found;
+    }
+
+    options = [...list.querySelectorAll('.gs-item')];
+    // Pre-select the top result so Enter is always meaningful, and quietly —
+    // moving the list under a screen reader on every keystroke is noise.
+    setActive(options.length ? 0 : -1, false);
+
+    if (clear) clear.hidden = query === '';
+    if (kbd) kbd.hidden = query !== '';
+  };
+
+  const open = () => {
+    if (!panel.hidden) return;
+    panel.hidden = false;
+    root.classList.add('is-open');
+    input.setAttribute('aria-expanded', 'true');
+  };
+
+  const close = () => {
+    if (panel.hidden) return;
+    panel.hidden = true;
+    root.classList.remove('is-open');
+    input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
+  };
+
+  const go = (el) => {
+    if (!el) return;
+    gsPushRecent(el.dataset.slug);
+    window.location.assign(el.href);
+  };
+
+  /* ── wiring ─────────────────────────────────────────── */
+
+  input.addEventListener('focus', () => { render(); open(); });
+  input.addEventListener('input', () => { render(); open(); });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      // One step back at a time: clear the query, then close the panel.
+      e.preventDefault();
+      if (input.value) { input.value = ''; render(); }
+      else { close(); input.blur(); }
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (panel.hidden) { render(); open(); }
+      if (!options.length) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      setActive((active + step + options.length) % options.length);
+      return;
+    }
+    if (e.key === 'Home' || e.key === 'End') {
+      if (panel.hidden || !options.length) return;
+      e.preventDefault();
+      setActive(e.key === 'Home' ? 0 : options.length - 1);
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (panel.hidden || !options[active]) return;
+      e.preventDefault();
+      go(options[active]);
+      return;
+    }
+    if (e.key === 'Tab') close();
+  });
+
+  // Focus stays in the input through a pointer press, so the panel cannot
+  // fold away underneath the click that was meant to open a result — the
+  // collapsed field on small screens is unfolded by focus.
+  panel.addEventListener('mousedown', (e) => e.preventDefault());
+  panel.addEventListener('click', (e) => {
+    const el = e.target.closest('.gs-item');
+    if (!el) return;
+    e.preventDefault();
+    go(el);
+  });
+  panel.addEventListener('mousemove', (e) => {
+    const el = e.target.closest('.gs-item');
+    const i = el ? options.indexOf(el) : -1;
+    if (i > -1 && i !== active) setActive(i, false);
+  });
+
+  if (clear) {
+    clear.addEventListener('click', () => {
+      input.value = '';
+      render();
+      open();
+      input.focus();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!root.contains(e.target)) close();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!e.key || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k') return;
+    e.preventDefault();
+    input.focus();
+    input.select();
+    render();
+    open();
+  });
+}
 
 /* ═══════════════════════════════════════════════════════════
    DOCUMENT UPLOAD
