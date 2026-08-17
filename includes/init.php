@@ -39,6 +39,12 @@ require_once __DIR__ . '/permissions.php';
 // search. After permissions.php because every entry is gated by canAccessPage().
 require_once __DIR__ . '/navigation.php';
 
+// Shared UI component helpers — status pills, row menus, empty states,
+// sortable headers, field-error state. After permissions.php because a row
+// action is drawn only when can() allows it, and after functions.php because
+// the status tone map lives there.
+require_once __DIR__ . '/ui.php';
+
 // Loaded after auth.php: all three read the signed-in role through
 // getUserRole()/hasRole().
 require_once __DIR__ . '/documents.php';

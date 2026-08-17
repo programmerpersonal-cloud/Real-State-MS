@@ -53,38 +53,16 @@ document.addEventListener('DOMContentLoaded', () => {
     trigger?.focus?.();
   });
 
-  // ─── Flash Message Auto-dismiss ────────────────────────
-  const flash = document.getElementById('flashMessage');
-  if (flash) {
-    setTimeout(() => {
-      flash.style.opacity = '0';
-      flash.style.transform = 'translateY(-8px)';
-      setTimeout(() => flash.remove(), 300);
-    }, 5000);
-  }
+  // ─── Flash message ─────────────────────────────────────
+  // A confirmation becomes a toast; a problem stays on the page. The two
+  // are not the same kind of message: "Payment recorded" has been read by
+  // the time it fades, but "Fix these three fields" has to still be there
+  // while they are being fixed, and a four-second toast would take it away
+  // mid-correction. The inline alert is also the no-JS path for both.
+  initFlash(document.getElementById('flashMessage'));
 
-  // ─── Form Validation Feedback ──────────────────────────
-  document.querySelectorAll('form[data-validate]').forEach(form => {
-    form.addEventListener('submit', (e) => {
-      let valid = true;
-      form.querySelectorAll('[required]').forEach(field => {
-        if (!field.value.trim()) {
-          field.classList.add('form-control--error');
-          valid = false;
-        } else {
-          field.classList.remove('form-control--error');
-        }
-      });
-      // Password match check
-      const pw = form.querySelector('[name="password"]');
-      const cpw = form.querySelector('[name="confirm_password"]');
-      if (pw && cpw && pw.value !== cpw.value) {
-        cpw.classList.add('form-control--error');
-        valid = false;
-      }
-      if (!valid) e.preventDefault();
-    });
-  });
+  // ─── Forms: inline validation, error summary, submit state ──
+  document.querySelectorAll('form[data-validate]').forEach(initFormValidation);
 
   // ─── Active Sidebar Link ───────────────────────────────
   const currentPage = new URLSearchParams(window.location.search).get('page') || 'dashboard';
@@ -136,6 +114,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── Document upload fields ────────────────────────────
   document.querySelectorAll('[data-upload-input]').forEach(initUploadZone);
   document.querySelectorAll('[data-doc-category]').forEach(initCategoryVisibility);
+
+  // ─── Row action menus (the ⋮ in a table's last column) ──
+  document.querySelectorAll('[data-row-menu]').forEach(initRowMenu);
+
+  // ─── Confirmation dialogs ──────────────────────────────
+  // Delegated from the document rather than bound per control, so a menu
+  // rendered after load — or one inside a dialog — is covered too.
+  initConfirm();
+
+  // ─── List view switch (table / grid) ───────────────────
+  document.querySelectorAll('[data-view-switch]').forEach(initViewSwitch);
 });
 
 /* ═══════════════════════════════════════════════════════════

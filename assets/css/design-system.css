@@ -237,6 +237,21 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
 .on-ink :focus-visible,.section--dark :focus-visible{outline-color:#fff}
 
 /* ─── Utilities ─────────────────────────────────────────── */
+/* Screen-reader-only text. Visible to assistive tech, invisible on screen,
+   and becomes visible if it ever receives focus — which is what makes it
+   safe to use on a skip link as well as on a label. Every bundle gets it:
+   an icon-only control needs a name on the admin side just as much as on
+   the marketing site. */
+.sr-only{
+  position:absolute!important;width:1px;height:1px;
+  padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+.sr-only:focus,.sr-only:focus-within{
+  position:static!important;width:auto;height:auto;
+  margin:0;overflow:visible;clip:auto;white-space:normal;
+}
+
 .text-muted{color:var(--text-muted)!important}
 .text-subtle{color:var(--text-subtle)!important}
 .text-primary{color:var(--primary)!important}

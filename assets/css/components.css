@@ -148,19 +148,35 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .table input[type=checkbox]{width:15px;height:15px;border-radius:4px;accent-color:var(--primary);cursor:pointer}
 .table__id{font-family:'SF Mono',ui-monospace,Menlo,Monaco,Consolas,monospace;font-size:.78rem;color:var(--text-muted);letter-spacing:.2px}
 
-/* ─── Status pill (with colored dot) — table cells ──────── */
-.status-pill{
+/* ─── Status ────────────────────────────────────────────────
+   The one status component, rendered by uiStatus(). Every state in the
+   system wears this shape: a tinted pill, a hairline of its own tone, and
+   a dot.
+
+   The dot is not decoration. Status is the one column people scan by
+   colour, and colour alone fails anyone who cannot separate these hues —
+   so the label is always spelled out and the dot gives the pill a second,
+   non-colour channel. Tone comes from getStatusBadgeClass(), the same map
+   the dashboard ring and the charts read.
+
+   All eight tones are defined. The old .status-pill had five, which is why
+   a sold property (purple) and a maintenance one (orange) had nowhere to
+   go and fell back to a badge instead. */
+.status{
   display:inline-flex;align-items:center;gap:6px;
   padding:3px 10px 3px 8px;border-radius:var(--radius-pill);
   font-size:.74rem;font-weight:600;line-height:1.6;
-  border:1px solid transparent;
+  white-space:nowrap;border:1px solid transparent;
 }
-.status-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
-.status-pill--success{background:var(--success-bg);color:var(--success);border-color:rgba(22,163,74,.18)}
-.status-pill--warning{background:var(--warning-bg);color:var(--warning);border-color:rgba(217,119,6,.18)}
-.status-pill--danger{background:var(--danger-bg);color:var(--danger);border-color:rgba(220,38,38,.18)}
-.status-pill--info{background:var(--info-bg);color:var(--info);border-color:rgba(37,99,235,.18)}
-.status-pill--muted{background:var(--surface-3);color:var(--text-muted);border-color:var(--border-strong)}
+.status__dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.status--success{background:var(--success-bg);color:var(--success);border-color:rgba(21,128,61,.18)}
+.status--warning{background:var(--warning-bg);color:var(--warning);border-color:rgba(180,83,9,.18)}
+.status--danger {background:var(--danger-bg); color:var(--danger); border-color:rgba(200,30,30,.18)}
+.status--info   {background:var(--info-bg);   color:var(--info);   border-color:rgba(0,95,158,.18)}
+.status--primary{background:var(--primary-light);color:var(--primary-ink);border-color:var(--primary-border)}
+.status--purple {background:var(--purple-bg); color:var(--purple); border-color:rgba(109,40,217,.18)}
+.status--orange {background:var(--orange-bg); color:var(--orange); border-color:rgba(194,65,12,.18)}
+.status--muted  {background:var(--surface-3); color:var(--text-muted);border-color:var(--border-strong)}
 
 /* ─── Badges (no dot — keep for legacy) ────────────────── */
 .badge{
@@ -201,6 +217,13 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 }
 .empty-state__title{font-size:1rem;font-weight:600;margin-bottom:4px;color:var(--text)}
 .empty-state__desc{color:var(--text-muted);font-size:.85rem;max-width:360px;margin:0 auto}
+/* Centred as a group and allowed to wrap: a filtered-empty list offers both
+   "Clear filters" and "Add …", which is two buttons a narrow column cannot
+   keep on one line. */
+.empty-state__actions{
+  display:flex;justify-content:center;flex-wrap:wrap;
+  gap:var(--space-2);margin-top:var(--space-4);
+}
 
 
 /* ─── Pagination ────────────────────────────────────────── */
@@ -269,13 +292,25 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--border-strong)}
 .prop-card__cover{aspect-ratio:16/10;background:var(--surface-3);position:relative;overflow:hidden}
 .prop-card__cover img{width:100%;height:100%;object-fit:cover}
-.prop-card__cover .badge,.prop-card__cover .status-pill{position:absolute;top:10px;left:10px}
+.prop-card__cover .badge,.prop-card__cover .status{position:absolute;top:10px;left:10px}
 .prop-card__body{padding:14px 16px}
 .prop-card__title{font-size:.96rem;font-weight:600;margin-bottom:4px;line-height:1.3;color:var(--text)}
 .prop-card__meta{font-size:.76rem;color:var(--text-muted);margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .prop-card__price{font-size:1.05rem;font-weight:700;color:var(--text);letter-spacing:-.3px}
 .prop-card__specs{display:flex;gap:14px;margin-top:8px;font-size:.76rem;color:var(--text-muted)}
 .prop-card__specs span{display:flex;align-items:center;gap:4px}
+/* The card's own action strip: the code on the left, the same ⋮ menu the
+   table row carries on the right, so an action is in the same place and
+   named the same way whichever view someone is working in. */
+.prop-card__foot{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
+  padding:9px 12px 9px 16px;border-top:1px solid var(--border);background:var(--surface-2);
+}
+.prop-card__title a{color:inherit}
+.prop-card__title a:hover{color:var(--primary)}
+/* The whole card lifts on hover, so the cover must not also scale — two
+   things moving at once for one intention reads as fidgeting. */
+.prop-card__cover{display:block}
 
 /* ─── Profile / detail ──────────────────────────────────── */
 .profile-grid{display:grid;grid-template-columns:300px 1fr;gap:20px}
@@ -323,6 +358,15 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .section-title{font-size:.76rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-weight:700;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
 /* ─── Grid helpers ──────────────────────────────────────── */
+/* Card grid that chooses its own column count. auto-fill rather than a fixed
+   three: the content column is a different width on every screen and inside
+   every layout, and 260px is the narrowest a property card stays readable
+   at. minmax(0,1fr) rather than 1fr so a long unbroken title cannot force a
+   column wider than its share. */
+.grid-auto{
+  display:grid;gap:var(--space-4);
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 @media(max-width:768px){.grid-2,.grid-3{grid-template-columns:1fr}}
@@ -553,6 +597,365 @@ body.is-modal-open{overflow:hidden}
   .propmap__frame{aspect-ratio:4/3}
   .propmap__bar{flex-direction:column;align-items:stretch}
   .propmap__actions .btn{flex:1;justify-content:center}
+}
+
+/* ════════════════════════════════════════════════════════════
+   DATA TABLE — the shared list surface
+   Built on .table rather than beside it: twenty-five tables already
+   carry that class, so improving it lands everywhere at once instead
+   of leaving two table systems to drift apart.
+   ════════════════════════════════════════════════════════════ */
+
+/* The card a list sits in. The table meets the card edge-to-edge — a table
+   inset inside a padded card draws two nested rectangles and wastes the row
+   width that long titles need. */
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.table-card > .table-wrap{border:none;border-radius:0}
+
+/* The strip above a table: the count on the left, bulk or table-level
+   controls on the right. */
+.table-head{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border);
+  background:var(--surface);flex-wrap:wrap;
+}
+.table-head__title{font-size:var(--fs-sm);font-weight:600;color:var(--text)}
+.table-head__count{color:var(--text-muted);font-weight:400}
+.table-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-2) var(--space-5);border-top:1px solid var(--border);
+  background:var(--surface);flex-wrap:wrap;
+}
+.table-foot__note{font-size:var(--fs-xs);color:var(--text-subtle)}
+.table-foot .pagination{padding:8px 0}
+/* The same foot under a card grid, which has no table-card to sit inside and
+   so has to draw its own box. */
+.table-foot--standalone{
+  border:1px solid var(--border);border-radius:var(--radius);
+  margin-top:var(--space-4);
+}
+
+/* The header stays put while a long page of rows scrolls under it, so the
+   column a figure belongs to is still legible at row 40. */
+.table thead th{position:sticky;top:0;z-index:2}
+
+/* Figures line up on the decimal only when the digits are the same width.
+   Money, dates and counts all get the tabular set; names deliberately do
+   not, because proportional text reads better in a name column. */
+.table .num,.table .cell-num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.table .cell-date{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-muted)}
+.table .cell-tight{width:1%;white-space:nowrap}
+.table .cell-actions{width:1%;white-space:nowrap;text-align:right}
+.table .cell-strong{font-weight:600;color:var(--text)}
+/* A cell that must be allowed to shrink and ellipse rather than force the
+   table wider than its column. */
+.table .cell-clip{max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Sortable column header. The whole cell is the target, not just the label,
+   and the glyph is always present on a sortable column — an arrow that only
+   appears on hover is an affordance nobody finds. */
+.th-sort{padding:0!important}
+.th-sort__link{
+  display:flex;align-items:center;gap:6px;width:100%;
+  padding:11px 16px;color:inherit;font:inherit;
+  text-transform:inherit;letter-spacing:inherit;
+  transition:color var(--transition),background var(--transition);
+}
+.table th.th-sort:first-child .th-sort__link{padding-left:18px}
+.table th.th-sort:last-child .th-sort__link{padding-right:18px}
+.th-sort__link:hover{color:var(--text);background:var(--surface-3)}
+.th-sort__link i{font-size:.7rem;opacity:.45;transition:opacity var(--transition)}
+.th-sort__link:hover i{opacity:.8}
+.th-sort.is-sorted .th-sort__link{color:var(--primary-ink)}
+.th-sort.is-sorted .th-sort__link i{opacity:1}
+
+/* Person cell — avatar, name, optional second line. */
+.person{display:inline-flex;align-items:center;gap:10px;min-width:0;color:inherit}
+.person__avatar{
+  width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  border:1px solid var(--border);background:var(--surface-3);
+}
+.person__text{display:flex;flex-direction:column;min-width:0;line-height:1.35}
+.person__name{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.person__meta{font-size:var(--fs-2xs);color:var(--text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+a.person:hover .person__name{color:var(--primary)}
+
+/* ════════════════════════════════════════════════════════════
+   LIST TOOLBAR — search, filters and page actions
+   One bar for every list, replacing both the old .filter-bar and the
+   bespoke inline-flex forms each module had grown.
+   ════════════════════════════════════════════════════════════ */
+.list-toolbar{
+  display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;
+  margin-bottom:var(--space-4);
+}
+/* The search field takes the slack, so filters and actions keep their
+   natural width and the row never leaves a ragged gap in the middle. */
+.list-toolbar__search{position:relative;flex:1 1 260px;min-width:200px}
+.list-toolbar__search .form-control{padding-left:36px;height:38px}
+.list-toolbar__search i{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--text-subtle);font-size:.9rem;pointer-events:none;
+}
+.list-toolbar__filters{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
+.list-toolbar__filters .form-control{height:38px;min-width:130px;font-size:var(--fs-xs)}
+.list-toolbar__actions{display:flex;align-items:center;gap:var(--space-2);margin-left:auto;flex-wrap:wrap}
+@media(max-width:768px){
+  .list-toolbar__actions{margin-left:0;width:100%}
+  .list-toolbar__actions .btn{flex:1;justify-content:center}
+}
+
+/* An applied filter, shown as a removable chip so what is narrowing the
+   list is visible without reopening the filter controls. */
+.filter-chips{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin-bottom:var(--space-3)}
+.filter-chips__label{font-size:var(--fs-xs);color:var(--text-subtle)}
+.filter-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 6px 4px 10px;border-radius:var(--radius-pill);
+  background:var(--primary-tint);border:1px solid var(--primary-border);
+  color:var(--primary-ink);font-size:var(--fs-2xs);font-weight:600;
+}
+.filter-chip__key{opacity:.7;font-weight:500}
+.filter-chip__x{
+  display:grid;place-items:center;width:16px;height:16px;border-radius:50%;
+  background:transparent;border:0;color:inherit;cursor:pointer;font-size:.62rem;
+  transition:background var(--transition);
+}
+.filter-chip__x:hover{background:var(--primary-light)}
+
+/* Segmented control — the table/grid view switch. */
+.segmented{display:inline-flex;background:var(--surface-3);border-radius:var(--radius-sm);padding:3px;gap:2px}
+.segmented__btn{
+  display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;
+  border:0;background:transparent;border-radius:var(--radius-xs);
+  color:var(--text-muted);font-size:var(--fs-xs);font-weight:600;cursor:pointer;
+  transition:background var(--transition),color var(--transition),box-shadow var(--transition);
+}
+.segmented__btn:hover{color:var(--text)}
+.segmented__btn.is-active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-xs)}
+
+/* ════════════════════════════════════════════════════════════
+   ROW MENU — the compact ⋮ action list
+   ════════════════════════════════════════════════════════════ */
+.row-menu{position:relative;display:inline-block}
+.row-menu__trigger{
+  width:30px;height:30px;display:grid;place-items:center;
+  border:1px solid transparent;border-radius:var(--radius-sm);
+  background:transparent;color:var(--text-muted);cursor:pointer;
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.row-menu__trigger:hover,.row-menu__trigger[aria-expanded="true"]{
+  background:var(--surface-3);color:var(--text);border-color:var(--border);
+}
+/* Right-aligned: the menu lives in the last column, so opening leftward is
+   the only direction with room. */
+.row-menu__list{
+  position:absolute;right:0;top:calc(100% + 4px);z-index:60;min-width:186px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow-lg);
+  padding:5px;
+}
+.row-menu__list[hidden]{display:none}
+/* Opens upward when the row is near the foot of the page — set by JS, which
+   is the only thing that can know how much room is left below. */
+.row-menu__list.is-up{top:auto;bottom:calc(100% + 4px)}
+.row-menu__form{margin:0}
+.row-menu__item{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:8px 10px;border:0;border-radius:var(--radius-xs);
+  background:transparent;text-align:left;cursor:pointer;
+  font-size:var(--fs-xs);font-weight:500;color:var(--text-body);
+  font-family:inherit;transition:background var(--transition),color var(--transition);
+}
+.row-menu__item i{font-size:.88rem;width:16px;text-align:center;color:var(--text-subtle);flex-shrink:0}
+.row-menu__item:hover{background:var(--surface-3);color:var(--text)}
+.row-menu__item:hover i{color:var(--primary)}
+.row-menu__item--danger{color:var(--danger)}
+.row-menu__item--danger i{color:var(--danger)}
+.row-menu__item--danger:hover{background:var(--danger-bg);color:var(--danger)}
+.row-menu__item--danger:hover i{color:var(--danger)}
+.row-menu__divider{height:1px;background:var(--border);margin:5px 0}
+
+/* ════════════════════════════════════════════════════════════
+   TOASTS — transient confirmation
+   Announced politely and never given focus: a toast that steals focus
+   interrupts whatever the user was typing when it arrived.
+   ════════════════════════════════════════════════════════════ */
+.toast-region{
+  position:fixed;right:var(--space-5);bottom:var(--space-5);z-index:400;
+  display:flex;flex-direction:column;gap:var(--space-2);
+  width:min(360px,calc(100vw - var(--space-8)));pointer-events:none;
+}
+.toast{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:12px 14px;border-radius:var(--radius);
+  background:var(--surface);border:1px solid var(--border);
+  box-shadow:var(--shadow-lg);pointer-events:auto;
+  opacity:0;transform:translateY(10px);
+  transition:opacity var(--transition),transform var(--transition);
+}
+.toast.is-in{opacity:1;transform:none}
+.toast.is-out{opacity:0;transform:translateY(6px)}
+.toast__icon{font-size:1rem;line-height:1.3;flex-shrink:0}
+.toast__body{flex:1;min-width:0;font-size:var(--fs-xs);color:var(--text-body);line-height:1.5}
+.toast__title{display:block;font-weight:600;color:var(--text);margin-bottom:1px}
+.toast__close{
+  flex-shrink:0;background:none;border:0;color:var(--text-subtle);
+  cursor:pointer;font-size:.75rem;padding:2px;border-radius:var(--radius-xs);
+}
+.toast__close:hover{color:var(--text)}
+/* A hairline of the tone down the leading edge — enough to identify the kind
+   of message at a glance without tinting the whole card. */
+.toast--success{border-left:3px solid var(--success)}
+.toast--success .toast__icon{color:var(--success)}
+.toast--danger{border-left:3px solid var(--danger)}
+.toast--danger .toast__icon{color:var(--danger)}
+.toast--warning{border-left:3px solid var(--warning)}
+.toast--warning .toast__icon{color:var(--warning)}
+.toast--info{border-left:3px solid var(--info)}
+.toast--info .toast__icon{color:var(--info)}
+@media(max-width:560px){
+  .toast-region{left:var(--space-4);right:var(--space-4);bottom:var(--space-4);width:auto}
+}
+
+/* ════════════════════════════════════════════════════════════
+   CONFIRMATION DIALOG
+   Reuses the .modal shell — same backdrop, focus trap and scroll
+   lock — so a confirmation behaves like every other dialog.
+   ════════════════════════════════════════════════════════════ */
+.confirm__dialog{max-width:440px}
+.confirm__body{display:flex;gap:var(--space-4);padding:var(--space-6)}
+.confirm__icon{
+  width:42px;height:42px;border-radius:var(--radius);flex-shrink:0;
+  display:grid;place-items:center;font-size:1.15rem;
+  background:var(--danger-bg);color:var(--danger);
+}
+.confirm--warning .confirm__icon{background:var(--warning-bg);color:var(--warning)}
+.confirm--info .confirm__icon{background:var(--info-bg);color:var(--info)}
+.confirm__title{font-family:var(--font-display);font-size:1.05rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.confirm__text{font-size:var(--fs-sm);color:var(--text-body);margin-top:6px;line-height:var(--lh-snug)}
+/* The record being acted on, quoted back. A confirmation that does not name
+   its target is a dialog people learn to dismiss without reading. */
+.confirm__record{
+  display:block;margin-top:var(--space-3);padding:8px 11px;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);font-size:var(--fs-xs);
+  font-weight:600;color:var(--text);word-break:break-word;
+}
+.confirm__footer{justify-content:flex-end}
+
+/* ════════════════════════════════════════════════════════════
+   ERROR SUMMARY — what a rejected form says first
+   ════════════════════════════════════════════════════════════ */
+.error-summary{
+  border:1px solid rgba(200,30,30,.28);background:var(--danger-bg);
+  border-radius:var(--radius);padding:var(--space-4) var(--space-5);
+  margin-bottom:var(--space-5);
+}
+.error-summary:focus-visible{outline:2px solid var(--danger);outline-offset:2px}
+.error-summary__title{
+  display:flex;align-items:center;gap:8px;
+  font-size:var(--fs-sm);font-weight:700;color:var(--danger);
+}
+.error-summary__list{margin:var(--space-2) 0 0;padding-left:26px}
+.error-summary__list li{font-size:var(--fs-xs);color:var(--danger);margin-top:3px}
+.error-summary__list a{color:inherit;text-decoration:underline}
+.error-summary__list a:hover{color:var(--danger)}
+
+/* ════════════════════════════════════════════════════════════
+   LOADING STATES
+   ════════════════════════════════════════════════════════════ */
+/* A button mid-submit. The label is kept and dimmed rather than swapped for
+   a spinner alone: replacing the text makes the button resize and the row
+   jump, and the user loses the word that told them what they clicked. */
+.btn.is-loading{position:relative;pointer-events:none;opacity:.75}
+.btn.is-loading > *{visibility:hidden}
+.btn.is-loading::after{
+  content:'';position:absolute;inset:0;margin:auto;
+  width:15px;height:15px;border-radius:50%;
+  border:2px solid currentColor;border-right-color:transparent;
+  animation:spin 700ms linear infinite;
+}
+
+/* Skeleton primitives. Shared by the app lists and the public listing grid,
+   which is why they live here rather than in either page's stylesheet. */
+@keyframes shimmer{100%{background-position:-200% 0}}
+.skeleton{
+  background:linear-gradient(90deg,var(--surface-3) 25%,#e6edf1 50%,var(--surface-3) 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.4s linear infinite;
+  border-radius:var(--radius-xs);
+}
+.skeleton-card{
+  border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;background:var(--surface);
+}
+.skeleton-card__media{aspect-ratio:4/3}
+.skeleton-card__body{padding:var(--space-4);display:flex;flex-direction:column;gap:10px}
+.skeleton-line{height:12px}
+.skeleton-line--lg{height:20px;width:45%}
+.skeleton-line--sm{width:65%}
+
+/* Table skeleton — the same row rhythm as the real table, so the page does
+   not resize when the data lands. */
+.skeleton-table{padding:var(--space-2) 0}
+.skeleton-row{
+  display:flex;align-items:center;gap:var(--space-4);
+  padding:13px 18px;border-bottom:1px solid var(--border);
+}
+.skeleton-row:last-child{border-bottom:none}
+.skeleton-row > .skeleton{height:12px;border-radius:var(--radius-xs);flex:1}
+.skeleton-row > .skeleton:nth-child(1){flex:0 0 34px;height:34px;border-radius:50%}
+.skeleton-row > .skeleton:nth-child(2){flex:2}
+.skeleton-row > .skeleton:nth-child(4){flex:0 0 76px}
+/* Reduced motion: the shimmer and the spinner stop advertising themselves,
+   but the spinner keeps turning slowly rather than freezing — a frozen
+   spinner reads as a hung request. */
+@media(prefers-reduced-motion:reduce){
+  .btn.is-loading::after{animation-duration:1.6s}
+  .skeleton{animation:none}
+}
+
+/* ════════════════════════════════════════════════════════════
+   DETAIL HEADER — the record header on every show page
+   ════════════════════════════════════════════════════════════ */
+.detail-header{
+  display:flex;align-items:flex-start;gap:var(--space-5);
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:var(--space-5);
+  margin-bottom:var(--space-5);
+}
+.detail-header__media{
+  width:132px;height:96px;flex-shrink:0;border-radius:var(--radius-sm);
+  overflow:hidden;background:var(--surface-3);border:1px solid var(--border);
+}
+.detail-header__media img{width:100%;height:100%;object-fit:cover}
+.detail-header__media--avatar{width:72px;height:72px;border-radius:50%}
+.detail-header__body{flex:1;min-width:0}
+.detail-header__eyebrow{
+  font-size:var(--fs-2xs);font-weight:600;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--text-subtle);
+}
+.detail-header__title{
+  font-family:var(--font-display);font-size:1.3rem;font-weight:700;
+  color:var(--text);letter-spacing:-.02em;margin:3px 0 0;line-height:var(--lh-tight);
+}
+.detail-header__meta{
+  display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap;
+  margin-top:var(--space-3);font-size:var(--fs-xs);color:var(--text-muted);
+}
+.detail-header__meta span{display:inline-flex;align-items:center;gap:5px}
+.detail-header__meta i{color:var(--text-subtle)}
+.detail-header__actions{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;flex-wrap:wrap}
+/* A row of figures under the header — rent, deposit, balance. */
+.detail-stats{display:flex;gap:var(--space-6);flex-wrap:wrap;margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--border)}
+.detail-stat__label{font-size:var(--fs-2xs);text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle)}
+.detail-stat__value{font-size:1.05rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;margin-top:2px}
+@media(max-width:768px){
+  .detail-header{flex-direction:column;gap:var(--space-4)}
+  .detail-header__media{width:100%;height:170px}
+  .detail-header__actions{width:100%}
+  .detail-header__actions .btn{flex:1;justify-content:center}
 }
 
 /* The hidden attribute has to beat component display rules. Without this a

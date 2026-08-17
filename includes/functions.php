@@ -116,6 +116,54 @@ function renderFlash(): string
     HTML;
 }
 
+/* ── Rejected forms ──────────────────────────────────────────────────
+   The controller half of the validation round trip. Promoted from the
+   private methods CustomerController and OwnerController had grown, so
+   every module rejects a form the same way instead of two doing it well
+   and the rest concatenating their messages into one flash line.
+
+   The shape is deliberately unchanged from what already worked: a POST
+   that fails redirects (Post/Redirect/Get) with the entry preserved, so a
+   refresh cannot resubmit and the browser's back button behaves. All that
+   is added is a key per message, which is what lets the returning form
+   point at the box that needs fixing. */
+
+/**
+ * Record one problem: once for the summary, once against its field.
+ *
+ * $errors collects the human list — it is what the flash sentence is built
+ * from. The session copy is keyed by field name and is what the form reads
+ * to outline the offending control.
+ */
+function addFieldError(array &$errors, string $field, string $message): void
+{
+    $errors[] = $message;
+    $_SESSION['form_errors'][$field] = $message;
+}
+
+/**
+ * Send a rejected form back with everything the user typed still in it.
+ *
+ * Never returns. Passwords are the one thing deliberately not preserved:
+ * they are not put in the session, so a rejected sign-up form asks for the
+ * password again rather than leaving it sitting in server-side storage.
+ *
+ * @param string[]             $errors  Messages, in the order they were found.
+ * @param array<string, mixed> $data    What was submitted, minus secrets.
+ * @param string               $failUrl Where to send the user back to.
+ */
+function rejectForm(array $errors, array $data, string $failUrl): void
+{
+    setFlash('error', count($errors) === 1
+        ? $errors[0]
+        : 'Please correct the ' . count($errors) . ' problems highlighted below.');
+
+    unset($data['password'], $data['confirm_password'], $data['current_password']);
+    $_SESSION['form_data'] = $data;
+
+    redirect($failUrl);
+}
+
 /**
  * Format a number as currency.
  * Defaults to the symbol configured in Settings → Financial.
@@ -285,6 +333,22 @@ function renderPage(string $viewFile, array $vars = []): void
     if (!empty($vars)) {
         extract($vars, EXTR_SKIP);
     }
+
+    // Field-level errors from a rejected submit, taken once so a refresh
+    // shows a clean form. Picked up here rather than in each controller
+    // because every form view wants the same variable under the same name,
+    // and a controller that forgot to pass it produced a form that silently
+    // marked nothing. EXTR_SKIP above means a controller that does pass its
+    // own $formErrors still wins.
+    //
+    // Only consumed when the controller has not already supplied it, so
+    // takeRejectedForm() in the controllers that read the session themselves
+    // keeps working unchanged.
+    if (!isset($formErrors)) {
+        $formErrors = $_SESSION['form_errors'] ?? [];
+        unset($_SESSION['form_errors']);
+    }
+
     $currentUser = getCurrentUser();
     $role = getUserRole();
     require VIEWS_PATH . '/layout.php';

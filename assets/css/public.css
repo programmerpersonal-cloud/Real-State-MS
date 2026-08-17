@@ -1418,22 +1418,9 @@ body.has-drawer{overflow:hidden}
 .state__desc{font-size:var(--fs-sm);color:var(--text-muted);max-width:380px}
 
 /* Skeletons — used while a grid is being replaced client-side. */
-@keyframes shimmer{100%{background-position:-200% 0}}
-.skeleton{
-  background:linear-gradient(90deg,var(--surface-3) 25%,#e6edf1 50%,var(--surface-3) 75%);
-  background-size:200% 100%;
-  animation:shimmer 1.4s linear infinite;
-  border-radius:var(--radius-xs);
-}
-.skeleton-card{
-  border:1px solid var(--border);border-radius:var(--radius);
-  overflow:hidden;background:var(--surface);
-}
-.skeleton-card__media{aspect-ratio:4/3}
-.skeleton-card__body{padding:var(--space-4);display:flex;flex-direction:column;gap:10px}
-.skeleton-line{height:12px}
-.skeleton-line--lg{height:20px;width:45%}
-.skeleton-line--sm{width:65%}
+/* The skeleton primitives moved to components.css when the app pages needed
+   them too — a loading placeholder is not a marketing-page concern, and two
+   copies of the shimmer would have been two things to keep in step. */
 
 /* ════════════════════════════════════════════════════════════
    PAGINATION (public)
@@ -1573,17 +1560,9 @@ body.has-drawer{overflow:hidden}
    PUBLIC UTILITIES & FORM REFINEMENTS
    ════════════════════════════════════════════════════════════ */
 
-/* Screen-reader-only text. Visible to assistive tech, invisible on
-   screen, and becomes visible if it ever receives focus. */
-.sr-only{
-  position:absolute!important;width:1px;height:1px;
-  padding:0;margin:-1px;overflow:hidden;
-  clip:rect(0,0,0,0);white-space:nowrap;border:0;
-}
-.sr-only:focus,.sr-only:focus-within{
-  position:static!important;width:auto;height:auto;
-  margin:0;overflow:visible;clip:auto;white-space:normal;
-}
+/* .sr-only moved to design-system.css — the app pages need it too, and an
+   accessibility primitive that only exists on the marketing site is a trap
+   waiting for the first admin page that labels an icon-only control. */
 
 /* In-page anchors must clear the sticky header. */
 .public-body [id]{scroll-margin-top:calc(var(--navbar-height) + 24px)}

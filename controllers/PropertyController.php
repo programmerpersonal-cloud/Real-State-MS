@@ -9,6 +9,41 @@ require_once BASE_PATH . '/models/DocumentCategory.php';
 
 class PropertyController
 {
+    /**
+     * The enum values this module accepts, with the labels the UI shows.
+     *
+     * One list per enum, read by both the filter <select> and the validation
+     * that guards the query. Keeping them together is the point: an option
+     * offered in the form is by construction an option the filter accepts,
+     * and a value absent here is dropped rather than passed to the model.
+     *
+     * These mirror the ENUM definitions on the properties table.
+     */
+    private const LISTING_TYPES = [
+        'rent' => 'For Rent',
+        'sale' => 'For Sale',
+        'both' => 'Rent or Sale',
+    ];
+
+    private const CATEGORIES = [
+        'apartment'  => 'Apartment',
+        'house'      => 'House',
+        'villa'      => 'Villa',
+        'land'       => 'Land',
+        'office'     => 'Office',
+        'commercial' => 'Commercial',
+        'warehouse'  => 'Warehouse',
+    ];
+
+    private const STATUSES = [
+        'available'   => 'Available',
+        'reserved'    => 'Reserved',
+        'rented'      => 'Rented',
+        'sold'        => 'Sold',
+        'maintenance' => 'Maintenance',
+        'inactive'    => 'Inactive',
+    ];
+
     private Property $model;
 
     public function __construct()
@@ -16,20 +51,50 @@ class PropertyController
         $this->model = new Property();
     }
 
+    /**
+     * A request value, but only if it is one we recognise.
+     *
+     * Anything else becomes '' — an absent filter — so an unexpected value
+     * widens the result set rather than reaching the query or the page.
+     *
+     * @param string[] $allowed
+     */
+    private static function pick(mixed $value, array $allowed): string
+    {
+        $value = is_string($value) ? $value : '';
+
+        return in_array($value, $allowed, true) ? $value : '';
+    }
+
     public function index(): void
     {
         authorize('properties.view');
+
+        // Enumerated filters are validated against the same lists the form
+        // builds its <option>s from, so a hand-edited ?status=<script> is an
+        // empty filter rather than a value carried into the query. The free
+        // text and the ids stay bound parameters inside buildFilters().
         $filters = [
-            'search'        => $_GET['search'] ?? '',
-            'property_type' => $_GET['property_type'] ?? '',
-            'category'      => $_GET['category'] ?? '',
-            'status'        => $_GET['status'] ?? '',
+            'search'        => trim((string) ($_GET['search'] ?? '')),
+            'property_type' => self::pick($_GET['property_type'] ?? '', array_keys(self::LISTING_TYPES)),
+            'category'      => self::pick($_GET['category'] ?? '', array_keys(self::CATEGORIES)),
+            'status'        => self::pick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'owner_id'      => max(0, (int) ($_GET['owner_id'] ?? 0)) ?: '',
+            // Never interpolated: the model looks this key up in Property::SORTS
+            // and falls back to 'newest' for anything it does not recognise.
+            'sort'          => uiSortValue(array_keys(Property::SORTS), 'newest'),
         ];
+
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
         $properties = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
         $totalCount = $this->model->count($filters);
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
+
+        // Covers for the whole page in one query, for the grid view. Batched
+        // rather than fetched per card: at 20 rows the obvious version costs
+        // 20 round trips to draw one screen.
+        $covers = $this->model->getCoversFor(array_column($properties, 'id'));
 
         // The quick-add popup lives on this page, so it needs the same
         // lookups the full form uses — and the entry kept back after a
@@ -39,7 +104,13 @@ class PropertyController
 
         renderPage(VIEWS_PATH . '/admin/properties/index.php', array_merge(self::formLookups(), [
             'properties' => $properties,
+            'covers'     => $covers,
             'filters'    => $filters,
+            // The filter controls are built from the same lists the request
+            // was validated against, so the two can never disagree.
+            'listingTypes' => self::LISTING_TYPES,
+            'categories'   => self::CATEGORIES,
+            'statuses'     => self::STATUSES,
             'page'       => $page,
             'totalPages' => $totalPages,
             'totalCount' => $totalCount,

@@ -171,13 +171,32 @@ class Property
      * Whitelist of sort options. Anything unrecognised falls back to
      * newest-first, so the ORDER BY can never be driven by raw input.
      */
-    private const SORTS = [
-        'newest'     => 'p.created_at DESC',
-        'oldest'     => 'p.created_at ASC',
-        'price_asc'  => 'COALESCE(NULLIF(p.rent_amount,0), p.price, 0) ASC',
-        'price_desc' => 'COALESCE(NULLIF(p.rent_amount,0), p.price, 0) DESC',
-        'rooms_desc' => 'p.num_rooms DESC, p.created_at DESC',
-        'size_desc'  => 'p.size_sqm DESC, p.created_at DESC',
+    /**
+     * Every ordering this model will accept, and the only place a column name
+     * is allowed to reach the ORDER BY below.
+     *
+     * The request supplies a *key*, never a column: an unrecognised key falls
+     * to 'newest' rather than being interpolated, which is what keeps
+     * `?sort=id;DROP…` a normal first page. The admin register's sortable
+     * columns were added alongside the public site's price/rooms/size sorts,
+     * so both read from one allow-list.
+     */
+    public const SORTS = [
+        'newest'      => 'p.created_at DESC',
+        'oldest'      => 'p.created_at ASC',
+        'price_asc'   => 'COALESCE(NULLIF(p.rent_amount,0), p.price, 0) ASC',
+        'price_desc'  => 'COALESCE(NULLIF(p.rent_amount,0), p.price, 0) DESC',
+        'rooms_desc'  => 'p.num_rooms DESC, p.created_at DESC',
+        'size_desc'   => 'p.size_sqm DESC, p.created_at DESC',
+        // Admin register columns.
+        'title_asc'   => 'p.title ASC',
+        'title_desc'  => 'p.title DESC',
+        'code_asc'    => 'p.property_code ASC',
+        'code_desc'   => 'p.property_code DESC',
+        'status_asc'  => 'p.status ASC, p.created_at DESC',
+        'status_desc' => 'p.status DESC, p.created_at DESC',
+        'updated_desc'=> 'p.updated_at DESC',
+        'updated_asc' => 'p.updated_at ASC',
     ];
 
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array

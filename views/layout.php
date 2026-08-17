@@ -58,6 +58,11 @@ if ($resolvedViewFile && file_exists($resolvedViewFile)) {
         <?php require VIEWS_PATH . '/components/footer.php'; ?>
     </div>
 </div>
+<?php /* components.js first: main.js's DOMContentLoaded handler calls into it,
+         and it reads lockPageScroll()/FOCUSABLE back out of main.js. Both are
+         plain synchronous scripts, so every declaration is in place before
+         either handler runs, whichever order the tags appear in. */ ?>
 <script src="<?= JS_URL ?>/main.js"></script>
+<script src="<?= JS_URL ?>/components.js"></script>
 </body>
 </html>
