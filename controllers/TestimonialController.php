@@ -9,6 +9,12 @@ require_once BASE_PATH . '/models/Testimonial.php';
 
 class TestimonialController
 {
+    /** The moderation states, keyed by the value the filter carries. */
+    public const FILTERS = [
+        'pending'  => 'Awaiting approval',
+        'approved' => 'Published',
+    ];
+
     private Testimonial $model;
 
     public function __construct()
@@ -20,7 +26,10 @@ class TestimonialController
     {
         authorize('testimonials.view');
 
-        $filter       = $_GET['filter'] ?? '';
+        // Testimonial::getAll() already resolves this through a match() with a
+        // default, so nothing unknown reaches SQL either way; checking here as
+        // well keeps the value that comes back to the view one of ours.
+        $filter       = uiPick($_GET['filter'] ?? '', array_keys(self::FILTERS));
         $testimonials = $this->model->getAll($filter);
         $summary      = $this->model->ratingSummary();
 
@@ -34,9 +43,17 @@ class TestimonialController
             'filter'       => $filter,
             'summary'      => $summary,
             'formData'     => $formData,
+            'filters'      => self::FILTERS,
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle'    => 'Testimonials',
+            'pageSubtitle' => 'Customer reviews, and which of them are live on the public site.',
             'breadcrumbs'  => [['label' => 'Testimonials']],
+            'actionButton' => can('testimonials.form') ? [
+                'label' => 'Add testimonial',
+                'icon'  => 'bi-plus-lg',
+                'url'   => APP_URL . '/index.php?page=testimonials&action=form',
+                'attrs' => ['data-modal-open' => 'testimonialCreateModal'],
+            ] : null,
         ]);
     }
 
@@ -83,14 +100,29 @@ class TestimonialController
             'sort_order'  => (int) ($_POST['sort_order'] ?? 0),
         ];
 
-        if ($data['author_name'] === '' || $data['body'] === '') {
-            setFlash('error', 'A name and the review text are both required.');
-            $_SESSION['form_data'] = $data;
-            // A save from the popup returns to the popup, so a rejected
-            // review is corrected where it was typed.
-            redirect(($_POST['return_to'] ?? '') === 'modal'
-                ? APP_URL . '/index.php?page=testimonials&modal=create'
-                : APP_URL . '/index.php?page=testimonials&action=form' . ($id ? '&id=' . $id : ''));
+        // A save from the popup returns to the popup, so a rejected review is
+        // corrected where it was typed.
+        $failUrl = ($_POST['return_to'] ?? '') === 'modal'
+            ? APP_URL . '/index.php?page=testimonials&modal=create'
+            : APP_URL . '/index.php?page=testimonials&action=form' . ($id ? '&id=' . $id : '');
+
+        unset($_SESSION['form_errors']);
+        $errors = [];
+
+        if ($data['author_name'] === '') {
+            addFieldError($errors, 'author_name', 'Name the customer this review is from.');
+        }
+        if ($data['body'] === '') {
+            addFieldError($errors, 'body', 'The review itself is required.');
+        }
+        // The rating drives the average published in the site's structured
+        // data, so a value outside the scale would misreport the business to
+        // search engines. It was taken from the form unchecked.
+        if ($data['rating'] < 1 || $data['rating'] > 5) {
+            addFieldError($errors, 'rating', 'Choose a rating between one and five stars.');
+        }
+        if ($errors) {
+            rejectForm($errors, $data, $failUrl);
         }
 
         $ok = $id > 0 ? $this->model->update($id, $data) : (bool) $this->model->create($data);

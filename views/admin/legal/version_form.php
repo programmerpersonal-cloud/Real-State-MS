@@ -59,8 +59,7 @@ $formAction = $isNew
 
             <div class="form-group">
                 <label class="form-label" for="tv-body">Body *</label>
-                <textarea id="tv-body" name="body" class="form-control" rows="22" required
-                          style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem;line-height:1.6"
+                <textarea id="tv-body" name="body" class="form-control form-control--code" rows="22" required
                           placeholder="## 1. Deposit&#10;&#10;The **deposit** is refundable within 14 days provided that:&#10;&#10;- the property is undamaged&#10;- all rent is settled"><?= sanitize($fd['body'] ?? '') ?></textarea>
                 <div class="form-hint">
                     Plain text with a few conventions:
@@ -72,19 +71,26 @@ $formAction = $isNew
             </div>
         </div>
 
-        <div class="card__footer" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <button type="submit" class="btn btn--primary"><i class="bi bi-save"></i> Save draft</button>
+        <div class="card__footer card__footer--actions">
+            <button type="submit" class="btn btn--primary">
+                <i class="bi bi-save" aria-hidden="true"></i> Save draft
+            </button>
             <button type="submit" name="publish" value="1" class="btn btn--success"
-                    onclick="return confirm('Save and publish? Any live version is superseded and kept on record.')">
-                <i class="bi bi-send"></i> Save &amp; publish
+                    data-confirm="This becomes the wording presented for acceptance. Any version currently live is superseded and kept on record — nothing already accepted changes."
+                    data-confirm-title="Save and publish these terms?"
+                    data-confirm-action="Save &amp; publish"
+                    data-confirm-record="<?= sanitize($type['name'] . ' · ' . $nextCode) ?>"
+                    data-confirm-tone="primary">
+                <i class="bi bi-send" aria-hidden="true"></i> Save &amp; publish
             </button>
             <button type="submit" class="btn btn--outline" formaction="<?= APP_URL ?>/index.php?page=legal&amp;action=preview"
                     formtarget="_blank" formnovalidate>
-                <i class="bi bi-eye"></i> Preview
+                <i class="bi bi-eye" aria-hidden="true"></i> Preview
             </button>
-            <a class="btn btn--outline" href="<?= APP_URL ?>/index.php?page=legal">Cancel</a>
-            <span class="text-muted" style="font-size:.78rem;margin-left:auto">
-                <i class="bi bi-info-circle"></i> Preview renders on the server, so it matches exactly what gets published.
+            <a class="btn btn--ghost" href="<?= APP_URL ?>/index.php?page=legal">Cancel</a>
+            <span class="card__footer-note">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                Preview renders on the server, so it matches exactly what gets published.
             </span>
         </div>
     </div>
@@ -99,8 +105,13 @@ $formAction = $isNew
         <form method="post" action="<?= APP_URL ?>/index.php?page=legal&amp;action=delete-draft">
             <?= csrfField() ?>
             <input type="hidden" name="id" value="<?= (int) $version['id'] ?>">
-            <button class="btn btn--danger btn--sm" onclick="return confirm('Delete this draft?')">
-                <i class="bi bi-trash"></i> Delete draft
+            <button class="btn btn--danger btn--sm"
+                    data-confirm="The draft and its text are removed. Nothing published is affected — this version has never been accepted by anyone."
+                    data-confirm-title="Delete this draft?"
+                    data-confirm-action="Delete draft"
+                    data-confirm-record="<?= sanitize($version['title'] ?? $nextCode) ?>"
+                    data-confirm-tone="danger">
+                <i class="bi bi-trash" aria-hidden="true"></i> Delete draft
             </button>
             <div class="form-hint">Only unpublished drafts can be deleted.</div>
         </form>

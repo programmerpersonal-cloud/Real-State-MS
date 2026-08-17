@@ -16,6 +16,11 @@
 .card__subtitle{font-size:.76rem;color:var(--text-muted);margin-top:2px;line-height:1.35}
 .card__body{padding:16px 18px}
 .card__footer{padding:11px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
+/* A footer carrying several controls rather than two ends. They wrap on a
+   narrow screen instead of being squeezed. */
+.card__footer--actions{justify-content:flex-start;flex-wrap:wrap;gap:10px}
+.card__footer-note{font-size:var(--fs-2xs);color:var(--text-subtle);margin-left:auto}
+@media(max-width:768px){.card__footer-note{margin-left:0;width:100%}}
 /* A short single-column form. Left at full width its labels would sit a
    screen-width apart from their controls on a wide monitor, which is a longer
    eye travel than the form is worth. */
@@ -122,6 +127,13 @@
 .form-control[readonly]{background:var(--surface-2);border-color:var(--border);cursor:default}
 .form-control[readonly]:hover{border-color:var(--border)}
 .form-hint{font-size:.74rem;color:var(--text-subtle);margin-top:4px}
+/* A field holding text where the exact characters matter — legal wording with
+   its own markup conventions, a template. Monospaced so indentation and
+   blank lines are visible while they are being typed. */
+.form-control--code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.85rem;line-height:1.65;tab-size:2;
+}
 /* The required marker. aria-hidden on the asterisk itself, because the
    control carries `required` and a screen reader announces that already —
    reading "star" after every label is noise. */
@@ -817,8 +829,32 @@ a.person:hover .person__name{color:var(--primary)}
   color:var(--text-muted);font-size:var(--fs-xs);font-weight:600;cursor:pointer;
   transition:background var(--transition),color var(--transition),box-shadow var(--transition);
 }
-.segmented__btn:hover{color:var(--text)}
+.segmented__btn:hover{color:var(--text);text-decoration:none}
 .segmented__btn.is-active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-xs)}
+/* The control is also used as a row of links (the report period switch), where
+   it must not pick up the underline and brand colour a bare <a> would. */
+a.segmented__btn{text-decoration:none;color:var(--text-muted)}
+a.segmented__btn.is-active{color:var(--text)}
+
+/* A single headline figure inside a card body — an acceptance count, a
+   balance. Not a stat card: it has no icon and no strip to sit in. */
+.bignum{
+  font-size:1.7rem;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;
+}
+/* A checksum or long token. It has to be able to break anywhere, because it
+   has no word boundaries and would otherwise push the card wider than the
+   column. */
+.hash{
+  font-size:.68rem;overflow-wrap:anywhere;word-break:normal;
+  color:var(--text-muted);
+}
+
+/* A small colour swatch standing in for a chart legend key. */
+.dot{
+  display:inline-block;width:9px;height:9px;border-radius:50%;
+  margin-right:7px;flex-shrink:0;vertical-align:baseline;
+}
 
 /* ════════════════════════════════════════════════════════════
    FEED — a list of short messages, not a table
@@ -890,6 +926,11 @@ a.person:hover .person__name{color:var(--primary)}
   border-radius:var(--radius-lg);padding:var(--space-4) var(--space-5);
   margin-bottom:var(--space-4);
 }
+
+/* A star rating in a table row. The public site has three variants of this
+   already; this is the one the admin tables use. The count is also stated in
+   the aria-label, because five glyphs are not a number to a screen reader. */
+.stars{display:inline-flex;gap:2px;color:var(--gold);font-size:.82rem;white-space:nowrap}
 
 /* A warning that is also the repair. Used where a row reports a broken link
    between two records and the button beside it mends the link — so it has to
@@ -1221,6 +1262,23 @@ a.person:hover .person__name{color:var(--primary)}
 .detail-header__meta span{display:inline-flex;align-items:center;gap:5px}
 .detail-header__meta i{color:var(--text-subtle)}
 .detail-header__actions{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;flex-wrap:wrap}
+/* One sentence of context under the title — what this record is, rather than
+   another key/value pair. */
+.detail-header__lede{
+  font-size:var(--fs-xs);color:var(--text-body);
+  margin:var(--space-2) 0 0;max-width:70ch;line-height:1.55;
+}
+/* Inside a tab panel the record header is not the top of the page, so it
+   carries less weight and less air. */
+.detail-header--compact{
+  padding:var(--space-4);margin-bottom:var(--space-4);
+  box-shadow:none;
+}
+.detail-header--compact .detail-header__title{font-size:1.1rem}
+@media(max-width:768px){
+  .detail-header{flex-direction:column;gap:var(--space-4)}
+  .detail-header__actions{width:100%}
+}
 /* ── Data list ─────────────────────────────────────────────
    Key/value rows: the shape every detail page needs and every one of them
    was rebuilding as a <table> with inline cell padding. A description list
