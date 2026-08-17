@@ -290,6 +290,7 @@ $amenities = [
                         <?php if (can('favorites.add') || can('favorites.remove')): ?>
                             <form method="POST"
                                   action="<?= APP_URL ?>/index.php?page=favorites&amp;action=<?= $isSaved ? 'remove' : 'add' ?>&amp;property_id=<?= $pid ?>">
+                                <?= csrfField() ?>
                                 <button type="submit" class="btn btn--outline btn--block"
                                         aria-pressed="<?= $isSaved ? 'true' : 'false' ?>">
                                     <i class="bi <?= $isSaved ? 'bi-heart-fill' : 'bi-heart' ?>" aria-hidden="true"></i>

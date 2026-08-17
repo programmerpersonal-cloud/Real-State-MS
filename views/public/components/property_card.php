@@ -61,6 +61,7 @@ $title     = $property['title'] ?: 'Untitled property';
             <form method="POST"
                   action="<?= APP_URL ?>/index.php?page=favorites&amp;action=<?= $favAction ?>&amp;property_id=<?= $pid ?>"
                   style="display:contents">
+                <?= csrfField() ?>
                 <button type="submit"
                         class="pcard__fav <?= $isSaved ? 'is-saved' : '' ?>"
                         aria-pressed="<?= $isSaved ? 'true' : 'false' ?>"

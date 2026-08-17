@@ -12,48 +12,39 @@
  *
  * Expects: $properties, $ownerLinked
  */
-$grid = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px';
 ?>
 <?php if (empty($properties)): ?>
-    <div class="card">
-        <div class="card__body">
-            <div class="empty-state">
-                <div class="empty-state__icon"><i class="bi bi-buildings"></i></div>
-                <div class="empty-state__title">No properties yet</div>
-                <p class="empty-state__desc">
-                    <?php if (empty($ownerLinked)): ?>
-                        Your account is not linked to an owner profile yet, so there is nothing to show.
-                        The managing office can connect it for you.
-                    <?php else: ?>
-                        No properties are registered to you at the moment. Anything the office
-                        adds under your name will appear here.
-                    <?php endif ?>
-                </p>
-            </div>
-        </div>
+    <div class="table-card">
+        <?= uiEmptyState([
+            'icon'  => 'bi-buildings',
+            'title' => 'No properties yet',
+            'desc'  => empty($ownerLinked)
+                ? 'Your account is not linked to an owner profile yet, so there is nothing to show. The managing office can connect it for you.'
+                : 'No properties are registered to you at the moment. Anything the office adds under your name will appear here.',
+        ]) ?>
     </div>
 <?php else: ?>
-    <div style="<?= $grid ?>">
+    <div class="grid-auto">
         <?php foreach ($properties as $p):
             $detailUrl = APP_URL . '/index.php?page=properties&action=show&id=' . (int) $p['id'];
             $cover     = $p['cover_image'] ?? '';
             $openIssues = (int) ($p['open_issues'] ?? 0);
             $docCount   = (int) ($p['document_count'] ?? 0);
             $price = $p['rent_amount']
-                ? formatCurrency((float) $p['rent_amount']) . '<span class="text-muted" style="font-size:.78rem;font-weight:500">/mo</span>'
+                ? formatCurrency((float) $p['rent_amount']) . '<span class="prop-card__per">/mo</span>'
                 : ($p['price'] ? formatCurrency((float) $p['price']) : '<span class="text-subtle">Not priced</span>');
         ?>
-        <a class="prop-card" href="<?= $detailUrl ?>" style="display:block;text-decoration:none;color:inherit">
+        <a class="prop-card prop-card--link" href="<?= $detailUrl ?>">
             <div class="prop-card__cover">
                 <?php if ($cover): ?>
                     <img src="<?= APP_URL . '/' . sanitize($cover) ?>"
                          alt="<?= sanitize($p['title']) ?>" loading="lazy">
                 <?php else: ?>
-                    <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-subtle)">
-                        <i class="bi bi-image" style="font-size:1.8rem"></i>
+                    <div class="prop-card__placeholder">
+                        <i class="bi bi-image" aria-hidden="true"></i>
                     </div>
                 <?php endif ?>
-                <span class="badge <?= getStatusBadgeClass($p['status']) ?>"><?= ucfirst($p['status']) ?></span>
+                <?= uiStatus($p['status']) ?>
             </div>
 
             <div class="prop-card__body">
@@ -77,25 +68,25 @@ $grid = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
                 // Occupancy and the two counters that decide whether this
                 // property needs the owner's attention today.
                 ?>
-                <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;font-size:.76rem;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:12px">
-                    <span title="Current tenant">
-                        <i class="bi bi-person"></i>
+                <div class="prop-card__stats">
+                    <span>
+                        <i class="bi bi-person" aria-hidden="true"></i>
                         <?= $p['tenant_name'] ? sanitize($p['tenant_name']) : 'No active tenant' ?>
                     </span>
                     <?php if ($openIssues > 0): ?>
-                        <span style="color:var(--warning);font-weight:600" title="Open maintenance requests">
-                            <i class="bi bi-wrench-adjustable"></i>
+                        <span class="text-warning">
+                            <i class="bi bi-wrench-adjustable" aria-hidden="true"></i>
                             <?= $openIssues ?> open issue<?= $openIssues === 1 ? '' : 's' ?>
                         </span>
                     <?php endif ?>
-                    <span title="Documents on file">
-                        <i class="bi bi-folder2"></i>
+                    <span>
+                        <i class="bi bi-folder2" aria-hidden="true"></i>
                         <?= $docCount ?> document<?= $docCount === 1 ? '' : 's' ?>
                     </span>
                 </div>
 
-                <div style="margin-top:12px;font-size:.78rem;color:var(--primary);font-weight:600">
-                    View details <i class="bi bi-arrow-right"></i>
+                <div class="prop-card__cta">
+                    View details <i class="bi bi-arrow-right" aria-hidden="true"></i>
                 </div>
             </div>
         </a>

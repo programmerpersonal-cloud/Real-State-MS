@@ -1,43 +1,85 @@
 <?php
 /**
- * Customer Portal — Favorites
+ * Customer Portal — saved properties.
+ *
+ * Removing a shortlist entry is a POST now, so the heart cannot be tripped by
+ * a link somebody else wrote. It is the same round trip either way — the card
+ * simply carries a form instead of an anchor.
  */
 ?>
 <?php if (empty($properties)): ?>
-<div class="empty-state">
-    <div class="empty-state__icon"><i class="bi bi-heart"></i></div>
-    <div class="empty-state__title">No saved properties</div>
-    <div class="empty-state__desc">Click the heart icon on a property to save it here.</div>
-</div>
-<?php else: ?>
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
-    <?php foreach ($properties as $p): ?>
-    <div class="prop-card">
-        <div class="prop-card__cover">
-            <?php if ($p['cover']): ?>
-                <img src="<?= APP_URL . '/' . $p['cover'] ?>" alt="">
-            <?php else: ?>
-                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted)"><i class="bi bi-image" style="font-size:2rem"></i></div>
-            <?php endif ?>
-            <span class="badge <?= getStatusBadgeClass($p['status']) ?>"><?= ucfirst($p['status']) ?></span>
-        </div>
-        <div class="prop-card__body">
-            <div class="prop-card__title"><?= sanitize($p['title']) ?></div>
-            <div class="prop-card__meta"><i class="bi bi-geo-alt"></i> <?= sanitize($p['location']) ?></div>
-            <div class="prop-card__price">
-                <?= $p['rent_amount'] ? formatCurrency((float)$p['rent_amount']) . '/mo' : ($p['price'] ? formatCurrency((float)$p['price']) : '—') ?>
-            </div>
-            <div class="prop-card__specs">
-                <span><i class="bi bi-door-closed"></i> <?= $p['num_rooms'] ?></span>
-                <span><i class="bi bi-droplet"></i> <?= $p['num_bathrooms'] ?></span>
-                <?php if ($p['size_sqm']): ?><span><i class="bi bi-rulers"></i> <?= $p['size_sqm'] ?>m²</span><?php endif ?>
-            </div>
-            <div style="display:flex;gap:6px;margin-top:12px">
-                <a class="btn btn--outline btn--sm" href="<?= APP_URL ?>/index.php?page=properties&action=show&id=<?= $p['id'] ?>"><i class="bi bi-eye"></i> View</a>
-                <a class="btn btn--danger btn--sm" href="<?= APP_URL ?>/index.php?page=favorites&action=remove&property_id=<?= $p['id'] ?>"><i class="bi bi-heart-fill"></i></a>
-            </div>
-        </div>
+    <div class="table-card">
+        <?= uiEmptyState([
+            'icon'  => 'bi-heart',
+            'title' => 'Nothing saved yet',
+            'desc'  => 'Tap the heart on any listing and it is kept here, so you can compare a shortlist rather than hunting for the same properties twice.',
+            'actions' => [[
+                'label' => 'Browse listings', 'icon' => 'bi-search',
+                'url'   => APP_URL . '/index.php?page=properties-public',
+            ]],
+        ]) ?>
     </div>
-    <?php endforeach ?>
-</div>
+<?php else: ?>
+    <div class="grid-auto">
+        <?php foreach ($properties as $p): ?>
+            <?php
+            $pid   = (int) $p['id'];
+            $price = $p['rent_amount']
+                ? formatCurrency((float) $p['rent_amount']) . '<span class="prop-card__per">/mo</span>'
+                : ($p['price'] ? formatCurrency((float) $p['price']) : '<span class="text-subtle">Not priced</span>');
+            ?>
+            <div class="prop-card">
+                <div class="prop-card__cover">
+                    <?php if ($p['cover']): ?>
+                        <img src="<?= APP_URL . '/' . sanitize($p['cover']) ?>"
+                             alt="<?= sanitize($p['title']) ?>" loading="lazy">
+                    <?php else: ?>
+                        <div class="prop-card__placeholder"><i class="bi bi-image" aria-hidden="true"></i></div>
+                    <?php endif ?>
+                    <?= uiStatus($p['status']) ?>
+                </div>
+
+                <div class="prop-card__body">
+                    <div class="prop-card__title">
+                        <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= $pid ?>">
+                            <?= sanitize($p['title']) ?>
+                        </a>
+                    </div>
+                    <div class="prop-card__meta">
+                        <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                        <?= sanitize($p['location'] ?: 'Location not set') ?>
+                    </div>
+                    <div class="prop-card__price"><?= $price ?></div>
+                    <div class="prop-card__specs">
+                        <span><i class="bi bi-door-closed" aria-hidden="true"></i> <?= (int) $p['num_rooms'] ?></span>
+                        <span><i class="bi bi-droplet" aria-hidden="true"></i> <?= (int) $p['num_bathrooms'] ?></span>
+                        <?php if ($p['size_sqm']): ?>
+                            <span><i class="bi bi-rulers" aria-hidden="true"></i> <?= (int) $p['size_sqm'] ?> m²</span>
+                        <?php endif ?>
+                    </div>
+                    <?php if (!empty($p['saved_at'])): ?>
+                        <div class="prop-card__stats">
+                            <span><i class="bi bi-bookmark-heart" aria-hidden="true"></i>
+                                Saved <?= formatDate($p['saved_at']) ?></span>
+                        </div>
+                    <?php endif ?>
+                </div>
+
+                <div class="prop-card__foot">
+                    <a class="btn btn--outline btn--sm"
+                       href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= $pid ?>">
+                        <i class="bi bi-eye" aria-hidden="true"></i> View
+                    </a>
+                    <form method="POST"
+                          action="<?= APP_URL ?>/index.php?page=favorites&amp;action=remove&amp;property_id=<?= $pid ?>">
+                        <?= csrfField() ?>
+                        <button type="submit" class="btn btn--ghost btn--sm"
+                                aria-label="Remove <?= sanitize($p['title']) ?> from your shortlist">
+                            <i class="bi bi-heart-fill text-danger" aria-hidden="true"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        <?php endforeach ?>
+    </div>
 <?php endif ?>

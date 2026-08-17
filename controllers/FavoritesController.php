@@ -30,26 +30,48 @@ class FavoritesController
     {
         authorize('favorites.add');
         $pid = (int)($_GET['property_id'] ?? 0);
-        if ($pid) {
-            $db = getDBConnection();
+
+        // The heart buttons already post; the token they now carry is what
+        // makes that mean something. A GET falls through and changes nothing.
+        if ($pid && $_SERVER['REQUEST_METHOD'] === 'POST') {
+            enforceCSRF();
             try {
-                $db->prepare("INSERT IGNORE INTO favorites (user_id, property_id) VALUES (?, ?)")
-                   ->execute([$_SESSION['user_id'], $pid]);
-                setFlash('success', 'Saved to favorites.');
+                getDBConnection()
+                    ->prepare("INSERT IGNORE INTO favorites (user_id, property_id) VALUES (?, ?)")
+                    ->execute([$_SESSION['user_id'], $pid]);
+                setFlash('success', 'Saved to your shortlist.');
             } catch (PDOException $e) { /* ignore duplicate */ }
         }
-        redirect($_SERVER['HTTP_REFERER'] ?? APP_URL . '/index.php?page=favorites');
+        redirect($this->backUrl());
     }
 
     public function remove(): void
     {
         authorize('favorites.remove');
         $pid = (int)($_GET['property_id'] ?? 0);
-        if ($pid) {
+
+        if ($pid && $_SERVER['REQUEST_METHOD'] === 'POST') {
+            enforceCSRF();
             getDBConnection()->prepare("DELETE FROM favorites WHERE user_id = ? AND property_id = ?")
                              ->execute([$_SESSION['user_id'], $pid]);
-            setFlash('success', 'Removed from favorites.');
+            setFlash('success', 'Removed from your shortlist.');
         }
-        redirect($_SERVER['HTTP_REFERER'] ?? APP_URL . '/index.php?page=favorites');
+        redirect($this->backUrl());
+    }
+
+    /**
+     * Back to wherever the heart was clicked — but only if that is inside
+     * this installation.
+     *
+     * The referrer decided this before, unchecked, which made both actions an
+     * open redirect: a page anywhere could bounce a signed-in customer to an
+     * address of its choosing by way of this app.
+     */
+    private function backUrl(): string
+    {
+        $home    = APP_URL . '/index.php?page=favorites';
+        $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+
+        return $referer !== '' && str_starts_with($referer, APP_URL . '/') ? $referer : $home;
     }
 }

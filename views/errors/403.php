@@ -17,28 +17,28 @@
 $suggestion = accessDeniedSuggestion();
 $account    = getCurrentUser();
 ?>
-<div class="card" style="max-width:560px;margin:0 auto">
+<div class="card card--narrow">
     <div class="card__body">
-        <div class="empty-state">
-            <div class="empty-state__icon"><i class="bi bi-shield-lock"></i></div>
-            <div class="empty-state__title">You do not have access to this</div>
-            <p class="empty-state__desc"><?= sanitize(accessDeniedReason()) ?></p>
+        <?= uiEmptyState([
+            'icon'  => 'bi-shield-lock',
+            'title' => 'You do not have access to this',
+            'desc'  => accessDeniedReason(),
+            'actions' => [[
+                'label' => $suggestion['label'],
+                'icon'  => 'bi-arrow-right',
+                'url'   => $suggestion['url'],
+            ]],
+        ]) ?>
 
-            <div style="margin-top:20px">
-                <a href="<?= sanitize($suggestion['url']) ?>" class="btn btn--primary">
-                    <i class="bi bi-arrow-right"></i> <?= sanitize($suggestion['label']) ?>
-                </a>
-                <div class="form-hint" style="margin-top:8px"><?= sanitize($suggestion['hint']) ?></div>
-            </div>
-        </div>
+        <p class="form-hint text-center"><?= sanitize($suggestion['hint']) ?></p>
 
         <?php if ($account): ?>
-            <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:14px;text-align:center">
+            <div class="deny-account">
                 <div class="form-hint">
                     Signed in as <strong><?= sanitize($account['full_name'] ?: $account['email']) ?></strong>
-                    · <?= sanitize(ucfirst($account['role'])) ?>
+                    · <?= sanitize(uiLabel((string) $account['role'])) ?>
                 </div>
-                <div class="form-hint" style="margin-top:6px">
+                <div class="form-hint">
                     If this should be part of your job, ask an administrator to update your access<?php
                         // The permission name is the one thing that makes a support
                         // request actionable instead of "a page said no".

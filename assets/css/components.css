@@ -127,6 +127,30 @@
 .form-control[readonly]{background:var(--surface-2);border-color:var(--border);cursor:default}
 .form-control[readonly]:hover{border-color:var(--border)}
 .form-hint{font-size:.74rem;color:var(--text-subtle);margin-top:4px}
+/* Who you are signed in as, under a refusal. Separated by a rule because it
+   answers a different question from the one above it — not "why was I
+   refused" but "am I even the right person". */
+.deny-account{
+  border-top:1px solid var(--border);
+  margin-top:var(--space-4);padding-top:var(--space-4);
+  text-align:center;display:flex;flex-direction:column;gap:6px;
+}
+.text-center{text-align:center}
+
+/* A password field with a reveal button inside it. The input keeps its own
+   padding on the right so the text never runs under the button. */
+.input-reveal{position:relative;display:block}
+.input-reveal .form-control{padding-right:42px}
+.input-reveal__btn{
+  position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;display:grid;place-items:center;
+  border:0;background:transparent;border-radius:var(--radius-xs);
+  color:var(--text-subtle);cursor:pointer;
+  transition:color var(--transition),background var(--transition);
+}
+.input-reveal__btn:hover{color:var(--text);background:var(--surface-3)}
+.input-reveal__btn:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+
 /* A field holding text where the exact characters matter — legal wording with
    its own markup conventions, a template. Monospaced so indentation and
    blank lines are visible while they are being typed. */
@@ -382,6 +406,29 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 }
 .prop-card__title a{color:inherit}
 .prop-card__title a:hover{color:var(--primary)}
+/* A card that is itself one big link — the owner's portfolio grid, where the
+   whole tile navigates rather than carrying its own controls. */
+.prop-card--link{display:block;text-decoration:none;color:inherit}
+.prop-card--link:hover{text-decoration:none}
+.prop-card__placeholder{
+  display:grid;place-items:center;height:100%;
+  color:var(--text-subtle);font-size:1.8rem;
+}
+.prop-card__per{font-size:.78rem;font-weight:500;color:var(--text-muted)}
+/* The at-a-glance line inside the body: tenant, open faults, paperwork. Not
+   .prop-card__foot, which is the action strip and sits outside the body. */
+.prop-card__stats{
+  display:flex;flex-wrap:wrap;gap:12px;
+  border-top:1px solid var(--border);margin-top:12px;padding-top:10px;
+  font-size:var(--fs-2xs);color:var(--text-muted);
+}
+.prop-card__stats span{display:inline-flex;align-items:center;gap:5px}
+.prop-card__cta{
+  margin-top:12px;font-size:var(--fs-2xs);font-weight:600;color:var(--primary);
+  display:inline-flex;align-items:center;gap:5px;
+}
+.prop-card--link:hover .prop-card__cta i{transform:translateX(2px)}
+.prop-card__cta i{transition:transform var(--transition)}
 /* The whole card lifts on hover, so the cover must not also scale — two
    things moving at once for one intention reads as fidgeting. */
 .prop-card__cover{display:block}

@@ -113,7 +113,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── List view switch (table / grid) ───────────────────
   document.querySelectorAll('[data-view-switch]').forEach(initViewSwitch);
+
+  // ─── Password reveal ───────────────────────────────────
+  document.querySelectorAll('[data-reveal]').forEach(initReveal);
 });
+
+/**
+ * Show/hide a password field.
+ *
+ * A field nobody can read is a field people type badly and then choose a
+ * shorter password for. The toggle is a real button so it is reachable by
+ * keyboard, and it reports its state through aria-pressed rather than only
+ * by swapping the icon.
+ */
+function initReveal(wrap) {
+  const input = wrap.querySelector('input');
+  const btn = wrap.querySelector('[data-reveal-toggle]');
+  if (!input || !btn) return;
+
+  btn.addEventListener('click', () => {
+    const shown = input.type === 'text';
+    input.type = shown ? 'password' : 'text';
+    btn.setAttribute('aria-pressed', String(!shown));
+    btn.setAttribute('aria-label', shown ? 'Show password' : 'Hide password');
+    btn.innerHTML = '<i class="bi bi-eye' + (shown ? '' : '-slash') + '" aria-hidden="true"></i>';
+    // Typing continues where it left off rather than at the end.
+    const at = input.selectionStart;
+    input.focus();
+    if (at !== null) input.setSelectionRange(at, at);
+  });
+}
 
 /* ═══════════════════════════════════════════════════════════
    GLOBAL SEARCH
