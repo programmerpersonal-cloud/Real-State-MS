@@ -537,6 +537,13 @@ function getStatusBadgeClass(string $status): string
         'inactive'     => 'badge--muted',
         'sold'         => 'badge--purple',
         'maintenance'  => 'badge--orange',
+        // Tenancy and correspondence states. Each of these previously fell to
+        // the muted default, which read as "nothing is happening here" for a
+        // renewed lease and an answered enquiry alike.
+        'renewed'      => 'badge--info',
+        'replied'      => 'badge--success',
+        'closed'       => 'badge--muted',
+        'on_hold'      => 'badge--warning',
         // Document lifecycle and terms versioning
         'expiring'     => 'badge--warning',
         'archived'     => 'badge--muted',

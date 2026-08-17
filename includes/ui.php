@@ -84,6 +84,39 @@ function uiStatus(string $status, ?string $label = null): string
 }
 
 /**
+ * The priority pill.
+ *
+ * Priority is not a status and must not be read as one — a row can be
+ * "urgent" and "completed" at the same time. It wears the same pill shape so
+ * the table stays one visual family, but carries a direction icon rather than
+ * a dot, so the two columns are still distinguishable at a glance and to
+ * anyone who cannot separate the tones.
+ *
+ * Its own map, deliberately: getStatusBadgeClass() answers a different
+ * question, and `low`/`medium`/`high` already mean customer risk over there.
+ */
+function uiPriority(string $priority): string
+{
+    static $map = [
+        'urgent' => ['danger',  'bi-exclamation-octagon-fill'],
+        'high'   => ['orange',  'bi-arrow-up'],
+        'medium' => ['warning', 'bi-dash-lg'],
+        'low'    => ['info',    'bi-arrow-down'],
+    ];
+
+    $key = strtolower(trim($priority));
+    if ($key === '') {
+        return '<span class="status status--muted">—</span>';
+    }
+    [$tone, $icon] = $map[$key] ?? ['muted', 'bi-dash'];
+
+    return '<span class="status status--' . $tone . '">'
+         . '<i class="bi ' . $icon . '" aria-hidden="true"></i>'
+         . sanitize(uiLabel($key))
+         . '</span>';
+}
+
+/**
  * Avatar + name + sub-line: the shape a person takes in a table row.
  *
  * One helper for users, customers, owners and agents, so the avatar is the
@@ -125,6 +158,7 @@ function uiPersonCell(string $name, ?string $avatar = null, string $meta = '', ?
  *   'can'     => 'properties.edit',         permission gate
  *   'danger'  => true,                      red styling, pushed below a divider
  *   'method'  => 'post',                    submit a CSRF-signed form instead
+ *   'fields'  => ['id' => 7],               extra hidden inputs, POST only
  *   'confirm' => ['title' => …, 'body' => …, 'action' => 'Delete', 'record' => …],
  *   'attrs'   => ['data-modal-open' => 'id'],
  * ]
@@ -174,6 +208,11 @@ function uiRowActions(array $actions, string $label = 'Actions'): string
  * A GET action is a link. A POST action is a real form with a CSRF token,
  * because anything that changes state must not be reachable by a link that
  * a prefetcher or a crawler could follow.
+ *
+ * `fields` become hidden inputs in that form. Controllers that already read
+ * their record id out of the request body keep working unchanged — the menu
+ * adapts to them rather than the other way round, which is what stops a
+ * presentation change from turning into a route change.
  */
 function uiActionItem(array $a): string
 {
@@ -190,8 +229,14 @@ function uiActionItem(array $a): string
     $attrs .= uiConfirmAttrs($a['confirm'] ?? null);
 
     if (strtolower((string) ($a['method'] ?? 'get')) === 'post') {
+        $hidden = '';
+        foreach (($a['fields'] ?? []) as $name => $value) {
+            $hidden .= '<input type="hidden" name="' . sanitize((string) $name) . '"'
+                     . ' value="' . sanitize((string) $value) . '">';
+        }
+
         return '<form method="POST" action="' . sanitize((string) ($a['url'] ?? '#')) . '" class="row-menu__form" role="none">'
-             . csrfField()
+             . csrfField() . $hidden
              . '<button type="submit" class="' . $classes . '" role="menuitem"' . $attrs . '>' . $text . '</button>'
              . '</form>';
     }

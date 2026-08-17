@@ -298,12 +298,32 @@ class Document
           LEFT JOIN properties p ON d.reference_type = 'property' AND p.id = d.reference_id
     ";
 
+    /**
+     * Sortable columns, keyed by the token a request may ask for.
+     *
+     * `expiry_asc` puts NULLs last: a document with no expiry never needs
+     * renewing, so it does not belong at the top of a list someone opened to
+     * find what does.
+     */
+    public const SORTS = [
+        'newest'     => 'd.created_at DESC, d.id DESC',
+        'oldest'     => 'd.created_at ASC, d.id ASC',
+        'title_asc'  => 'd.title ASC',
+        'title_desc' => 'd.title DESC',
+        'expiry_asc' => 'd.expiry_date IS NULL, d.expiry_date ASC',
+        'expiry_desc'=> 'd.expiry_date IS NULL, d.expiry_date DESC',
+        'size_desc'  => 'd.file_size DESC',
+        'size_asc'   => 'd.file_size ASC',
+        'cat_asc'    => 'c.sort_order, c.name ASC, d.created_at DESC',
+    ];
+
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
     {
         [$where, $params] = $this->buildFilters($filters);
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
 
         $stmt = $this->db->prepare(self::SELECT_LIST . " {$where}
-             ORDER BY d.created_at DESC, d.id DESC
+             ORDER BY {$orderBy}
              LIMIT :l OFFSET :o");
 
         foreach ($params as $k => $v) {
@@ -414,21 +434,43 @@ class Document
     }
 
     /** Headline numbers for the dashboard warning card. */
-    public function expiryCounts(): array
+    public function expiryCounts(array $visibilityScope = []): array
     {
         $warn = documentExpiryWarningDays();
+
+        // Scoped like every other read, so the counts describe the library the
+        // reader can actually open. The values are intersected against the
+        // known set before being inlined — nothing user-supplied reaches the
+        // SQL even though this branch uses no placeholder.
+        $scope = array_values(array_intersect(
+            $visibilityScope ?: ['private', 'staff', 'public'],
+            ['private', 'staff', 'public']
+        ));
+        if (!$scope) {
+            return ['expired' => 0, 'expiring' => 0, 'active' => 0, 'archived' => 0, 'total' => 0];
+        }
+        $scopeSql = "WHERE visibility IN ('" . implode("','", $scope) . "')";
+
+        // One pass over the table answers all five figures — the banner at the
+        // top of the page and the count on every state pill.
         $row = $this->db->query("
             SELECT
               SUM(status = 'active' AND expiry_date IS NOT NULL AND expiry_date < CURDATE()) AS expired,
               SUM(status = 'active' AND expiry_date IS NOT NULL AND expiry_date >= CURDATE()
                   AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL {$warn} DAY)) AS expiring,
+              SUM(status = 'active' AND (expiry_date IS NULL
+                  OR expiry_date > DATE_ADD(CURDATE(), INTERVAL {$warn} DAY))) AS active,
+              SUM(status = 'archived') AS archived,
               COUNT(*) AS total
             FROM documents
+            {$scopeSql}
         ")->fetch() ?: [];
 
         return [
             'expired'  => (int) ($row['expired'] ?? 0),
             'expiring' => (int) ($row['expiring'] ?? 0),
+            'active'   => (int) ($row['active'] ?? 0),
+            'archived' => (int) ($row['archived'] ?? 0),
             'total'    => (int) ($row['total'] ?? 0),
         ];
     }

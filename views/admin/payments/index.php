@@ -25,6 +25,8 @@ foreach ($totals as $row) {
 
 $ledger = [
     'param'   => 'status',
+    'label'   => 'Filter by payment status',
+    'noun'    => ['payment', 'payments'],
     'value'   => $filters['status'] ?? '',
     'options' => $statuses,
     'totals'  => $totals,

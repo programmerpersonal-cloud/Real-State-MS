@@ -19,6 +19,25 @@ require_once BASE_PATH . '/models/MaintenanceRequest.php';
 
 class MaintenanceController
 {
+    /** The job lifecycle — the maintenance_requests.status enum, in order. */
+    public const STATUSES = [
+        'new'          => 'New',
+        'under_review' => 'Under review',
+        'assigned'     => 'Assigned',
+        'in_progress'  => 'In progress',
+        'completed'    => 'Completed',
+        'rejected'     => 'Rejected',
+        'cancelled'    => 'Cancelled',
+    ];
+
+    /** How urgent, most pressing first — the priority enum. */
+    public const PRIORITIES = [
+        'urgent' => 'Urgent',
+        'high'   => 'High',
+        'medium' => 'Medium',
+        'low'    => 'Low',
+    ];
+
     private MaintenanceRequest $model;
 
     public function __construct()
@@ -32,7 +51,16 @@ class MaintenanceController
         // The list itself is scoped inside the model, so no role branching is
         // needed here: an owner's query returns their properties' requests,
         // a technician's returns their jobs, an admin's returns everything.
-        $filters = ['status' => $_GET['status'] ?? '', 'priority' => $_GET['priority'] ?? '', 'search' => $_GET['search'] ?? ''];
+        //
+        // Status and priority are checked against the same maps their controls
+        // are built from, and the sort key resolves through
+        // MaintenanceRequest::SORTS. Neither reaches SQL as request text.
+        $filters = [
+            'status'   => uiPick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'priority' => uiPick($_GET['priority'] ?? '', array_keys(self::PRIORITIES)),
+            'search'   => trim((string) ($_GET['search'] ?? '')),
+            'sort'     => uiSortValue(array_keys(MaintenanceRequest::SORTS), 'priority'),
+        ];
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
         $requests = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
@@ -56,8 +84,15 @@ class MaintenanceController
             'properties' => $properties,
             'canCreate'  => $canCreate,
             'formData'   => $formData,
+            'statuses'   => self::STATUSES,
+            'priorities' => self::PRIORITIES,
+            // One added query behind the status pills: a GROUP BY carrying the
+            // same access scope as the list, so a technician's counts describe
+            // their own queue rather than the whole company's workload.
+            'statusCounts' => $this->model->countsByStatus($filters),
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Maintenance Requests',
+            'pageSubtitle' => 'The work queue, most urgent first.',
             'breadcrumbs' => [['label' => 'Maintenance']],
             'actionButton' => $canCreate ? [
                 'label' => 'New Request',
@@ -87,10 +122,23 @@ class MaintenanceController
                 'description' => sanitize($_POST['description'] ?? ''),
                 'priority'    => $_POST['priority'] ?? 'medium',
             ];
-            if (!$data['property_id'] || !$data['description']) {
-                setFlash('error', 'Property and description are required.');
-                $_SESSION['form_data'] = $data;
-                redirect($failUrl);
+
+            // Keyed to their fields so each message lands under the control
+            // that caused it, and both appear at once rather than one per trip.
+            unset($_SESSION['form_errors']);
+            $errors = [];
+
+            if (!$data['property_id']) {
+                addFieldError($errors, 'property_id', 'Choose the property the fault is at.');
+            }
+            if ($data['description'] === '') {
+                addFieldError($errors, 'description', 'Describe the fault so whoever attends knows what to bring.');
+            }
+            if (!isset(self::PRIORITIES[$data['priority']])) {
+                addFieldError($errors, 'priority', 'Choose how urgent this is.');
+            }
+            if ($errors) {
+                rejectForm($errors, $data, $failUrl);
             }
 
             // Checked before anything is uploaded: a request for a property
@@ -145,6 +193,8 @@ class MaintenanceController
         renderPage(VIEWS_PATH . '/admin/maintenance/create.php', [
             'properties' => $properties,
             'formData'   => $formData,
+            // The form's <option>s and the validator read one list.
+            'priorities' => self::PRIORITIES,
             'pageTitle' => 'New Maintenance Request',
             'breadcrumbs' => [
                 ['label' => 'Maintenance', 'url' => APP_URL . '/index.php?page=maintenance'],
@@ -199,9 +249,19 @@ class MaintenanceController
         $request = $this->model->findById($id);
         authorizeRecord($request !== null && canManageMaintenanceRequest($request), 'maintenance', $id);
 
+        // The status went to the enum column exactly as posted. Anything
+        // outside the enum would be refused by MySQL as a truncation, which is
+        // a poor way to find out a form was tampered with — and in a lax SQL
+        // mode it would have been silently blanked instead.
+        $status = uiPick($_POST['status'] ?? '', array_keys(self::STATUSES));
+        if ($status === '') {
+            setFlash('error', 'That is not a state a request can be in.');
+            redirect(APP_URL . '/index.php?page=maintenance&action=show&id=' . $id);
+        }
+
         $data = [
-            'status'           => $_POST['status'] ?? 'new',
-            'actual_cost'      => (float)($_POST['actual_cost'] ?? 0),
+            'status'           => $status,
+            'actual_cost'      => max(0, (float)($_POST['actual_cost'] ?? 0)),
             'completion_notes' => sanitize($_POST['completion_notes'] ?? ''),
         ];
         if ($data['status'] === 'completed') {
@@ -224,8 +284,23 @@ class MaintenanceController
         $request = $this->model->findById($id);
         authorizeRecord($request !== null && canAssignMaintenanceRequest($request), 'maintenance', $id);
 
+        // The posted id went straight into assigned_to, so any user id at all
+        // could be made the technician on a job — and would then be notified
+        // about it. It is now checked against the same list the <select> is
+        // built from: active users in the technician role.
         $tech = (int)($_POST['assigned_to'] ?? 0);
-        $cost = (float)($_POST['cost_estimate'] ?? 0);
+        if ($tech) {
+            $stmt = getDBConnection()->prepare(
+                "SELECT id FROM users WHERE id = ? AND role_id = 5 AND is_active = 1"
+            );
+            $stmt->execute([$tech]);
+            if (!$stmt->fetchColumn()) {
+                setFlash('error', 'That is not an active technician.');
+                redirect(APP_URL . '/index.php?page=maintenance&action=show&id=' . $id);
+            }
+        }
+
+        $cost = max(0, (float)($_POST['cost_estimate'] ?? 0));
         $this->model->update($id, [
             'assigned_to' => $tech ?: null,
             'cost_estimate' => $cost,

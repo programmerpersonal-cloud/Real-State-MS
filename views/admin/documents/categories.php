@@ -119,8 +119,12 @@ $last = count($categories) - 1;
                                         <?= csrfField() ?>
                                         <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
                                         <button class="btn btn--danger btn--sm" title="Delete"
-                                                onclick="return confirm('Delete this category?')">
-                                            <i class="bi bi-trash"></i>
+                                                data-confirm="Nothing is filed under it, so no document is affected. The category itself is removed."
+                                                data-confirm-title="Delete this category?"
+                                                data-confirm-action="Delete category"
+                                                data-confirm-record="<?= sanitize($c['name']) ?>"
+                                                data-confirm-tone="danger">
+                                            <i class="bi bi-trash" aria-hidden="true"></i>
                                         </button>
                                     </form>
                                 <?php else: ?>

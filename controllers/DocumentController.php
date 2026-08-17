@@ -15,6 +15,21 @@ require_once BASE_PATH . '/models/DocumentCategory.php';
 
 class DocumentController
 {
+    /**
+     * The lifecycle a document is filtered by.
+     *
+     * Derived rather than stored: `status` is only active/archived, and the
+     * expiry states are worked out from expiry_date against today's date in
+     * the database, so the badge on a row and the filter that found it can
+     * never disagree. One list, read by the state pills and the validator.
+     */
+    public const STATES = [
+        'active'   => 'In force',
+        'expiring' => 'Expiring soon',
+        'expired'  => 'Expired',
+        'archived' => 'Archived',
+    ];
+
     private Document $model;
     private DocumentCategory $categories;
 
@@ -196,18 +211,26 @@ class DocumentController
     {
         authorize('documents.view');
 
+        // Whatever this reader is cleared for. Used three times below: to cut
+        // the list, to validate the visibility filter, and to scope the counts.
+        $scope = documentVisibilityScope();
+
         $filters = [
             'search'      => trim((string) ($_GET['search'] ?? '')),
-            'category_id' => (int) ($_GET['category_id'] ?? 0),
-            'visibility'  => $_GET['visibility'] ?? '',
-            'state'       => in_array($_GET['state'] ?? '', ['active', 'expiring', 'expired', 'archived'], true)
-                ? $_GET['state'] : '',
-            'reference_id'  => (int) ($_GET['property_id'] ?? 0),
+            'category_id' => max(0, (int) ($_GET['category_id'] ?? 0)),
+            // Only a level this reader is cleared for. Asking for one they are
+            // not becomes an absent filter rather than an empty page that looks
+            // like the documents were deleted.
+            'visibility'  => uiPick($_GET['visibility'] ?? '', $scope),
+            'state'       => uiPick($_GET['state'] ?? '', array_keys(self::STATES)),
+            'reference_id'  => max(0, (int) ($_GET['property_id'] ?? 0)),
             'reference_type' => !empty($_GET['property_id']) ? 'property' : '',
             // Staff see everything they are cleared for, archived included, so
             // the Archived filter has something to find.
-            'visibility_in'    => documentVisibilityScope(),
+            'visibility_in'    => $scope,
             'include_archived' => true,
+            // Never interpolated: Document::SORTS resolves this key.
+            'sort' => uiSortValue(array_keys(Document::SORTS), 'newest'),
         ];
 
         $page   = max(1, (int) ($_GET['p'] ?? 1));
@@ -227,6 +250,13 @@ class DocumentController
             'totalPages'      => $totalPages,
             'totalCount'      => $totalCount,
             'formData'        => $formData,
+            'states'          => self::STATES,
+            'visibilities'    => array_intersect_key(DOC_VISIBILITIES, array_flip($scope)),
+            // Moved out of the view, which was issuing its own query. Same one
+            // query as before — it already ran on every page load — now also
+            // answering the count on each state pill instead of only the
+            // expiry banner.
+            'expiryCounts'    => $this->model->expiryCounts($scope),
             'openUploadModal' => ($_GET['modal'] ?? '') === 'upload',
             'pageTitle'       => 'Documents',
             'pageSubtitle'    => 'Legal paperwork, certificates and attachments held against your properties.',

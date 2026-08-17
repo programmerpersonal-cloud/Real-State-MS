@@ -10,6 +10,22 @@
  */
 class Inquiry
 {
+    /**
+     * Sortable columns, keyed by the token a request may ask for. Newest first
+     * by default — an inbox is read from the top. Anything unrecognised
+     * resolves to that default rather than reaching the ORDER BY as text.
+     */
+    public const SORTS = [
+        'newest'      => 'i.created_at DESC',
+        'oldest'      => 'i.created_at ASC',
+        'name_asc'    => 'i.name ASC, i.created_at DESC',
+        'name_desc'   => 'i.name DESC, i.created_at DESC',
+        'subject_asc' => 'i.subject ASC, i.created_at DESC',
+        'subject_desc'=> 'i.subject DESC, i.created_at DESC',
+        'status_asc'  => 'i.status ASC, i.created_at DESC',
+        'status_desc' => 'i.status DESC, i.created_at DESC',
+    ];
+
     private PDO $db;
 
     public function __construct()
@@ -72,16 +88,18 @@ class Inquiry
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
     {
         [$where, $params] = $this->buildWhere($filters);
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
 
         $stmt = $this->db->prepare("
-            SELECT i.*, p.title AS property_title, c.full_name AS customer_name,
+            SELECT i.*, p.title AS property_title, p.property_code,
+                   c.full_name AS customer_name, c.profile_photo AS customer_photo,
                    u.full_name AS assigned_name
             FROM inquiries i
             LEFT JOIN properties p ON i.property_id = p.id
             LEFT JOIN customers c ON i.customer_id = c.id
             LEFT JOIN users u ON i.assigned_to = u.id
             WHERE {$where}
-            ORDER BY i.created_at DESC
+            ORDER BY {$orderBy}
             LIMIT :l OFFSET :o
         ");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
@@ -132,6 +150,33 @@ class Inquiry
         }
 
         return [implode(' AND ', $where), $params];
+    }
+
+    /**
+     * How many enquiries sit in each status, for the filter pills.
+     *
+     * Scoped exactly like getAll() and count(), so an owner's pills describe
+     * their own correspondence rather than publishing the size of the agency's
+     * whole inbox. Carries every filter except status, so each pill reports
+     * what clicking it would actually show.
+     *
+     * @return array<string, int>
+     */
+    public function countsByStatus(array $filters = []): array
+    {
+        unset($filters['status']);
+        [$where, $params] = $this->buildWhere($filters);
+
+        $stmt = $this->db->prepare("
+            SELECT i.status, COUNT(*) AS n
+            FROM inquiries i
+            LEFT JOIN properties p ON i.property_id = p.id
+            WHERE {$where}
+            GROUP BY i.status
+        ");
+        $stmt->execute($params);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'n', 'status'));
     }
 
     public function getMessages(int $inquiryId): array

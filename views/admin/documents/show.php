@@ -140,22 +140,29 @@ if ($canManage) {
         <?php if ($canManage): ?>
         <div class="card">
             <div class="card__header"><h3 class="card__title">Manage</h3></div>
-            <div class="card__body" style="display:flex;flex-direction:column;gap:10px">
+            <div class="card__body stack">
+                <?php /* The browser's own confirm() cannot name the document it
+                         is about to remove, so both destructive actions hand
+                         over to the shared dialog, which can. */ ?>
                 <?php if (($doc['status'] ?? 'active') === 'archived'): ?>
                     <form method="post" action="<?= APP_URL ?>/index.php?page=documents&amp;action=restore">
                         <?= csrfField() ?>
                         <input type="hidden" name="id" value="<?= (int) $doc['id'] ?>">
-                        <button class="btn btn--outline btn--sm" style="width:100%">
-                            <i class="bi bi-arrow-counterclockwise"></i> Restore document
+                        <button class="btn btn--outline btn--sm btn--block">
+                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Restore document
                         </button>
                     </form>
                 <?php else: ?>
                     <form method="post" action="<?= APP_URL ?>/index.php?page=documents&amp;action=archive">
                         <?= csrfField() ?>
                         <input type="hidden" name="id" value="<?= (int) $doc['id'] ?>">
-                        <button class="btn btn--outline btn--sm" style="width:100%"
-                                onclick="return confirm('Archive this document? It stays on file and can be restored.')">
-                            <i class="bi bi-archive"></i> Archive document
+                        <button class="btn btn--outline btn--sm btn--block"
+                                data-confirm="It stays on file and can be restored at any time. It stops appearing in the active library."
+                                data-confirm-title="Archive this document?"
+                                data-confirm-action="Archive"
+                                data-confirm-record="<?= sanitize($doc['title']) ?>"
+                                data-confirm-tone="warning">
+                            <i class="bi bi-archive" aria-hidden="true"></i> Archive document
                         </button>
                     </form>
                 <?php endif ?>
@@ -164,9 +171,13 @@ if ($canManage) {
                     <form method="post" action="<?= APP_URL ?>/index.php?page=documents&amp;action=delete">
                         <?= csrfField() ?>
                         <input type="hidden" name="id" value="<?= (int) $doc['id'] ?>">
-                        <button class="btn btn--danger btn--sm" style="width:100%"
-                                onclick="return confirm('Delete permanently? The file is removed from the server and this cannot be undone.')">
-                            <i class="bi bi-trash"></i> Delete permanently
+                        <button class="btn btn--danger btn--sm btn--block"
+                                data-confirm="The file is removed from the server and the record with it. This cannot be undone."
+                                data-confirm-title="Delete this document permanently?"
+                                data-confirm-action="Delete permanently"
+                                data-confirm-record="<?= sanitize($doc['title']) ?>"
+                                data-confirm-tone="danger">
+                            <i class="bi bi-trash" aria-hidden="true"></i> Delete permanently
                         </button>
                     </form>
                     <div class="form-hint">Archiving is usually the right choice — it keeps the record.</div>

@@ -10,6 +10,27 @@
  */
 class MaintenanceRequest
 {
+    /**
+     * Sortable columns, keyed by the token a request may ask for.
+     *
+     * The default is 'priority', not 'newest': this is a work queue, and the
+     * urgent job filed last week outranks the low-priority one filed today.
+     * Nothing here is built from request text — the request names a key and
+     * this constant supplies the clause.
+     */
+    public const SORTS = [
+        'priority'      => "FIELD(m.priority,'urgent','high','medium','low'), m.created_at DESC",
+        'priority_asc'  => "FIELD(m.priority,'low','medium','high','urgent'), m.created_at DESC",
+        'newest'        => 'm.created_at DESC',
+        'oldest'        => 'm.created_at ASC',
+        'code_asc'      => 'm.request_code ASC',
+        'code_desc'     => 'm.request_code DESC',
+        'status_asc'    => 'm.status ASC, m.created_at DESC',
+        'status_desc'   => 'm.status DESC, m.created_at DESC',
+        'cost_desc'     => 'm.actual_cost DESC, m.cost_estimate DESC',
+        'cost_asc'      => 'm.actual_cost ASC, m.cost_estimate ASC',
+    ];
+
     private PDO $db;
 
     public function __construct()
@@ -138,15 +159,17 @@ class MaintenanceRequest
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
     {
         [$wc, $params] = $this->buildFilters($filters);
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['priority'];
+
         $stmt = $this->db->prepare("
             SELECT m.*, p.title AS property_title, p.property_code,
-                   c.full_name AS customer_name, a.full_name AS assigned_name
+                   c.full_name AS customer_name, a.full_name AS assigned_name, a.avatar AS assigned_avatar
             FROM maintenance_requests m
             JOIN properties p ON m.property_id = p.id
             LEFT JOIN customers c ON m.customer_id = c.id
             LEFT JOIN users a ON m.assigned_to = a.id
             {$wc}
-            ORDER BY FIELD(m.priority,'urgent','high','medium','low'), m.created_at DESC
+            ORDER BY {$orderBy}
             LIMIT :l OFFSET :o
         ");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
@@ -167,5 +190,37 @@ class MaintenanceRequest
         ");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * How many requests sit in each status, for the filter pills.
+     *
+     * Scoped like every other read in this model. A technician's counts
+     * describe their own queue and an owner's their own buildings — a raw
+     * GROUP BY over the table would publish the size of the whole company's
+     * workload to everyone who can open the page, which is exactly the leak
+     * count() was fixed for.
+     *
+     * Carries every filter *except* status, so each pill reports what the
+     * user would actually see if they clicked it while the search and
+     * priority they already chose stay applied.
+     *
+     * @return array<string, int>
+     */
+    public function countsByStatus(array $filters = []): array
+    {
+        unset($filters['status']);
+        [$wc, $params] = $this->buildFilters($filters);
+
+        $stmt = $this->db->prepare("
+            SELECT m.status, COUNT(*) AS n
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            {$wc}
+            GROUP BY m.status
+        ");
+        $stmt->execute($params);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'n', 'status'));
     }
 }

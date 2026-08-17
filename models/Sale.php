@@ -4,6 +4,26 @@
  */
 class Sale
 {
+    /**
+     * Sortable columns, keyed by the token a request may ask for. The request
+     * supplies a key, never a column; anything unrecognised resolves to
+     * 'newest' rather than reaching the ORDER BY as text.
+     */
+    public const SORTS = [
+        'newest'      => 's.created_at DESC',
+        'oldest'      => 's.created_at ASC',
+        'date_desc'   => 's.sale_date DESC, s.id DESC',
+        'date_asc'    => 's.sale_date ASC, s.id ASC',
+        'amount_desc' => 's.sale_amount DESC',
+        'amount_asc'  => 's.sale_amount ASC',
+        'comm_desc'   => 's.commission_amount DESC',
+        'comm_asc'    => 's.commission_amount ASC',
+        'code_asc'    => 's.sale_code ASC',
+        'code_desc'   => 's.sale_code DESC',
+        'status_asc'  => 's.status ASC, s.sale_date DESC',
+        'status_desc' => 's.status DESC, s.sale_date DESC',
+    ];
+
     private PDO $db;
 
     public function __construct()
@@ -86,24 +106,49 @@ class Sale
         return $this->db->prepare("UPDATE sales SET " . implode(', ', $fields) . " WHERE id = :id")->execute($params);
     }
 
-    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    /**
+     * The WHERE clause and its bound parameters for one filter set.
+     *
+     * Shared by getAll() and count(), which had drifted: count() knew only
+     * about `status`, so a search reported the unfiltered total and offered
+     * pages that then rendered empty.
+     *
+     * @return array{0:string, 1:array<string, mixed>}
+     */
+    private function buildWhere(array $filters): array
     {
         $where = []; $params = [];
         if (!empty($filters['status'])) { $where[] = "s.status = :st"; $params[':st'] = $filters['status']; }
+        if (!empty($filters['payment_type'])) { $where[] = "s.payment_type = :pt"; $params[':pt'] = $filters['payment_type']; }
+        if (!empty($filters['agent_id'])) { $where[] = "s.agent_id = :aid"; $params[':aid'] = (int) $filters['agent_id']; }
+        if (!empty($filters['property_id'])) { $where[] = "s.property_id = :pid"; $params[':pid'] = (int) $filters['property_id']; }
         if (!empty($filters['search'])) {
-            $where[] = "(s.sale_code LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s)";
+            $where[] = "(s.sale_code LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s OR p.property_code LIKE :s)";
             $params[':s'] = '%' . $filters['search'] . '%';
         }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+    }
+
+    private const JOINS = "
+        FROM sales s
+        JOIN customers c ON s.customer_id = c.id
+        JOIN properties p ON s.property_id = p.id
+        LEFT JOIN users u ON s.agent_id = u.id
+    ";
+
+    public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
+    {
+        [$wc, $params] = $this->buildWhere($filters);
+        $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
+
         $stmt = $this->db->prepare("
-            SELECT s.*, c.full_name AS customer_name, p.title AS property_title, p.property_code,
-                   u.full_name AS agent_name
-            FROM sales s
-            JOIN customers c ON s.customer_id = c.id
-            JOIN properties p ON s.property_id = p.id
-            LEFT JOIN users u ON s.agent_id = u.id
+            SELECT s.*, c.full_name AS customer_name, c.profile_photo AS customer_photo,
+                   p.title AS property_title, p.property_code,
+                   u.full_name AS agent_name, u.avatar AS agent_avatar
+            " . self::JOINS . "
             {$wc}
-            ORDER BY s.created_at DESC
+            ORDER BY {$orderBy}
             LIMIT :l OFFSET :o
         ");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
@@ -115,11 +160,31 @@ class Sale
 
     public function count(array $filters = []): int
     {
-        $where = []; $params = [];
-        if (!empty($filters['status'])) { $where[] = "status = :st"; $params[':st'] = $filters['status']; }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM sales {$wc}");
+        // The same joins as getAll(), because the search reaches across them.
+        [$wc, $params] = $this->buildWhere($filters);
+        $stmt = $this->db->prepare("SELECT COUNT(*) " . self::JOINS . " {$wc}");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Deal count and value in each status, for the ledger cards.
+     *
+     * One grouped query; its cost does not change with the number of sales.
+     *
+     * @return array<string, array{cnt:int, total:float}>
+     */
+    public function totalsByStatus(): array
+    {
+        $rows = $this->db->query("
+            SELECT status, COUNT(*) AS cnt, COALESCE(SUM(sale_amount),0) AS total
+            FROM sales GROUP BY status
+        ")->fetchAll();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[$r['status']] = ['cnt' => (int) $r['cnt'], 'total' => (float) $r['total']];
+        }
+        return $out;
     }
 }

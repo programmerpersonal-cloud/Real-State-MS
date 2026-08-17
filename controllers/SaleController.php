@@ -6,6 +6,19 @@ require_once BASE_PATH . '/models/Sale.php';
 
 class SaleController
 {
+    /** Where a deal has got to — the sales.status enum. */
+    public const STATUSES = [
+        'pending'   => 'Pending',
+        'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+    ];
+
+    /** How the buyer is paying — the sales.payment_type enum. */
+    public const PAYMENT_TYPES = [
+        'full'        => 'Paid in full',
+        'installment' => 'Instalments',
+    ];
+
     private Sale $model;
 
     public function __construct()
@@ -16,7 +29,18 @@ class SaleController
     public function index(): void
     {
         authorize('sales.view');
-        $filters = ['status' => $_GET['status'] ?? '', 'search' => $_GET['search'] ?? ''];
+
+        // Enumerated filters check against the same maps their controls are
+        // built from; the sort key is resolved by Sale::SORTS. Neither ever
+        // reaches SQL as request text.
+        $filters = [
+            'status'       => uiPick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'payment_type' => uiPick($_GET['payment_type'] ?? '', array_keys(self::PAYMENT_TYPES)),
+            'agent_id'     => max(0, (int) ($_GET['agent_id'] ?? 0)) ?: '',
+            'search'       => trim((string) ($_GET['search'] ?? '')),
+            'sort'         => uiSortValue(array_keys(Sale::SORTS), 'newest'),
+        ];
+
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
         $sales = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
@@ -32,8 +56,15 @@ class SaleController
             'sales' => $sales, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
             'formData' => $formData,
+            'statuses'     => self::STATUSES,
+            'paymentTypes' => self::PAYMENT_TYPES,
+            // One added query: a GROUP BY behind the pipeline cards, which
+            // report both the count and the value of each stage. Fixed cost,
+            // independent of how many sales are rendered.
+            'totals' => $this->model->totalsByStatus(),
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Sales',
+            'pageSubtitle' => 'Deals in progress and closed, with the commission each one carries.',
             'breadcrumbs' => [['label' => 'Sales']],
             'actionButton' => [
                 'label' => 'New Sale',
@@ -89,14 +120,32 @@ class SaleController
                 'agent_id'          => (int)($_POST['agent_id'] ?? 0) ?: null,
                 'notes'             => sanitize($_POST['notes'] ?? ''),
             ];
+            // The same rules, each keyed to its field so the message lands
+            // under the control rather than as one run-on flash.
+            unset($_SESSION['form_errors']);
             $errors = [];
-            if (!$data['property_id']) $errors[] = 'Select a property.';
-            if (!$data['customer_id']) $errors[] = 'Select a buyer.';
-            if ($data['sale_amount'] <= 0) $errors[] = 'Sale amount required.';
+
+            if (!$data['property_id']) addFieldError($errors, 'property_id', 'Choose the property being sold.');
+            if (!$data['customer_id']) addFieldError($errors, 'customer_id', 'Choose the buyer.');
+            if ($data['sale_amount'] <= 0) {
+                addFieldError($errors, 'sale_amount', 'The sale amount must be greater than zero.');
+            }
+            // A commission larger than the sale is a typo every time, and it
+            // would be written into the commissions ledger as a real debt.
+            if ($data['sale_amount'] > 0 && $data['commission_amount'] > $data['sale_amount']) {
+                addFieldError($errors, 'commission_amount', 'Commission cannot exceed the sale amount.');
+            }
+            if ($data['commission_amount'] < 0) {
+                addFieldError($errors, 'commission_amount', 'Commission cannot be negative.');
+            }
+            if (!isset(self::PAYMENT_TYPES[$data['payment_type']])) {
+                addFieldError($errors, 'payment_type', 'Choose how the buyer is paying.');
+            }
+            if (!isset(self::STATUSES[$data['status']])) {
+                addFieldError($errors, 'status', 'Choose where this deal has got to.');
+            }
             if ($errors) {
-                setFlash('error', implode(' ', $errors));
-                $_SESSION['form_data'] = $data;
-                redirect($failUrl);
+                rejectForm($errors, $data, $failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {
@@ -115,6 +164,8 @@ class SaleController
         renderPage(VIEWS_PATH . '/admin/sales/create.php', [
             'properties' => $properties, 'customers' => $customers, 'agents' => $agents,
             'formData'   => $formData,
+            // The form's <option>s and the validator read one list.
+            'paymentTypes' => self::PAYMENT_TYPES,
             'pageTitle' => 'New Sale',
             'breadcrumbs' => [
                 ['label' => 'Sales', 'url' => APP_URL . '/index.php?page=sales'],

@@ -20,6 +20,9 @@
    screen-width apart from their controls on a wide monitor, which is a longer
    eye travel than the form is worth. */
 .card--narrow{max-width:640px;margin-inline:auto}
+/* A column of controls in a card body — the manage panel on a detail page.
+   Was a repeated inline flex declaration on every such panel. */
+.stack{display:flex;flex-direction:column;gap:var(--space-2);align-items:stretch}
 
 
 /* ── Document-expiry notice ───────────────────────────────
@@ -305,6 +308,24 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .form-checkbox{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--text);padding:8px 0;cursor:pointer}
 .form-checkbox input{width:16px;height:16px;accent-color:var(--primary);cursor:pointer}
 .form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
+/* A figure the form derives rather than asks for — the buyer's total, a
+   computed balance. It is an outcome, so it does not wear a label and a box
+   like something you can type into. */
+.form-callout{
+  display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap;
+  padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);
+  background:var(--primary-tint);border:1px solid var(--primary-border);
+  border-radius:var(--radius);
+}
+.form-callout__label{
+  font-size:var(--fs-2xs);font-weight:600;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--primary-ink);
+}
+.form-callout__value{
+  font-size:1.15rem;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums;letter-spacing:-.2px;
+}
+.form-callout__note{font-size:var(--fs-2xs);color:var(--text-subtle);margin-left:auto}
 
 /* ─── Galleries / uploads ───────────────────────────────── */
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:14px}
@@ -685,6 +706,7 @@ body.is-modal-open{overflow:hidden}
 }
 .table-head__title{font-size:var(--fs-sm);font-weight:600;color:var(--text)}
 .table-head__count{color:var(--text-muted);font-weight:400}
+.table-head__note{font-size:var(--fs-2xs);color:var(--text-subtle);display:inline-flex;align-items:center;gap:5px}
 .table-foot{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
   padding:var(--space-2) var(--space-5);border-top:1px solid var(--border);
@@ -797,6 +819,56 @@ a.person:hover .person__name{color:var(--primary)}
 }
 .segmented__btn:hover{color:var(--text)}
 .segmented__btn.is-active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-xs)}
+
+/* ════════════════════════════════════════════════════════════
+   FEED — a list of short messages, not a table
+
+   A notification is a sentence with a time on it. Ruling it into columns
+   makes it harder to read, so it gets a stack instead: glyph, prose, time.
+   Unread carries a marker down the left edge as well as a tinted ground, so
+   it survives being read by someone who cannot separate the two tints.
+   ════════════════════════════════════════════════════════════ */
+.feed{list-style:none;margin:0;padding:0}
+.feed__item{
+  display:flex;align-items:flex-start;gap:var(--space-3);
+  padding:var(--space-4) var(--space-5);
+  border-bottom:1px solid var(--border);
+  border-left:3px solid transparent;
+  transition:background var(--transition);
+}
+.feed__item:last-child{border-bottom:0}
+.feed__item:hover{background:var(--surface-2)}
+.feed__item.is-unread{background:var(--primary-tint);border-left-color:var(--primary)}
+.feed__icon{
+  display:grid;place-items:center;flex-shrink:0;
+  width:34px;height:34px;border-radius:var(--radius-sm);
+  background:var(--surface);border:1px solid var(--border);
+  font-size:.95rem;
+}
+.feed__icon--success{color:var(--success)}
+.feed__icon--warning{color:var(--warning)}
+.feed__icon--danger{color:var(--danger)}
+.feed__icon--info{color:var(--info)}
+.feed__body{flex:1;min-width:0}
+.feed__title{font-size:var(--fs-sm);font-weight:600;color:var(--text);line-height:1.4}
+.feed__title a{color:inherit}
+.feed__text{font-size:var(--fs-xs);color:var(--text-body);margin:3px 0 0;line-height:1.55}
+.feed__meta{font-size:var(--fs-2xs);color:var(--text-subtle);margin-top:6px;font-variant-numeric:tabular-nums}
+.feed__action{flex-shrink:0}
+@media(max-width:600px){
+  .feed__item{padding:var(--space-3) var(--space-4);gap:var(--space-2)}
+  .feed__icon{width:28px;height:28px}
+}
+
+/* A toolbar carrying a note and an action rather than a search form. */
+.list-toolbar--plain{margin-bottom:var(--space-3)}
+.list-toolbar__note{font-size:var(--fs-xs);color:var(--text-muted);margin:0}
+
+/* A file in a table row: type glyph, name, and what it is underneath.
+   The sibling of .person, for the rows that are documents rather than people. */
+.filecell{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.filecell__icon{font-size:1.3rem;color:var(--text-subtle);line-height:1.15;flex-shrink:0}
+.filecell__body{display:flex;flex-direction:column;gap:2px;min-width:0}
 
 /* ════════════════════════════════════════════════════════════
    STATUS TABS — the primary axis of an operations list

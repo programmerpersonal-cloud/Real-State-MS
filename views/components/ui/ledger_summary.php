@@ -19,11 +19,14 @@
  *   options  array   [value => label]              required, sets the order
  *   totals   array   [value => ['cnt'=>int,'total'=>float]]
  *   all      array   ['label'=>…, 'cnt'=>int, 'total'=>float]  optional
+ *   noun     array   ['payment','payments'] — what a record is called here
+ *   label    string  accessible name for the group
  */
 $lg     = $ledger ?? [];
 $param  = $lg['param'] ?? 'status';
 $value  = (string) ($lg['value'] ?? '');
 $totals = $lg['totals'] ?? [];
+$noun   = $lg['noun'] ?? ['payment', 'payments'];
 
 $urlFor = static function (string $status) use ($param): string {
     $params = $_GET;
@@ -45,7 +48,7 @@ foreach (($lg['options'] ?? []) as $key => $label) {
     $cards[$key] = ['label' => $label, 'cnt' => (int) ($row['cnt'] ?? 0), 'total' => (float) ($row['total'] ?? 0)];
 }
 ?>
-<div class="ledger" role="group" aria-label="Filter by payment status">
+<div class="ledger" role="group" aria-label="<?= sanitize($lg['label'] ?? 'Filter by status') ?>">
     <?php foreach ($cards as $key => $card): ?>
         <?php
         $isActive = (string) $key === $value;
@@ -64,7 +67,7 @@ foreach (($lg['options'] ?? []) as $key => $label) {
             <span class="ledger__value"><?= formatCurrency((float) $card['total']) ?></span>
             <span class="ledger__meta">
                 <?= number_format((int) $card['cnt']) ?>
-                <?= (int) $card['cnt'] === 1 ? 'payment' : 'payments' ?>
+                <?= sanitize((int) $card['cnt'] === 1 ? $noun[0] : $noun[1]) ?>
             </span>
         </a>
     <?php endforeach ?>

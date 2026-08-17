@@ -16,6 +16,14 @@ require_once BASE_PATH . '/models/Inquiry.php';
 
 class InquiryController
 {
+    /** Where a conversation has got to — the inquiries.status enum. */
+    public const STATUSES = [
+        'open'    => 'Open',
+        'pending' => 'Pending',
+        'replied' => 'Replied',
+        'closed'  => 'Closed',
+    ];
+
     private Inquiry $model;
 
     public function __construct()
@@ -26,7 +34,16 @@ class InquiryController
     public function index(): void
     {
         authorize('inquiries.view');
-        $filters = ['status' => $_GET['status'] ?? '', 'search' => $_GET['search'] ?? ''];
+
+        // The status is checked against the same list the pills are built
+        // from, and the sort key resolves through Inquiry::SORTS. The search
+        // term stays a bound parameter inside the model, ANDed with the
+        // access scope rather than replacing it.
+        $filters = [
+            'status' => uiPick($_GET['status'] ?? '', array_keys(self::STATUSES)),
+            'search' => trim((string) ($_GET['search'] ?? '')),
+            'sort'   => uiSortValue(array_keys(Inquiry::SORTS), 'newest'),
+        ];
         $page = max(1, (int)($_GET['p'] ?? 1));
         $offset = ($page - 1) * ITEMS_PER_PAGE;
         $inquiries = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
@@ -36,13 +53,24 @@ class InquiryController
         renderPage(VIEWS_PATH . '/admin/inquiries/index.php', [
             'inquiries' => $inquiries, 'filters' => $filters,
             'page' => $page, 'totalPages' => $totalPages, 'totalCount' => $totalCount,
+            'statuses' => self::STATUSES,
+            // One added query behind the status pills, carrying the same
+            // access scope as the list itself — an owner's counts describe
+            // their own correspondence, not the agency's whole inbox.
+            'statusCounts' => $this->model->countsByStatus($filters),
             // Why this list holds what it holds, in the reader's own terms. A
             // user shown four of the agency's four hundred enquiries should be
             // able to read the reason rather than assume the page is broken.
             'scopeHint'    => inquiryScopeHint(),
             'emptyMessage' => inquiryEmptyScopeMessage(),
             'pageTitle' => $this->listTitle(),
+            'pageSubtitle' => inquiryScopeHint(),
             'breadcrumbs' => [['label' => $this->listTitle()]],
+            'actionButton' => can('inquiries.create') ? [
+                'label' => 'New Inquiry',
+                'icon'  => 'bi-plus-lg',
+                'url'   => APP_URL . '/index.php?page=inquiries&action=create',
+            ] : null,
         ]);
     }
 
@@ -121,11 +149,26 @@ class InquiryController
                 'subject'     => sanitize($_POST['subject'] ?? ''),
                 'message'     => sanitize($_POST['message'] ?? ''),
             ];
+            // Keyed to their fields, so the message lands under the control
+            // rather than as a flash above a form the user must re-read.
+            unset($_SESSION['form_errors']);
+            $errors  = [];
+            $failUrl = APP_URL . '/index.php?page=inquiries&action=create';
+
             if (!$data['message']) {
-                // Hand the entry back rather than making them retype it.
-                $_SESSION['form_data'] = $data;
-                setFlash('error', 'Message is required.');
-                redirect(APP_URL . '/index.php?page=inquiries&action=create');
+                addFieldError($errors, 'message', 'Write the enquiry itself — this is what the office will read.');
+            }
+            // Someone has to be reachable, or a reply has nowhere to go. A
+            // signed-in customer is already on file, so this only bites the
+            // enquiries typed on someone else's behalf.
+            if (!$data['customer_id'] && $data['email'] === '' && $data['phone'] === '') {
+                addFieldError($errors, 'email', 'Give an email address or a phone number so the enquiry can be answered.');
+            }
+            if ($data['email'] !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+                addFieldError($errors, 'email', 'That does not look like an email address.');
+            }
+            if ($errors) {
+                rejectForm($errors, $data, $failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {
