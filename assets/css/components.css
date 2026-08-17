@@ -1,0 +1,561 @@
+/* ================================================================
+   MARKO REAL ESTATE - COMPONENTS
+   Reusable UI shared by every page: cards, buttons, forms, tables,
+   badges, alerts, empty states, pagination, modals, galleries, maps.
+   ================================================================ */
+
+/* ─── Cards ─────────────────────────────────────────────── */
+.card{
+  background:var(--surface);border-radius:var(--radius-lg);
+  border:1px solid var(--border);box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition);
+}
+.card:hover{box-shadow:var(--shadow-sm);border-color:var(--border-strong)}
+.card__header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card__title{font-family:var(--font-display);font-size:.98rem;font-weight:700;color:var(--text);letter-spacing:-.015em;line-height:1.3}
+.card__subtitle{font-size:.76rem;color:var(--text-muted);margin-top:2px;line-height:1.35}
+.card__body{padding:16px 18px}
+.card__footer{padding:11px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
+
+
+/* ── Document-expiry notice ───────────────────────────────
+   Not an .alert: this one carries a list, links and badges, and a wash of
+   warning colour over all of it would make the permit titles harder to read
+   than the plain rows they link to. The colour is kept to the rail and the
+   glyph, and the content stays on white where it is legible. */
+/* A banner, not a section: it sits between the page title and the first real
+   content, so every pixel it takes is pushed onto everything below it. Kept
+   legible but compact — the warning tone and the left rule do the work that
+   generous padding was doing. */
+.notice{
+  display:flex;gap:11px;align-items:flex-start;
+  background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--warning);
+  border-radius:var(--radius-lg);padding:9px 12px;margin-bottom:10px;
+  box-shadow:var(--shadow-xs);
+}
+.notice__icon{
+  flex-shrink:0;width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;font-size:.92rem;
+  background:var(--warning-bg);color:var(--warning);
+}
+.notice__body{flex:1;min-width:0}
+.notice__title{font-size:.85rem;font-weight:700;color:var(--text);line-height:1.3}
+.notice__list{margin:3px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.notice__item{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  font-size:.8rem;color:var(--text-muted);line-height:1.4;
+}
+.notice__item a{font-weight:600;color:var(--text);text-decoration:none}
+.notice__item a:hover{color:var(--primary);text-decoration:underline}
+.notice__link{
+  display:inline-flex;align-items:center;gap:6px;margin-top:4px;
+  font-size:.8rem;font-weight:600;color:var(--primary);
+}
+.notice__link i{transition:transform var(--transition)}
+.notice__link:hover i{transform:translateX(3px)}
+@media(prefers-reduced-motion:reduce){.notice__link i{transition:none}.notice__link:hover i{transform:none}}
+/* The glyph goes rather than the padding: on a narrow screen the text needs
+   the full width more than the banner needs an ornament. */
+@media(max-width:560px){.notice{padding:10px 12px}.notice__icon{display:none}}
+
+/* ─── Buttons ───────────────────────────────────────────── */
+/* Min height 44px on --lg and on touch devices keeps tap targets legal
+   without inflating dense admin toolbars. */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px 20px;border-radius:var(--radius-sm);
+  font-size:var(--fs-sm);font-weight:600;border:1px solid transparent;
+  transition:background var(--transition),border-color var(--transition),
+             color var(--transition),box-shadow var(--transition),transform var(--transition);
+  line-height:1.3;white-space:nowrap;cursor:pointer;text-decoration:none;
+}
+.btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.btn:active{transform:translateY(1px)}
+.btn--primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn--primary:hover{background:var(--primary-hover);border-color:var(--primary-hover);color:#fff;box-shadow:0 4px 14px rgba(0,117,192,.28)}
+.btn--outline{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.btn--outline:hover{border-color:var(--primary);background:var(--primary-tint);color:var(--primary)}
+.btn--ghost{background:transparent;color:var(--text);border-color:transparent}
+.btn--ghost:hover{background:var(--surface-3)}
+.btn--danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn--danger:hover{background:#a91616;border-color:#a91616}
+.btn--success{background:var(--success);color:#fff;border-color:var(--success)}
+.btn--success:hover{background:#126b34}
+.btn--sm{padding:7px 14px;font-size:var(--fs-xs);gap:6px}
+.btn--lg{padding:12px 26px;font-size:var(--fs-body);min-height:44px}
+.btn--block{width:100%;white-space:normal}
+.btn--icon{width:38px;height:38px;padding:0}
+.btn[disabled],.btn.is-disabled{opacity:.55;pointer-events:none}
+/* Coarse pointers (touch) get the full 44px target on every button. */
+@media (pointer:coarse){
+  .btn{min-height:44px}
+  .btn--sm{min-height:40px}
+  .btn--icon{width:44px;height:44px}
+}
+
+/* ─── Forms ─────────────────────────────────────────────── */
+.form-group{margin-bottom:18px}
+.form-label{display:block;font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-.1px}
+.form-control{
+  width:100%;padding:10px 13px;
+  border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  font-size:.88rem;color:var(--text);background:var(--surface);
+  transition:all var(--transition);
+}
+.form-control:hover{border-color:#cbd0d8}
+.form-control:focus{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
+.form-control::placeholder{color:var(--text-subtle)}
+.form-control--error{border-color:var(--danger)}
+.form-control--error:focus{box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+/* A field whose value is fixed by context — e.g. the single property a tenant
+   is allowed to report against. Deliberately not styled like :disabled: the
+   value still submits, stays selectable and keeps full text contrast, so only
+   the surface recedes and the caret is dropped. */
+.form-control[readonly]{background:var(--surface-2);border-color:var(--border);cursor:default}
+.form-control[readonly]:hover{border-color:var(--border)}
+.form-hint{font-size:.74rem;color:var(--text-subtle);margin-top:4px}
+.form-error{font-size:.74rem;color:var(--danger);margin-top:4px;display:flex;align-items:center;gap:4px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+select.form-control{
+  appearance:none;cursor:pointer;
+  /* Same stroked chevron, weight and colour as the search and filter bars —
+     the old one was a filled wedge in an off-palette grey. */
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%236b7688' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5L6 7.5l3-3'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;
+}
+/* An optional field left on "— None —" is a placeholder, not a value, and
+   should read like one — matching how ::placeholder treats empty inputs.
+   Still 5.1:1 on white, so it stays AA. Browsers without :has() simply
+   show it at full strength, which is readable either way. */
+select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
+
+/* ─── Tables ────────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
+.table{width:100%;border-collapse:collapse;font-size:.86rem}
+.table th{
+  background:var(--surface-2);font-weight:600;font-size:.74rem;
+  text-transform:uppercase;letter-spacing:.6px;color:var(--text-muted);
+  padding:11px 16px;text-align:left;border-bottom:1px solid var(--border);
+}
+.table td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text)}
+.table tr:last-child td{border-bottom:none}
+.table tbody tr{transition:background var(--transition)}
+.table tbody tr:hover td{background:var(--surface-2)}
+.table th:first-child,.table td:first-child{padding-left:18px}
+.table th:last-child,.table td:last-child{padding-right:18px}
+.table .check-col{width:36px;padding-right:0!important}
+.table input[type=checkbox]{width:15px;height:15px;border-radius:4px;accent-color:var(--primary);cursor:pointer}
+.table__id{font-family:'SF Mono',ui-monospace,Menlo,Monaco,Consolas,monospace;font-size:.78rem;color:var(--text-muted);letter-spacing:.2px}
+
+/* ─── Status pill (with colored dot) — table cells ──────── */
+.status-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 10px 3px 8px;border-radius:var(--radius-pill);
+  font-size:.74rem;font-weight:600;line-height:1.6;
+  border:1px solid transparent;
+}
+.status-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.status-pill--success{background:var(--success-bg);color:var(--success);border-color:rgba(22,163,74,.18)}
+.status-pill--warning{background:var(--warning-bg);color:var(--warning);border-color:rgba(217,119,6,.18)}
+.status-pill--danger{background:var(--danger-bg);color:var(--danger);border-color:rgba(220,38,38,.18)}
+.status-pill--info{background:var(--info-bg);color:var(--info);border-color:rgba(37,99,235,.18)}
+.status-pill--muted{background:var(--surface-3);color:var(--text-muted);border-color:var(--border-strong)}
+
+/* ─── Badges (no dot — keep for legacy) ────────────────── */
+.badge{
+  display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--radius-pill);
+  font-size:.72rem;font-weight:600;letter-spacing:.1px;text-transform:capitalize;
+  border:1px solid transparent;
+}
+.badge--success{background:var(--success-bg);color:var(--success);border-color:rgba(22,163,74,.18)}
+.badge--warning{background:var(--warning-bg);color:var(--warning);border-color:rgba(217,119,6,.18)}
+.badge--danger{background:var(--danger-bg);color:var(--danger);border-color:rgba(220,38,38,.18)}
+.badge--info{background:var(--info-bg);color:var(--info);border-color:rgba(37,99,235,.18)}
+.badge--primary{background:var(--primary-light);color:var(--primary-ink);border-color:var(--primary-border)}
+.badge--purple{background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.18)}
+.badge--orange{background:var(--orange-bg);color:var(--orange);border-color:rgba(234,88,12,.18)}
+.badge--muted{background:var(--surface-3);color:var(--text-muted);border-color:var(--border-strong)}
+
+/* ─── Alerts ────────────────────────────────────────────── */
+.alert{
+  display:flex;align-items:center;gap:10px;padding:12px 16px;
+  border-radius:var(--radius-sm);font-size:.85rem;margin-bottom:18px;
+  border:1px solid transparent;animation:alertIn .3s ease;
+}
+.alert--success{background:var(--success-bg);color:var(--success);border-color:rgba(22,163,74,.18)}
+.alert--danger{background:var(--danger-bg);color:var(--danger);border-color:rgba(220,38,38,.18)}
+.alert--warning{background:var(--warning-bg);color:var(--warning);border-color:rgba(217,119,6,.18)}
+.alert--info{background:var(--info-bg);color:var(--info);border-color:rgba(37,99,235,.18)}
+.alert__close{margin-left:auto;background:none;border:none;color:inherit;opacity:.6;font-size:1rem;cursor:pointer}
+.alert__close:hover{opacity:1}
+@keyframes alertIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+
+/* ─── Empty state ───────────────────────────────────────── */
+.empty-state{text-align:center;padding:48px 20px}
+.empty-state__icon{
+  width:56px;height:56px;border-radius:14px;margin:0 auto 14px;
+  background:var(--surface-3);color:var(--text-subtle);
+  display:flex;align-items:center;justify-content:center;font-size:1.6rem;
+}
+.empty-state__title{font-size:1rem;font-weight:600;margin-bottom:4px;color:var(--text)}
+.empty-state__desc{color:var(--text-muted);font-size:.85rem;max-width:360px;margin:0 auto}
+
+
+/* ─── Pagination ────────────────────────────────────────── */
+.pagination{display:flex;align-items:center;gap:4px;justify-content:flex-end;padding:14px 0;flex-wrap:wrap}
+.pagination__link{
+  min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;padding:0 9px;
+  border-radius:var(--radius-xs);font-size:.78rem;font-weight:600;
+  color:var(--text-muted);background:var(--surface);
+  border:1px solid var(--border);transition:all var(--transition);
+}
+.pagination__link:hover{border-color:var(--text-muted);color:var(--text)}
+.pagination__link.is-active{background:var(--text);color:#fff;border-color:var(--text)}
+.pagination__link.is-disabled{opacity:.4;pointer-events:none}
+.pagination__ellipsis{padding:0 6px;color:var(--text-subtle);font-weight:600}
+
+/* ─── Filter bar ────────────────────────────────────────── */
+.filter-bar{
+  display:flex;flex-wrap:wrap;gap:10px;padding:14px 16px;
+  background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);
+  margin-bottom:16px;align-items:center;
+}
+.filter-bar .form-group{margin:0;flex:1;min-width:160px}
+.filter-bar .form-control{padding:8px 12px;font-size:.84rem}
+.filter-chip{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 12px;
+  background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:var(--radius-sm);font-size:.82rem;color:var(--text);font-weight:500;
+  cursor:pointer;transition:all var(--transition);
+}
+.filter-chip:hover{border-color:var(--text-muted)}
+.filter-chip i{color:var(--text-muted);font-size:.85rem}
+
+/* ─── Form grids ────────────────────────────────────────── */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.form-grid--2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.form-grid--3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.form-grid .full-span{grid-column:1/-1}
+@media(max-width:768px){.form-grid--2,.form-grid--3{grid-template-columns:1fr}}
+.form-checkbox{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--text);padding:8px 0;cursor:pointer}
+.form-checkbox input{width:16px;height:16px;accent-color:var(--primary);cursor:pointer}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
+
+/* ─── Galleries / uploads ───────────────────────────────── */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:14px}
+.gallery__item{position:relative;aspect-ratio:1/1;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);background:var(--surface-3)}
+.gallery__item img{width:100%;height:100%;object-fit:cover}
+.gallery__cover-badge{position:absolute;top:6px;left:6px;background:var(--primary);color:#fff;font-size:.64rem;font-weight:700;padding:2px 8px;border-radius:var(--radius-pill);text-transform:uppercase;letter-spacing:.4px}
+.gallery__remove{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(15,23,42,.65);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.78rem;border:none}
+.gallery__remove:hover{background:var(--danger)}
+
+.upload-zone{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:28px;border:1.5px dashed var(--border-strong);border-radius:var(--radius);
+  background:var(--surface-2);text-align:center;cursor:pointer;transition:all var(--transition);
+}
+.upload-zone:hover{border-color:var(--primary);background:var(--primary-tint)}
+.upload-zone i{font-size:1.6rem;color:var(--text-subtle);margin-bottom:8px}
+.upload-zone__hint{font-size:.78rem;color:var(--text-muted);margin-top:4px}
+.upload-zone input[type=file]{display:none}
+/* A file has been chosen — confirm it without needing a separate line. */
+.upload-zone.is-filled{border-style:solid;border-color:var(--primary);background:var(--primary-tint)}
+.upload-zone.is-filled i{color:var(--primary)}
+
+/* ─── Property card (grid view) ─────────────────────────── */
+.prop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all var(--transition)}
+.prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--border-strong)}
+.prop-card__cover{aspect-ratio:16/10;background:var(--surface-3);position:relative;overflow:hidden}
+.prop-card__cover img{width:100%;height:100%;object-fit:cover}
+.prop-card__cover .badge,.prop-card__cover .status-pill{position:absolute;top:10px;left:10px}
+.prop-card__body{padding:14px 16px}
+.prop-card__title{font-size:.96rem;font-weight:600;margin-bottom:4px;line-height:1.3;color:var(--text)}
+.prop-card__meta{font-size:.76rem;color:var(--text-muted);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.prop-card__price{font-size:1.05rem;font-weight:700;color:var(--text);letter-spacing:-.3px}
+.prop-card__specs{display:flex;gap:14px;margin-top:8px;font-size:.76rem;color:var(--text-muted)}
+.prop-card__specs span{display:flex;align-items:center;gap:4px}
+
+/* ─── Profile / detail ──────────────────────────────────── */
+.profile-grid{display:grid;grid-template-columns:300px 1fr;gap:20px}
+@media(max-width:900px){.profile-grid{grid-template-columns:1fr}}
+.profile-card{text-align:center;padding:24px}
+.profile-card__avatar{width:96px;height:96px;border-radius:50%;margin:0 auto 12px;object-fit:cover;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--border)}
+.profile-card__name{font-size:1.15rem;font-weight:700;margin-bottom:2px}
+.profile-card__role{font-size:.74rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;font-weight:600}
+.profile-meta{text-align:left;margin-top:16px}
+.profile-meta__row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border);font-size:.84rem}
+.profile-meta__row:first-child{border-top:none}
+.profile-meta__label{color:var(--text-muted)}
+.profile-meta__value{font-weight:600;color:var(--text);text-align:right}
+
+/* ─── Tabs (with count badges) ──────────────────────────── */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;padding:0 2px}
+.tabs__item{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 4px;margin-right:18px;
+  font-size:.88rem;font-weight:500;color:var(--text-muted);
+  cursor:pointer;border-bottom:2px solid transparent;
+  transition:all var(--transition);white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;
+}
+.tabs__item:hover{color:var(--text)}
+.tabs__item.is-active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.tabs__count{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:22px;height:20px;padding:0 6px;border-radius:var(--radius-pill);
+  background:var(--surface-3);color:var(--text-muted);
+  font-size:.7rem;font-weight:600;
+}
+.tabs__item.is-active .tabs__count{background:var(--primary-light);color:var(--primary)}
+.tab-panel{display:none}
+.tab-panel.is-active{display:block}
+
+/* ─── Timeline ──────────────────────────────────────────── */
+.timeline{position:relative;padding-left:22px}
+.timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.timeline__item{position:relative;padding-bottom:16px}
+.timeline__dot{position:absolute;left:-21px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.timeline__title{font-size:.86rem;font-weight:600;color:var(--text)}
+.timeline__meta{font-size:.74rem;color:var(--text-subtle);margin-top:2px}
+
+/* ─── Section title ─────────────────────────────────────── */
+.section-title{font-size:.76rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-weight:700;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+/* ─── Grid helpers ──────────────────────────────────────── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:768px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* ─── Button group ──────────────────────────────────────── */
+.btn-group{display:inline-flex;gap:6px}
+.btn-group .btn{padding:6px 10px;font-size:.74rem}
+
+/* ─── Mini KPI ──────────────────────────────────────────── */
+.mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.mini-stat{padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.mini-stat__label{font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.mini-stat__value{font-family:var(--font-display);font-size:1.35rem;font-weight:700;margin-top:4px;letter-spacing:-.02em;color:var(--text)}
+
+/* ─── Receipt / Print ───────────────────────────────────── */
+.receipt{max-width:680px;margin:0 auto;background:#fff;padding:36px;border-radius:var(--radius);border:1px solid var(--border)}
+.receipt__head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--text);padding-bottom:16px;margin-bottom:20px}
+.receipt__logo{font-size:1.5rem;font-weight:700;letter-spacing:-.3px}
+/* Uploaded mark sits above the company name; height-capped so a large
+   upload cannot push the rest of the receipt onto a second page. */
+.receipt__logo-img{max-height:56px;max-width:200px;object-fit:contain;margin-bottom:8px;display:block}
+.receipt__brand-sub{font-size:.78rem;color:var(--text-muted)}
+.receipt__meta{text-align:right;font-size:.84rem}
+.receipt__table{width:100%;border-collapse:collapse;margin:16px 0}
+.receipt__table td{padding:9px 0;border-bottom:1px dashed var(--border);font-size:.88rem}
+.receipt__table tr:last-child td{border-bottom:none;font-weight:700;font-size:1rem;padding-top:14px;border-top:2px solid var(--text)}
+@media print{
+  .app__sidebar,.app__header,.app__footer,.sidebar-overlay,.no-print{display:none!important}
+  .app__main{margin-left:0!important}
+  .app__content{padding:0!important;background:#fff}
+  .receipt{border:none;max-width:100%}
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   MODAL — a dialog over a blurred page
+   The page behind is not merely dimmed: the backdrop blurs and
+   desaturates it, so the dialog reads as the only live surface
+   while the layout underneath stays recognisable.
+   ════════════════════════════════════════════════════════════ */
+.modal[hidden]{display:none}
+.modal{
+  position:fixed;inset:0;z-index:300;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:var(--space-8) var(--gutter);
+  overflow-y:auto;overscroll-behavior:contain;
+}
+.modal__backdrop{
+  position:fixed;inset:0;
+  background:rgba(16,34,44,.38);
+  backdrop-filter:blur(18px) saturate(135%);
+  -webkit-backdrop-filter:blur(18px) saturate(135%);
+  opacity:0;transition:opacity var(--transition-slow);
+}
+.modal.is-open .modal__backdrop{opacity:1}
+/* Without backdrop-filter the tint has to carry the separation alone. */
+@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  .modal__backdrop{background:rgba(16,34,44,.74)}
+}
+
+.modal__dialog{
+  position:relative;margin:auto;width:100%;max-width:680px;
+  max-height:calc(100vh - var(--space-16));
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);
+  opacity:0;transform:translateY(16px) scale(.98);
+  transition:opacity var(--transition-slow),transform var(--transition-slow);
+}
+.modal.is-open .modal__dialog{opacity:1;transform:none}
+.modal__dialog--lg{max-width:920px}
+
+.modal__header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);
+  padding:var(--space-5) var(--space-6);
+  border-bottom:1px solid var(--border);
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  background:linear-gradient(180deg,var(--primary-tint),var(--surface));
+}
+.modal__title{
+  font-family:var(--font-display);font-size:1.15rem;font-weight:700;
+  letter-spacing:-.02em;color:var(--text);display:flex;align-items:center;gap:10px;
+}
+.modal__title i{color:var(--primary)}
+.modal__subtitle{font-size:var(--fs-xs);color:var(--text-muted);margin-top:4px}
+.modal__close{
+  flex-shrink:0;width:34px;height:34px;border-radius:var(--radius-sm);
+  display:grid;place-items:center;cursor:pointer;
+  border:1px solid transparent;background:transparent;color:var(--text-muted);
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.modal__close:hover{background:var(--surface-3);color:var(--text);border-color:var(--border)}
+.modal__close:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+/* The form owns the scroll so the header and footer stay put. */
+.modal__form{display:flex;flex-direction:column;min-height:0;flex:1}
+.modal__body{padding:var(--space-6);overflow-y:auto;flex:1;min-height:0}
+.modal__body .form-group:last-child{margin-bottom:0}
+.modal__footer{
+  display:flex;align-items:center;gap:var(--space-3);
+  padding:var(--space-4) var(--space-6);
+  border-top:1px solid var(--border);background:var(--surface-2);
+  border-radius:0 0 var(--radius-lg) var(--radius-lg);
+}
+.modal__footer .modal__footer-note{margin-left:auto;font-size:var(--fs-xs);color:var(--text-subtle)}
+
+/* Section captions inside a long form */
+.form-section{
+  font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--text-muted);margin:var(--space-6) 0 var(--space-3);
+  padding-bottom:6px;border-bottom:1px solid var(--border);
+}
+.form-section:first-child{margin-top:0}
+
+body.is-modal-open{overflow:hidden}
+
+@media(max-width:768px){
+  .modal{padding:0}
+  .modal__dialog{max-width:none;min-height:100%;max-height:none;border:none;border-radius:0}
+  .modal__header,.modal__footer{border-radius:0}
+  .modal__body{padding:var(--space-5)}
+  .modal__footer{flex-wrap:wrap}
+  .modal__footer .btn{flex:1;min-width:140px}
+  .modal__footer .modal__footer-note{margin-left:0;flex-basis:100%}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .modal__backdrop,.modal__dialog{transition:none}
+}
+
+/* ════════════════════════════════════════════════════════════
+   GEO FIELD — location text, coordinates, device positioning
+   ════════════════════════════════════════════════════════════ */
+.geo{
+  border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface-2);padding:var(--space-4);margin-bottom:18px;
+}
+.geo__head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--space-3);margin-bottom:var(--space-4);flex-wrap:wrap;
+}
+.geo__title{
+  font-size:.82rem;font-weight:700;color:var(--text);
+  display:flex;align-items:center;gap:6px;
+}
+.geo__title i{color:var(--primary)}
+.geo__hint{font-size:var(--fs-xs);color:var(--text-muted);margin-top:3px;max-width:52ch}
+.geo__grid{display:grid;grid-template-columns:1fr 1fr auto;gap:var(--space-3);align-items:end}
+.geo .form-group{margin-bottom:var(--space-4)}
+.geo__grid .form-group{margin-bottom:0}
+.geo__map{
+  display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;
+  border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--text-muted);
+  font-size:var(--fs-xs);font-weight:600;white-space:nowrap;
+  transition:color var(--transition),border-color var(--transition),background var(--transition);
+}
+.geo__map:hover{color:var(--primary);border-color:var(--primary);background:var(--primary-tint)}
+.geo__map.is-disabled{opacity:.5;pointer-events:none}
+.geo__status{
+  display:none;align-items:flex-start;gap:6px;
+  font-size:var(--fs-xs);line-height:1.45;color:var(--text-muted);margin-top:var(--space-3);
+}
+.geo__status.is-shown{display:flex}
+.geo__status--ok{color:var(--success)}
+.geo__status--error{color:var(--danger)}
+.geo__status i{margin-top:1px}
+.spin{display:inline-block;animation:spin 900ms linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+
+@media(max-width:768px){
+  .geo__grid{grid-template-columns:1fr 1fr}
+  .geo__map{grid-column:1 / -1;justify-content:center}
+  .geo__head .btn{width:100%;justify-content:center}
+}
+
+
+
+/* ════════════════════════════════════════════════════════════
+   PROPERTY MAP — the pin, framed
+   Shared by the admin detail page and the public listing tab.
+   ════════════════════════════════════════════════════════════ */
+.propmap{display:flex;flex-direction:column;gap:var(--space-3)}
+.propmap__frame{
+  position:relative;aspect-ratio:16/9;min-height:240px;
+  border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;background:var(--surface-2);
+  box-shadow:var(--shadow-xs);
+}
+/* Give the tiles a moment's grace: a plain grey box while the frame
+   loads reads as "map arriving", not "map broken". */
+.propmap__frame::before{
+  content:'';position:absolute;inset:0;
+  background:
+    linear-gradient(var(--border) 1px,transparent 1px) 0 0/32px 32px,
+    linear-gradient(90deg,var(--border) 1px,transparent 1px) 0 0/32px 32px,
+    var(--surface-2);
+  opacity:.5;
+}
+.propmap__frame iframe{position:relative;display:block;width:100%;height:100%}
+
+.propmap__bar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:var(--space-3);flex-wrap:wrap;
+}
+.propmap__coords{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--font-mono);font-size:var(--fs-xs);
+  color:var(--text-muted);
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:6px 10px;
+  user-select:all;   /* one click selects the whole pair for copying */
+}
+.propmap__coords i{color:var(--primary);font-size:.85rem}
+.propmap__actions{display:flex;gap:var(--space-2);flex-wrap:wrap}
+/* Specific enough to beat the public page's .dpanel p rules, which set
+   a body size and pre-line wrapping that would break the credit across
+   three lines. */
+.propmap .propmap__credit{
+  font-size:.72rem;color:var(--text-subtle);
+  line-height:1.5;margin:0;white-space:normal;
+}
+.propmap .propmap__credit a{color:var(--text-muted);text-decoration:underline}
+.propmap .propmap__credit a:hover{color:var(--primary)}
+
+@media(max-width:520px){
+  .propmap__frame{aspect-ratio:4/3}
+  .propmap__bar{flex-direction:column;align-items:stretch}
+  .propmap__actions .btn{flex:1;justify-content:center}
+}
+
+/* The hidden attribute has to beat component display rules. Without this a
+   `<div class="form-error" hidden>` still shows, because any explicit display
+   overrides the user-agent's [hidden]{display:none}. */
+[hidden]{display:none!important}

@@ -9,7 +9,7 @@
     <link rel="preload" href="<?= VENDOR_URL ?>/raleway/fonts/raleway-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="<?= VENDOR_URL ?>/bootstrap-icons/fonts/bootstrap-icons.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="<?= VENDOR_URL ?>/bootstrap-icons/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="<?= CSS_URL ?>/style.css">
+    <?php $bundle = 'auth'; require VIEWS_PATH . '/components/styles.php'; ?>
 </head>
 <body class="auth-page">
 <a class="skip-link" href="#main">Skip to main content</a>

@@ -1,0 +1,481 @@
+/* ================================================================
+   MARKO REAL ESTATE - LAYOUT
+   The application shell: sidebar rail, topbar, content column,
+   footer, dropdown and page header. App pages only.
+   ================================================================ */
+
+
+/* ─── Layout shell ──────────────────────────────────────────
+   Three parts, and only one of them is allowed to grow: the rail is fixed
+   to the viewport, the topbar and footer are sized by their contents, and
+   .app__content takes whatever is left. That is what keeps the footer at
+   the foot of a short page without pinning it there — it is pushed down by
+   a flexible content row rather than held up by a hard-coded height.
+
+   min-height is doubled up on purpose: 100vh is the honest fallback, and
+   100dvh corrects it on mobile browsers where the address bar makes the
+   visual viewport shorter than 100vh claims. */
+.app{display:flex;min-height:100vh;min-height:100dvh;background:var(--bg)}
+.app__sidebar{
+  position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-width);
+  background:var(--sidebar-bg);
+  border-right:1px solid var(--sidebar-border);
+  z-index:100;display:flex;flex-direction:column;
+  transition:transform .25s ease;
+  /* Declared for the rail's own sake: the browser paints the scrollbar and
+     any native affordance inside it, and the page-level `color-scheme:light`
+     would otherwise hand this dark column a light scrollbar. */
+  color-scheme:dark;
+}
+.app__main{margin-left:var(--sidebar-width);flex:1;min-width:0;display:flex;flex-direction:column}
+.app__header{
+  position:sticky;top:0;z-index:90;background:rgba(255,255,255,.88);
+  backdrop-filter:saturate(180%) blur(10px);-webkit-backdrop-filter:saturate(180%) blur(10px);
+  border-bottom:1px solid var(--border);
+  height:var(--header-height);display:flex;align-items:center;padding:0 28px;gap:16px;
+}
+/* min-width:0 so a wide table inside can shrink instead of stretching the
+   column; flex:1 is what pushes the footer down on a short page. */
+.app__content{padding:14px 24px 24px;flex:1;min-width:0}
+.app__footer{
+  padding:11px 24px;text-align:center;font-size:.76rem;color:var(--text-subtle);
+  border-top:1px solid var(--border);background:var(--surface);
+}
+
+/* ─── Sidebar ───────────────────────────────────────────── */
+/* The brand sits in its own banded row so the rail reads as three parts —
+   identity, who you are, where you can go — rather than one long list that
+   happens to start with a logo. */
+/* No divider under the brand: the reference reads as one continuous rail,
+   and a rule here chops the identity off from the menu it belongs to. Its
+   height still tracks the topbar so the two line up across the shell. */
+/* The gap under the brand is small on purpose: the menu now starts here, and
+   the section's own top padding already separates the two. Its height still
+   tracks the topbar so the brand and the breadcrumb sit on one line across
+   the shell. */
+.sidebar__brand{
+  padding:0 14px;height:var(--header-height);flex-shrink:0;
+  display:flex;align-items:center;gap:10px;min-width:0;
+  margin-bottom:4px;
+}
+/* The company name is user-supplied and can be any length — it ellipses
+   rather than pushing the rail's contents out of alignment. */
+.sidebar__brand > div:last-child{min-width:0}
+.sidebar__title,.sidebar__subtitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar__logo{
+  width:34px;height:34px;background:linear-gradient(135deg,var(--primary) 0%,#3aa8e6 100%);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-weight:700;color:#fff;font-size:1rem;
+  box-shadow:0 4px 12px rgba(0,117,192,.42);
+  overflow:hidden;flex-shrink:0;
+}
+/* An uploaded logo replaces the gradient tile — the brand gradient behind a
+   logo of unknown colour reads as a mistake. The white plate stays: a mark
+   drawn for light backgrounds would otherwise vanish into the navy. */
+.sidebar__logo--image{background:#fff;border:1px solid var(--sidebar-border);box-shadow:none;padding:3px}
+.sidebar__logo img{width:100%;height:100%;object-fit:contain}
+.sidebar__title{font-size:1rem;font-weight:700;color:var(--sidebar-text-strong);letter-spacing:-.2px;line-height:1.15}
+.sidebar__subtitle{font-size:.64rem;color:var(--sidebar-muted);text-transform:uppercase;letter-spacing:.9px;margin-top:3px;font-weight:600}
+
+/* flex:1 + min-height:0 is what confines the scroll to the menu itself: the
+   rail never grows past the viewport, so the brand stays at the top and the
+   account at the bottom while only the list in between moves. It scrolls
+   only when the menu is genuinely taller than the space left for it.
+
+   The bottom padding is the gap between the last row and the account block,
+   and it belongs to the scrolling area rather than to the footer so that it
+   survives the scroll: a margin on the footer would leave the final item
+   butted against the divider the moment the menu overflows.
+
+   The scrollbar is kept faint at rest and only firms up while the pointer is
+   in the menu — on a rail this dark a bright track reads as a piece of
+   chrome sitting on top of the navigation. */
+.sidebar__nav{
+  flex:1;min-height:0;padding:0 10px 14px;overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent;
+}
+.sidebar__nav:hover{scrollbar-color:rgba(255,255,255,.26) transparent}
+.sidebar__nav::-webkit-scrollbar{width:5px}
+.sidebar__nav::-webkit-scrollbar-track{background:transparent}
+.sidebar__nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;transition:background var(--transition)}
+.sidebar__nav:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.26)}
+
+/* Density is deliberate, and it is the whole reason the account moved out of
+   the top of the rail: an admin sees 20 destinations under 6 headings, and a
+   row that has to be scrolled to is a row that might as well not be there.
+   26 rows into the ~870px a rail has left over is a hard budget of ~33px
+   each, which is what sets the numbers below — the full admin menu then
+   stands without scrolling from roughly 910px of viewport height up, and
+   every lighter role fits from 800px.
+
+   30px rows are dense, not cramped: this is a desktop rail, where the
+   pointer-target minimum is 24px, and the icon column and label keep their
+   own sizes so only the dead space between rows is spent. On a phone it is
+   a drawer, and a drawer is expected to scroll. */
+.sidebar__section{margin-bottom:4px}
+.sidebar__section:last-child{margin-bottom:0}
+.sidebar__label{
+  font-size:.615rem;text-transform:uppercase;letter-spacing:1.15px;line-height:1.2;
+  color:var(--sidebar-muted);padding:6px 10px 2px;font-weight:700;
+}
+.sidebar__section:first-child .sidebar__label{padding-top:2px}
+
+/* One row shape for every item: a fixed icon column, a fixed gap, and a
+   fixed min-height, so labels start on the same x and rows keep the same
+   rhythm whether the text wraps or not. */
+.sidebar__link{
+  display:flex;align-items:center;gap:11px;padding:5px 10px;min-height:30px;
+  border-radius:var(--radius);
+  color:var(--sidebar-text);font-size:.83rem;font-weight:500;line-height:1.3;
+  transition:background var(--transition),color var(--transition),transform var(--transition);
+  margin-bottom:1px;position:relative;
+}
+.sidebar__link i{
+  font-size:1rem;width:var(--sidebar-icon-col);flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--sidebar-muted);
+  transition:color var(--transition);
+}
+/* The whole row slides as one unit. The glyph is deliberately not scaled on
+   top of that — two transforms compounding is what makes an icon look like
+   it jumps out of its column while the label stays put. */
+.sidebar__link:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text-strong);transform:translateX(2px)}
+.sidebar__link:hover i{color:var(--sidebar-text-strong)}
+/* Active is a solid brand fill, not a tint: on navy a tinted row is barely
+   a shade off its neighbours, and the eye has to hunt for where it is. It
+   also stays put on hover — the current page is not going anywhere. */
+.sidebar__link--active,
+.sidebar__link--active:hover{
+  background:var(--sidebar-active-bg);
+  color:var(--sidebar-active-text);font-weight:600;
+  box-shadow:0 2px 8px rgba(0,117,192,.28);
+  transform:none;
+}
+.sidebar__link--active i,
+.sidebar__link--active:hover i{color:var(--sidebar-active-text)}
+.sidebar__link .chev{margin-left:auto;font-size:.7rem;color:var(--sidebar-muted)}
+.sidebar__link:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+
+/* ─── Rail footer: the signed-in account ──────────────────
+   Opaque and outside the scroll box, so the menu passes behind the divider
+   rather than under a translucent panel — a half-visible nav row peeking
+   through the account block is the thing that makes a rail look unfinished. */
+.sidebar__footer{
+  flex-shrink:0;padding:8px 10px 10px;
+  border-top:1px solid var(--sidebar-border);
+  background:var(--sidebar-bg);
+}
+/* Deliberately the same card shape as a nav row's hover state rather than a
+   louder one: it is the same rail, and the account is a destination like any
+   other — the chevron, not the styling, is what says it leads somewhere. */
+.sidebar__account{
+  display:flex;align-items:center;gap:10px;min-width:0;
+  padding:8px 9px;border-radius:var(--radius);
+  border:1px solid var(--sidebar-border);background:var(--sidebar-bg-soft);
+  transition:background var(--transition),border-color var(--transition);
+}
+.sidebar__account:hover{
+  background:var(--sidebar-hover-bg);border-color:var(--sidebar-border-strong);
+}
+.sidebar__account:hover .sidebar__account-chevron{
+  color:var(--sidebar-text-strong);transform:translateX(2px);
+}
+.sidebar__account:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+.sidebar__account-avatar{
+  width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  background:var(--sidebar-hover-bg);box-shadow:0 0 0 2px var(--sidebar-border-strong);
+}
+/* min-width:0 is what lets the two lines ellipse instead of forcing the card
+   wider than the rail — a full name and an email are both unbounded. */
+.sidebar__account-info{flex:1;min-width:0}
+.sidebar__account-name{
+  font-size:.83rem;font-weight:600;line-height:1.3;color:var(--sidebar-text-strong);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sidebar__account-meta{
+  font-size:.71rem;line-height:1.35;color:var(--sidebar-muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sidebar__account-chevron{
+  flex-shrink:0;font-size:.7rem;color:var(--sidebar-muted);
+  transition:color var(--transition),transform var(--transition);
+}
+
+@media(prefers-reduced-motion:reduce){
+  .sidebar__link,.sidebar__link i{transition:none}
+  .sidebar__link:hover,.sidebar__link:hover i{transform:none}
+  .sidebar__account,.sidebar__account-chevron{transition:none}
+  .sidebar__account:hover .sidebar__account-chevron{transform:none}
+}
+
+/* ─── Header / Topbar ───────────────────────────────────── */
+.header__left{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.header__toggle{
+  display:none;background:transparent;border:1px solid transparent;font-size:1.25rem;
+  color:var(--text);width:40px;height:40px;align-items:center;justify-content:center;
+  border-radius:var(--radius);transition:background var(--transition),border-color var(--transition);
+}
+.header__toggle:hover{background:var(--surface-3);border-color:var(--border)}
+.header__breadcrumb{display:flex;align-items:center;gap:9px;font-size:.84rem;color:var(--text-muted);min-width:0;overflow:hidden;flex-wrap:nowrap}
+.header__breadcrumb a{color:var(--text-muted);display:inline-flex;align-items:center;gap:6px;transition:color var(--transition);flex-shrink:0}
+.header__breadcrumb a:hover{color:var(--primary)}
+.header__breadcrumb span{color:var(--text);font-weight:600}
+.header__breadcrumb i.sep{font-size:.58rem;color:var(--border-strong);flex-shrink:0}
+/* The trail is the one thing here that can be any length, so it is the one
+   thing allowed to shrink — and it ellipses rather than being sliced off
+   mid-word by the parent's overflow. */
+.header__breadcrumb > span:last-child{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* ─── Header search ─────────────────────────────────────────
+   The one control in the topbar that is a field rather than a chip, so it is
+   the one thing given a resting fill: at 380px it reads as an input without
+   having to be outlined heavily, and it shrinks before the account cluster
+   does because a search box narrowed to 260px still works and a clipped
+   avatar does not. */
+.header__search{position:relative;flex:0 1 380px;min-width:0}
+.header__search-input{
+  width:100%;height:38px;padding:0 78px 0 38px;
+  font-family:inherit;font-size:.83rem;color:var(--text);
+  background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius-pill);
+  transition:background var(--transition),border-color var(--transition),box-shadow var(--transition);
+}
+.header__search-input::placeholder{color:var(--text-subtle)}
+.header__search-input:hover{background:var(--surface);border-color:var(--border-strong)}
+.header__search-input:focus{
+  outline:none;background:var(--surface);
+  border-color:var(--primary);box-shadow:var(--ring);
+}
+.header__search-icon{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  font-size:.9rem;color:var(--text-subtle);pointer-events:none;
+  transition:color var(--transition);
+}
+.header__search:focus-within .header__search-icon{color:var(--primary)}
+/* Advertised, not decorative — the shortcut it names is bound in main.js.
+   It steps aside for the clear button the moment there is a query to clear. */
+.header__search-kbd{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font-family:var(--font);font-size:.66rem;font-weight:600;letter-spacing:.4px;
+  color:var(--text-subtle);background:var(--surface-3);
+  border:1px solid var(--border);border-radius:var(--radius-xs);
+  padding:3px 7px;pointer-events:none;
+}
+.header__search-clear{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;border-radius:50%;cursor:pointer;
+  color:var(--text-subtle);font-size:.72rem;
+  transition:background var(--transition),color var(--transition);
+}
+.header__search-clear:hover{background:var(--surface-3);color:var(--text)}
+
+/* The listbox. Header content and footer hints stay put while only the
+   results scroll, so the "Enter to open" legend cannot scroll out of reach
+   on a long list. */
+.header__search-panel{
+  position:absolute;top:calc(100% + 8px);left:0;right:0;
+  display:flex;flex-direction:column;min-width:300px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
+  z-index:200;overflow:hidden;
+  animation:dropdownIn 160ms var(--ease-out);
+}
+.header__search-panel[hidden]{display:none}
+.gs-list{
+  padding:6px;overflow-y:auto;overscroll-behavior:contain;
+  max-height:min(58vh,420px);
+  scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+}
+.gs-group__label{
+  font-size:.62rem;text-transform:uppercase;letter-spacing:1.1px;font-weight:700;
+  color:var(--text-subtle);padding:9px 10px 5px;
+}
+.gs-group:first-child .gs-group__label{padding-top:5px}
+
+/* One active row, driven by JS, whether it was reached by arrow key or by
+   pointer — a separate :hover style would let the mouse light up one row
+   while Enter opened another. */
+.gs-item{
+  display:flex;align-items:center;gap:11px;padding:7px 10px;min-height:44px;
+  border-radius:var(--radius-sm);color:var(--text);font-size:.855rem;
+  transition:background var(--transition);
+}
+.gs-item__icon{
+  width:30px;height:30px;flex-shrink:0;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-3);color:var(--text-muted);font-size:.95rem;
+  transition:background var(--transition),color var(--transition);
+}
+.gs-item__label{
+  flex:1;min-width:0;font-weight:500;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+/* The matched run is marked by weight and colour, not a highlighter block —
+   a yellow band inside a result row fights the active state for attention. */
+.gs-item__label mark{background:transparent;color:var(--primary-ink);font-weight:700}
+.gs-item__enter{font-size:.8rem;color:var(--primary);opacity:0;transition:opacity var(--transition)}
+.gs-item__here{
+  font-size:.64rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--primary);background:var(--primary-light);
+  border-radius:var(--radius-pill);padding:2px 8px;flex-shrink:0;
+}
+.gs-item.is-active{background:var(--primary-tint)}
+.gs-item.is-active .gs-item__icon{background:var(--primary-light);color:var(--primary)}
+.gs-item.is-active .gs-item__enter{opacity:1}
+
+/* A dead end is a bad answer: name what was searched for and hand back a
+   query that does return something. */
+.gs-empty{padding:24px 18px 26px;text-align:center}
+.gs-empty__icon{
+  width:42px;height:42px;margin:0 auto 10px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-3);color:var(--text-subtle);font-size:1.05rem;
+}
+.gs-empty__title{font-size:.86rem;font-weight:600;color:var(--text);word-break:break-word}
+.gs-empty__desc{font-size:.78rem;color:var(--text-muted);margin-top:5px;line-height:1.55}
+.gs-foot{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;
+  padding:8px 12px;border-top:1px solid var(--border);background:var(--surface-2);
+  font-size:.7rem;color:var(--text-subtle);
+}
+.gs-foot span{display:inline-flex;align-items:center;gap:5px}
+.gs-foot kbd{
+  font-family:var(--font);font-size:.66rem;font-weight:600;
+  min-width:18px;text-align:center;padding:1px 5px;
+  color:var(--text-muted);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-xs);
+}
+@media(prefers-reduced-motion:reduce){
+  .header__search-panel{animation:none}
+  .header__search-input,.gs-item,.gs-item__icon,.gs-item__enter{transition:none}
+}
+
+/* The shortcut legend is the first thing to go: on a laptop the field is
+   still wide enough to type in, and a pointer user has never needed it. */
+@media (max-width:1180px){
+  .header__search{flex:0 1 300px}
+  .header__search-input{padding-right:38px}
+  .header__search-kbd{display:none}
+}
+/* Below the tablet break the field folds to its glyph — a 40px circle that
+   matches the other topbar buttons — and unfolds across the bar when focused.
+   Collapsing rather than dropping it matters here: this is the width where
+   the rail becomes a drawer, so search is the fastest way left to reach a
+   module, and it stays one tap away instead of two. */
+@media (max-width:900px){
+  .header__search{flex:0 0 40px;width:40px}
+  .header__search-input{
+    width:40px;height:40px;padding:0;border-radius:50%;
+    color:transparent;cursor:pointer;
+  }
+  .header__search-input::placeholder{color:transparent}
+  .header__search-icon{left:50%;transform:translate(-50%,-50%)}
+
+  /* .is-open is set by main.js alongside the panel. Focus alone would do for
+     the keyboard, but a result reached by pointer takes focus out of the
+     input, and the bar must not fold up underneath the click. */
+  .header__search:focus-within,
+  .header__search.is-open{
+    position:absolute;left:14px;right:14px;top:50%;transform:translateY(-50%);
+    width:auto;z-index:5;
+  }
+  .header__search:focus-within .header__search-input,
+  .header__search.is-open .header__search-input{
+    width:100%;height:40px;padding:0 44px 0 40px;
+    border-radius:var(--radius-pill);color:var(--text);cursor:auto;
+  }
+  .header__search:focus-within .header__search-input::placeholder,
+  .header__search.is-open .header__search-input::placeholder{color:var(--text-subtle)}
+  .header__search:focus-within .header__search-icon,
+  .header__search.is-open .header__search-icon{left:15px;transform:translateY(-50%)}
+  /* The panel takes the width of the unfolded bar rather than the 40px
+     trigger that spawned it — the desktop min-width would overflow the
+     viewport at this size. It is also nudged down to clear the topbar's own
+     edge, so it reads as hanging off the header rather than straddling it. */
+  .header__search-panel{min-width:0;top:calc(100% + 12px)}
+  .gs-list{max-height:min(64vh,380px)}
+}
+
+.header__right{display:flex;align-items:center;gap:6px}
+.header__icon-btn{
+  position:relative;width:40px;height:40px;border-radius:var(--radius);
+  border:1px solid transparent;background:transparent;color:var(--text-muted);
+  font-size:1.05rem;display:flex;align-items:center;justify-content:center;
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.header__icon-btn:hover{background:var(--primary-tint);color:var(--primary);border-color:var(--primary-border)}
+.header__icon-btn i{transition:transform var(--transition)}
+.header__icon-btn:hover i{transform:scale(1.1)}
+.header__visit{
+  display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;
+  border-radius:var(--radius-pill);border:1px solid var(--border);
+  background:var(--surface);color:var(--text-muted);
+  font-size:.8rem;font-weight:600;text-decoration:none;
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.header__visit:hover{background:var(--primary-tint);color:var(--primary);border-color:var(--primary-border)}
+.header__visit i{font-size:.95rem}
+/* Collapses to its glyph well before the phone breakpoint: between the rail
+   and the account chip the topbar runs out of room around 900px, and the
+   breadcrumb is the wrong thing to spend the last of it on. */
+@media (max-width:900px){.header__visit span{display:none}.header__visit{padding:0;width:38px;justify-content:center;flex-shrink:0}}
+.header__badge{
+  position:absolute;top:3px;right:3px;min-width:17px;height:17px;padding:0 4px;
+  background:var(--danger);color:#fff;border-radius:999px;
+  font-size:.62rem;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--surface);font-variant-numeric:tabular-nums;
+}
+
+.header__user{
+  display:flex;align-items:center;gap:9px;padding:4px 10px 4px 4px;
+  border-radius:var(--radius-pill);cursor:pointer;margin-left:4px;
+  border:1px solid transparent;
+  transition:background var(--transition),border-color var(--transition);
+}
+.header__user:hover{background:var(--surface-2);border-color:var(--border)}
+.header__user img{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--surface-3)}
+.header__user-info{text-align:left;line-height:1.2}
+.header__user-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.header__user-role{font-size:.7rem;color:var(--text-subtle)}
+@media (max-width:640px){.header__user-info{display:none}}
+
+/* ─── Dropdown ──────────────────────────────────────────── */
+.dropdown{position:relative}
+.dropdown__menu{
+  position:absolute;top:calc(100% + 8px);right:0;min-width:210px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow-lg);
+  padding:5px;display:none;z-index:200;
+}
+.dropdown__menu.show{display:block;animation:dropdownIn 160ms var(--ease-out)}
+@keyframes dropdownIn{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.dropdown__menu.show{animation:none}}
+.dropdown__item{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius-sm);
+  font-size:.85rem;color:var(--text);transition:background var(--transition);
+}
+.dropdown__item:hover{background:var(--surface-3);color:var(--text)}
+.dropdown__item i{color:var(--text-subtle);width:16px;font-size:.95rem}
+.dropdown__divider{height:1px;background:var(--border);margin:4px 0}
+.dropdown__item--danger{color:var(--danger)}
+.dropdown__item--danger i{color:var(--danger)}
+.dropdown__item--danger:hover{background:var(--danger-bg)}
+
+/* ─── Page Header ───────────────────────────────────────── */
+/* Tightened so the first real content on a page — the KPI row on the
+   dashboard, the table on a module page — starts higher up the screen. The
+   title is still comfortably the largest thing on the page (a card title is
+   1.05rem), it just stops claiming a full band of its own before anything
+   useful appears. Shared by every page on purpose: a dashboard whose heading
+   sat at a different size from every other page's would read as a mistake. */
+.page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:12px}
+.page-header__title{font-family:var(--font-display);font-size:1.35rem;font-weight:700;color:var(--text);letter-spacing:-.028em;line-height:1.15}
+.page-header__subtitle{font-size:.82rem;color:var(--text-muted);margin-top:2px;max-width:72ch;line-height:1.4}
+.page-header__breadcrumb{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-muted);margin-bottom:6px}
+.page-header__breadcrumb a{color:var(--text-muted)}
+.page-header__breadcrumb a:hover{color:var(--text)}
+.page-header__breadcrumb span{color:var(--text);font-weight:500}
+.page-header__actions{display:flex;align-items:center;gap:8px}

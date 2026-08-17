@@ -17,7 +17,9 @@ runtime** — the UI renders identically with the network unplugged.
   `views/public/layout.php`, `views/auth/login.php`, `views/auth/register.php`.
   Those shells also `preload` the two woff2 files so icons and text paint
   without a flash.
-- Inter is pulled in by `assets/css/style.css` via `@import '../vendor/inter/inter.css'`.
+- Inter and Raleway are pulled in by `assets/css/design-system.css` via
+  `@import '../vendor/inter/inter.css'` — that file loads first in every
+  bundle, so the faces are declared before any rule uses them.
 - Chart.js is loaded only by `views/admin/reports/index.php`.
 
 Font URLs inside `bootstrap-icons.min.css` and `inter.css` are **relative to the

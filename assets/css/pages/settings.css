@@ -1,0 +1,167 @@
+/* ================================================================
+   MARKO REAL ESTATE - PAGE - SETTINGS
+   The two-pane settings console.
+   ================================================================ */
+
+/* ─── Settings console ──────────────────────────────────── */
+/* Two-pane layout: a sticky section rail on the left, one panel of
+   settings on the right, and a save bar pinned to the bottom of the
+   viewport that only lights up when something actually changed. */
+.settings{padding-bottom:8px}
+.settings__layout{display:grid;grid-template-columns:236px minmax(0,1fr);gap:24px;align-items:start}
+
+/* min-width:0 on both tracks — grid items default to min-width:auto, which
+   would let the scrollable nav row push the whole layout wider than the page. */
+.settings__nav{position:sticky;top:calc(var(--header-height) + 20px);display:flex;flex-direction:column;gap:2px;min-width:0}
+.settings__panels{min-width:0}
+.settings-nav__item{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:10px 12px;border-radius:var(--radius-sm);
+  background:transparent;border:1px solid transparent;cursor:pointer;
+  font-family:inherit;font-size:var(--fs-sm);font-weight:500;color:var(--text-muted);
+  text-align:left;transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.settings-nav__item i{font-size:1rem;color:var(--text-subtle);transition:color var(--transition)}
+.settings-nav__item:hover{background:var(--surface-3);color:var(--text)}
+.settings-nav__item:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.settings-nav__item.is-active{
+  background:var(--primary-light);border-color:var(--primary-border);
+  color:var(--primary-ink);font-weight:600;
+}
+.settings-nav__item.is-active i{color:var(--primary)}
+.settings-nav__label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.settings-nav__count{
+  font-size:var(--fs-2xs);font-weight:600;color:var(--text-subtle);
+  background:var(--surface-3);border-radius:var(--radius-pill);
+  min-width:20px;padding:1px 6px;text-align:center;
+}
+.settings-nav__item.is-active .settings-nav__count{background:var(--surface);color:var(--primary-ink)}
+.settings-nav__meta{
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+  display:flex;align-items:flex-start;gap:6px;
+  font-size:var(--fs-2xs);color:var(--text-subtle);line-height:1.5;
+}
+
+.settings-panel{display:none}
+.settings-panel.is-active{display:block;animation:settingsFade 220ms var(--ease-out)}
+@keyframes settingsFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.settings-panel__header{padding:18px 22px}
+.settings-panel__heading{display:flex;align-items:flex-start;gap:12px}
+.settings-panel__icon{
+  width:36px;height:36px;flex-shrink:0;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--primary-light);color:var(--primary);font-size:1rem;
+}
+.settings-panel__body{padding:0}
+
+/* One setting per row: description on the left, control on the right. */
+.setting-row{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);
+  gap:24px;align-items:start;
+  padding:18px 22px;border-bottom:1px solid var(--border);
+}
+.setting-row:last-child{border-bottom:none}
+.setting-row--stacked{grid-template-columns:1fr;gap:10px}
+.setting-row__label{display:block;font-size:var(--fs-sm);font-weight:600;color:var(--text);cursor:pointer}
+.setting-row__req{color:var(--danger);margin-left:2px}
+.setting-row__hint{font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.55;margin-top:4px;max-width:56ch}
+.setting-row__control{min-width:0}
+.setting-row__control .form-control{margin:0}
+
+/* Input with a leading icon or a trailing unit tag (%, days, …). */
+.input-affix{position:relative;display:flex;align-items:center}
+.input-affix__icon{
+  position:absolute;left:12px;font-size:.9rem;color:var(--text-subtle);pointer-events:none;
+}
+.input-affix--icon .form-control{padding-left:34px}
+.input-affix__tag{
+  position:absolute;right:10px;font-size:var(--fs-2xs);font-weight:600;
+  color:var(--text-muted);background:var(--surface-3);
+  border-radius:var(--radius-xs);padding:2px 7px;pointer-events:none;
+}
+.input-affix--suffix .form-control{padding-right:58px}
+/* Spinners would sit underneath the unit tag — drop them. */
+.input-affix--suffix input[type=number]{-moz-appearance:textfield}
+.input-affix--suffix input[type=number]::-webkit-outer-spin-button,
+.input-affix--suffix input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+/* Toggle switch */
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch__track{
+  position:relative;width:42px;height:24px;flex-shrink:0;
+  background:var(--border-strong);border-radius:var(--radius-pill);
+  transition:background var(--transition);
+}
+.switch__thumb{
+  position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+  background:#fff;box-shadow:var(--shadow-sm);transition:transform var(--transition);
+}
+.switch input:checked + .switch__track{background:var(--primary)}
+.switch input:checked + .switch__track .switch__thumb{transform:translateX(18px)}
+.switch input:focus-visible + .switch__track{box-shadow:var(--ring)}
+.switch__text{font-size:var(--fs-sm);font-weight:500;color:var(--text-muted)}
+.switch input:checked ~ .switch__text{color:var(--success)}
+
+/* Logo upload + preview of the file chosen before it is sent */
+.logo-field{display:flex;align-items:flex-start;gap:14px}
+.logo-field__preview{
+  width:104px;height:68px;flex-shrink:0;border-radius:var(--radius-sm);
+  border:1px dashed var(--border-strong);background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  color:var(--text-subtle);font-size:1.2rem;padding:6px;
+  transition:opacity var(--transition),border-color var(--transition);
+}
+.logo-field__preview img{max-width:100%;max-height:100%;object-fit:contain}
+.logo-field__preview.is-error{border-color:var(--danger);color:var(--danger);background:var(--danger-bg)}
+/* Dimmed while "remove" is ticked, so the pending deletion is visible. */
+.logo-field__preview.is-muted{opacity:.4}
+.logo-field__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+/* The real input is driven by the styled <label> next to it. */
+.logo-field__input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.logo-field__input:focus-visible + .logo-field__actions .btn{outline:2px solid var(--primary);outline-offset:2px}
+.logo-field__actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.logo-field__actions .btn{cursor:pointer;margin:0}
+.logo-field__file{
+  font-size:var(--fs-2xs);color:var(--text-muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
+.logo-field__remove{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:var(--fs-2xs);color:var(--text-muted);cursor:pointer;
+}
+.logo-field__remove input{width:14px;height:14px;accent-color:var(--danger);cursor:pointer}
+@media(max-width:640px){
+  .logo-field{flex-direction:column}
+}
+
+/* Sticky save bar */
+.settings-bar{
+  position:sticky;bottom:0;z-index:20;margin-top:20px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:12px 18px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface);box-shadow:var(--shadow-md);
+  transition:border-color var(--transition),background var(--transition);
+}
+.settings-bar.is-dirty{border-color:var(--primary-border);background:var(--primary-tint)}
+.settings-bar__status{display:flex;align-items:center;gap:8px;font-size:var(--fs-xs);color:var(--text-muted)}
+.settings-bar__status i{color:var(--text-subtle)}
+.settings-bar.is-dirty .settings-bar__status{color:var(--primary-ink);font-weight:600}
+.settings-bar.is-dirty .settings-bar__status i{color:var(--primary)}
+.settings-bar__actions{display:flex;align-items:center;gap:8px}
+
+@media(max-width:960px){
+  .settings__layout{grid-template-columns:1fr;gap:16px}
+  .settings__nav{
+    position:static;flex-direction:row;gap:6px;
+    overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;
+  }
+  .settings-nav__item{width:auto;flex:0 0 auto;white-space:nowrap}
+  .settings-nav__count,.settings-nav__meta{display:none}
+}
+@media(max-width:640px){
+  .setting-row{grid-template-columns:1fr;gap:10px;padding:16px 16px}
+  .settings-panel__header{padding:16px}
+  .settings-bar{flex-direction:column;align-items:stretch}
+  .settings-bar__actions{justify-content:flex-end}
+}

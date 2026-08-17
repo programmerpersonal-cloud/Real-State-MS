@@ -1,0 +1,345 @@
+/* ================================================================
+   MARKO REAL ESTATE - PAGE - DASHBOARD
+   KPI row, quick actions, charts, status ring and activity feed.
+   ================================================================ */
+
+/* ─── Stat cards (KPI) — minimal SaaS row ─────────────────
+   The row is the first thing read on every dashboard, so it is built to be
+   scanned rather than studied: one tinted glyph carries the subject, the
+   label sits above the number so the eye lands on the figure last, and the
+   whole card holds one height regardless of how long a label wraps. Colour
+   is decoration on top of an already-labelled card, never the only cue. */
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));
+  gap:13px;margin-bottom:16px;
+}
+/* Quantity queries — the column count is chosen to divide the number of
+   cards present, so the row never ends with a stranded pair beside two
+   empty tracks. The dashboards carry three, four or six figures depending
+   on the role, and auto-fill alone lands 6 in a 4-wide grid as "4 + 2 and a
+   hole". Each rule fires only where its own count fits: four across needs
+   more room than three before the labels start breaking badly. */
+@media(min-width:1024px){
+  .stats:has(.stat-card:nth-child(3):last-child),
+  .stats:has(.stat-card:nth-child(6):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(min-width:1240px){
+  .stats:has(.stat-card:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+.stat-card{
+  position:relative;overflow:hidden;
+  background:var(--surface);border-radius:var(--radius-lg);
+  border:1px solid var(--border);padding:13px 15px;
+  display:flex;align-items:center;gap:12px;min-height:78px;
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition),transform var(--transition);
+}
+/* A hairline of the card's own accent along the top edge. Zero-width at
+   rest so nothing shifts — it grows across on hover. */
+.stat-card::after{
+  content:'';position:absolute;left:0;top:0;height:3px;width:0;
+  background:var(--stat-accent,var(--primary));
+  transition:width var(--transition-slow);
+}
+.stat-card:hover{
+  box-shadow:var(--shadow-md);border-color:var(--border-strong);transform:translateY(-3px);
+}
+.stat-card:hover::after{width:100%}
+.stat-card:hover .stat-card__icon{transform:scale(1.07)}
+.stat-card__icon{
+  width:42px;height:42px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;
+  background:var(--surface-3);color:var(--text);
+  transition:transform var(--transition);
+}
+.stat-card__icon--primary{background:var(--primary-light);color:var(--primary-ink)}
+.stat-card__icon--success{background:var(--success-bg);color:var(--success)}
+.stat-card__icon--warning{background:var(--warning-bg);color:var(--warning)}
+.stat-card__icon--danger{background:var(--danger-bg);color:var(--danger)}
+.stat-card__icon--info{background:var(--info-bg);color:var(--info)}
+.stat-card__icon--purple{background:var(--purple-bg);color:var(--purple)}
+.stat-card__icon--orange{background:var(--orange-bg);color:var(--orange)}
+/* The accent each card paints its top hairline with, taken from the glyph so
+   the two can never drift apart. */
+.stat-card:has(.stat-card__icon--primary){--stat-accent:var(--primary)}
+.stat-card:has(.stat-card__icon--success){--stat-accent:var(--success)}
+.stat-card:has(.stat-card__icon--warning){--stat-accent:var(--warning)}
+.stat-card:has(.stat-card__icon--danger) {--stat-accent:var(--danger)}
+.stat-card:has(.stat-card__icon--info)   {--stat-accent:var(--info)}
+.stat-card:has(.stat-card__icon--purple) {--stat-accent:var(--purple)}
+.stat-card:has(.stat-card__icon--orange) {--stat-accent:var(--orange)}
+.stat-card__body,
+/* Most dashboards wrap the text in a bare <div> rather than .stat-card__body.
+   The label/value ordering below is a flex concern, so on those pages it was
+   doing nothing at all and the card read value-then-label, while the ones
+   using the proper class read label-then-value. Treating an unclassed
+   wrapper as the body makes one component render one way everywhere,
+   without editing six views to say what the markup already means. */
+.stat-card > div:not([class]){display:flex;flex-direction:column;min-width:0}
+.stat-card__label{
+  font-size:.74rem;color:var(--text-muted);font-weight:600;order:1;
+  letter-spacing:.02em;line-height:1.3;
+}
+.stat-card__value{
+  font-family:var(--font-display);font-size:1.6rem;font-weight:700;
+  letter-spacing:-.03em;line-height:1.1;color:var(--text);order:2;margin-top:2px;
+  font-variant-numeric:tabular-nums;
+}
+.stat-card__trend{font-size:.72rem;font-weight:600;margin-top:5px;display:inline-flex;align-items:center;gap:4px;order:3}
+.stat-card__trend--up{color:var(--success)}
+.stat-card__trend--down{color:var(--danger)}
+
+@media(prefers-reduced-motion:reduce){
+  .stat-card,.stat-card::after,.stat-card__icon{transition:none}
+  .stat-card:hover{transform:none}
+  .stat-card:hover .stat-card__icon{transform:none}
+}
+
+/* ─── Quick action tiles (dashboard) ─────────────────────
+   Each tile opens a quick-add popup. Read as one object rather
+   than a button with decoration: the coloured glyph carries the
+   module, the label the verb, and the caption what will be
+   created — so the row can be scanned without reading it. */
+.quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(188px,1fr));gap:10px}
+/* The glyph and the insets are kept tight on purpose: the label is what has
+   to survive here, and a tile paired with another inside the narrow column
+   has only so much room before "Record Payment" breaks across two lines and
+   the row stops lining up. */
+.quick-action{
+  display:flex;align-items:center;gap:10px;width:100%;min-height:56px;
+  padding:9px 12px;text-align:left;text-decoration:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  color:var(--text);font-family:inherit;font-size:var(--fs-sm);cursor:pointer;
+  transition:border-color var(--transition),box-shadow var(--transition),
+             transform var(--transition),background var(--transition);
+}
+.quick-action:hover{
+  background:var(--surface);border-color:var(--primary-border);
+  box-shadow:var(--shadow-md);transform:translateY(-3px);color:var(--text);
+}
+.quick-action:hover .quick-action__icon{transform:scale(1.08) rotate(-3deg)}
+.quick-action:active{transform:translateY(-1px);box-shadow:var(--shadow-xs)}
+.quick-action:focus-visible{border-color:var(--primary)}
+.quick-action__icon{
+  flex-shrink:0;width:36px;height:36px;border-radius:10px;
+  display:grid;place-items:center;font-size:1.05rem;
+  background:var(--surface-3);color:var(--text);
+  transition:transform var(--transition);
+}
+.quick-action__icon--primary{background:var(--primary-light);color:var(--primary-ink)}
+.quick-action__icon--success{background:var(--success-bg);color:var(--success)}
+.quick-action__icon--warning{background:var(--warning-bg);color:var(--warning)}
+.quick-action__icon--danger {background:var(--danger-bg); color:var(--danger)}
+.quick-action__icon--info   {background:var(--info-bg);   color:var(--info)}
+.quick-action__icon--purple {background:var(--purple-bg); color:var(--purple)}
+.quick-action__icon--orange {background:var(--orange-bg); color:var(--orange)}
+.quick-action__text{display:flex;flex-direction:column;min-width:0}
+.quick-action__label{font-weight:600;line-height:1.3;color:var(--text);letter-spacing:-.01em}
+/* The caption is the first thing to give way on a narrow tile. */
+.quick-action__hint{
+  font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.3;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* The chevron confirms the tile is live, without competing at rest. */
+.quick-action__go{
+  margin-left:auto;font-size:.8rem;color:var(--primary);
+  opacity:0;transform:translateX(-4px);
+  transition:opacity var(--transition),transform var(--transition);
+}
+.quick-action:hover .quick-action__go,
+.quick-action:focus-visible .quick-action__go{opacity:1;transform:none}
+
+@media(prefers-reduced-motion:reduce){
+  .quick-action,.quick-action__go,.quick-action__icon{transition:none}
+  .quick-action:hover,.quick-action:active{transform:none}
+  .quick-action:hover .quick-action__icon{transform:none}
+}
+
+/* ─── Dashboard layout ───────────────────────────────────
+   The activity feed takes the wider track because it is the column that
+   actually grows — the audit log is as long as the day was — while the
+   action tiles are a fixed set and sit to the side of it. They stop being
+   side by side well before the tablet breakpoint: at around 1180px the
+   narrow track is too tight for a tile to hold its label and caption on
+   one line, which is earlier than a generic two-column rule would guess. */
+.dash-grid{
+  display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
+  gap:16px;align-items:start;
+}
+@media(max-width:1180px){.dash-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* The feed is the one block on this page whose height is set by the data —
+   the audit log fills it to whatever eight entries happen to measure, and
+   at full height it pushed the rest of the dashboard past the fold and left
+   a tall gap beside the shorter action column. Capping it relative to the
+   viewport keeps the page inside one screen and brings the two columns to
+   comparable heights; every entry is still there, just reached by scrolling
+   the card, and "View all" still leads to the complete log.
+
+   Only where it helps: below 1181px the columns are already stacked, and on
+   a short viewport this would nest a second scrollbar inside a page that is
+   scrolling anyway. */
+@media (min-width:1181px) and (min-height:700px){
+  .dash-grid > .card:first-child{
+    display:flex;flex-direction:column;
+    /* Scales with the monitor instead of being pinned to one number: a
+       short laptop gives the feed less, a tall screen more, and the upper
+       bound stops it from sprawling on a very tall display. */
+    max-height:clamp(240px,44vh,400px);
+  }
+  /* min-height:0 — without it the flex child refuses to shrink below its
+     content and the cap does nothing. */
+  .dash-grid > .card:first-child > .card__body{
+    min-height:0;overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+  }
+  .dash-grid > .card:first-child > .card__body::-webkit-scrollbar{width:6px}
+  .dash-grid > .card:first-child > .card__body::-webkit-scrollbar-track{background:transparent}
+  .dash-grid > .card:first-child > .card__body::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+}
+
+/* The activity feed's own inset, so the timeline rail has room to the left
+   of it and the hover highlight has room to bleed into. */
+.dash-feed{padding:6px 18px 10px}
+
+/* ─── Dashboard charts ───────────────────────────────────
+   The revenue trend and the portfolio's split by status sit between the
+   KPI row and the activity feed: figures first, then how those figures
+   got there, then what people did today.
+
+   auto-fit is what a single chart falls back on — either card alone
+   takes the whole width rather than sitting in half a row. */
+.chart-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+  gap:16px;margin-bottom:16px;
+}
+
+/* Both charts present: the six-month line takes the wider half, because
+   it is the one figure on this page that reads better the more
+   horizontal room it is given. The ring beside it does not — it is round
+   at any width. Below 1000px there is no wider half to give, and they
+   stack. */
+@media(min-width:1000px){
+  .chart-grid--split{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
+}
+
+/* A canvas has no intrinsic height, and Chart.js is told not to keep an
+   aspect ratio, so the height lives here. position:relative is required:
+   the library sizes to the parent box. */
+.chart-box{position:relative;height:240px;min-width:0}
+
+/* The period total, in the card header opposite the title. */
+.chart-figure{
+  font-family:var(--font-display);font-size:1.05rem;font-weight:700;
+  color:var(--text);letter-spacing:-.015em;font-variant-numeric:tabular-nums;
+}
+
+/* ─── Properties by status ───────────────────────────────
+   The ring and, beside it, the naming and the figures in text. Colour is
+   never the only thing distinguishing a status here — every slice has its
+   name, its count and its share written out.
+
+   Centred in the card body so the pair sits level with the revenue chart
+   next to it, whose card is the taller of the two. */
+.statbreak{
+  display:flex;align-items:center;justify-content:center;gap:22px;
+  flex-wrap:wrap;min-height:240px;
+}
+
+/* The proportions as one conic-gradient. Drawn in CSS rather than on a
+   canvas: the shares are already known when the page is built, so the
+   figure is complete before any script has run — and stays right if the
+   charting library never arrives.
+
+   Where mask is unsupported the ring fills in as a pie. Still correct,
+   still the same proportions — only the hole is lost. */
+.statring{
+  flex-shrink:0;border-radius:50%;
+  -webkit-mask:radial-gradient(closest-side,transparent calc(100% - var(--ring-w)),#000 calc(100% - var(--ring-w) + .5px));
+          mask:radial-gradient(closest-side,transparent calc(100% - var(--ring-w)),#000 calc(100% - var(--ring-w) + .5px));
+}
+/* The large ring carries the total in its middle, which the mask would
+   eat — so the hole is an inner circle and the number sits over it. */
+.statring--lg{--ring-w:17px;width:124px;height:124px;position:relative;-webkit-mask:none;mask:none}
+.statring--lg::before{
+  content:'';position:absolute;inset:var(--ring-w);border-radius:50%;
+  background:var(--surface);
+}
+.statring__total{
+  position:absolute;inset:0;display:grid;place-items:center;
+  font-family:var(--font-display);font-size:1.65rem;font-weight:700;
+  color:var(--text);letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+}
+
+.statbreak__legend{
+  flex:1;min-width:180px;list-style:none;margin:0;padding:0;
+  display:flex;flex-direction:column;gap:9px;
+}
+/* Four columns, not a flex row: the counts and the shares line up in
+   their own tracks, so the numbers can be read down the list instead of
+   being chased across each label's ragged end. */
+.statbreak__row{
+  display:grid;grid-template-columns:9px minmax(0,1fr) auto auto;
+  align-items:center;gap:9px;
+  font-size:var(--fs-sm);line-height:1.3;
+}
+.statbreak__dot{width:9px;height:9px;border-radius:3px}
+.statbreak__label{
+  color:var(--text-body);min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.statbreak__count{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.statbreak__pct{
+  font-size:var(--fs-xs);font-weight:600;color:var(--text-subtle);
+  font-variant-numeric:tabular-nums;min-width:32px;text-align:right;
+}
+
+
+/* ─── Activity feed ─────────────────────────────────────────
+   A timeline rather than a list of rows: the rail carries the eye down the
+   sequence, and each marker sits on it with the surface colour punched out
+   around the dot so the line reads as continuous behind it. The rail is
+   drawn per item and hidden on the last one, which is what keeps it from
+   dangling past the final entry however many entries there are. */
+.activity{list-style:none;position:relative;--activity-inset:10px}
+.activity__item{
+  position:relative;display:flex;gap:12px;
+  padding:8px var(--activity-inset);
+  margin:0 calc(var(--activity-inset) * -1);
+  border-radius:var(--radius-sm);
+  transition:background var(--transition);
+}
+.activity__item::before{
+  content:'';position:absolute;left:calc(var(--activity-inset) + 4px);
+  top:0;bottom:0;width:2px;background:var(--border);
+}
+/* Starts at the first dot's centre — padding-top + the dot's own offset +
+   half its height — so the rail has no stub above the first marker. */
+.activity__item:first-child::before{top:17px}
+.activity__item:last-child::before{display:none}
+.activity__item:hover{background:var(--surface-2)}
+.activity__item > :last-child{min-width:0;flex:1}
+.activity__dot{
+  position:relative;z-index:1;width:10px;height:10px;border-radius:50%;
+  background:var(--primary);margin-top:4px;flex-shrink:0;
+  /* Inner halo for emphasis, outer ring in the card colour to mask the rail. */
+  box-shadow:0 0 0 3px var(--primary-light),0 0 0 5px var(--surface);
+}
+.activity__text{font-size:.845rem;line-height:1.4;color:var(--text-body)}
+.activity__text strong{color:var(--text);font-weight:600}
+/* The entity a change was made to — a tag, so it can be picked out of the
+   sentence without being read as part of it. */
+.activity__tag{
+  display:inline-flex;align-items:center;
+  padding:1px 8px;margin-left:2px;border-radius:var(--radius-pill);
+  background:var(--surface-3);border:1px solid var(--border);
+  font-size:.68rem;font-weight:600;color:var(--text-muted);
+  letter-spacing:.02em;text-transform:capitalize;vertical-align:middle;
+}
+.activity__time{
+  font-size:.72rem;color:var(--text-subtle);margin-top:1px;
+  display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;
+}
+.activity__time i{font-size:.72rem;opacity:.8}
+
+@media(prefers-reduced-motion:reduce){.activity__item{transition:none}}
