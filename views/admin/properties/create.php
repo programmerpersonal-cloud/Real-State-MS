@@ -6,16 +6,23 @@ $uid = 'pc';
 ?>
 
 <div class="card">
-    <div class="card__header"><h3 class="card__title">Property Details</h3></div>
+    <div class="card__header">
+        <h3 class="card__title">Property details</h3>
+        <span class="text-subtle">New listings start as pending approval</span>
+    </div>
     <div class="card__body">
         <form method="POST" enctype="multipart/form-data" data-validate>
             <?= csrfField() ?>
 
+            <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
+
             <?php require __DIR__ . '/_form_fields.php'; ?>
 
-            <div style="display:flex;gap:12px;margin-top:28px">
-                <button type="submit" class="btn btn--primary btn--lg"><i class="bi bi-check-lg"></i> Create Property</button>
-                <a href="<?= APP_URL ?>/index.php?page=properties" class="btn btn--outline btn--lg">Cancel</a>
+            <div class="form-actions">
+                <button type="submit" class="btn btn--primary">
+                    <i class="bi bi-check-lg" aria-hidden="true"></i> Create property
+                </button>
+                <a href="<?= APP_URL ?>/index.php?page=properties" class="btn btn--outline">Cancel</a>
             </div>
         </form>
     </div>

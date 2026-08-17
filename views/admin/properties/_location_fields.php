@@ -7,7 +7,8 @@
  * Optional: $uid  id prefix, so a page carrying two property forms keeps
  *                 each label wired to its own input.
  */
-$uid = $uid ?? 'prop';
+$uid  = $uid ?? 'prop';
+$errs = $formErrors ?? [];
 
 /**
  * DECIMAL(10,8) comes back as "9.56000000" — show the value the user typed,
@@ -35,10 +36,12 @@ $geoCoord = static function ($v): string {
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-location">Location *</label>
-        <input type="text" id="<?= $uid ?>-location" name="location" class="form-control"
+        <label class="form-label" for="<?= $uid ?>-location">Location <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="<?= $uid ?>-location" name="location"
+               class="form-control<?= uiInvalidClass($errs, 'location') ?>"
                placeholder="e.g. Jarka, Borama" value="<?= sanitize($fd['location'] ?? '') ?>"
-               required data-geo-place>
+               required data-geo-place<?= uiFieldAria($errs, 'location') ?>>
+        <?= uiFieldError($errs, 'location') ?>
     </div>
 
     <div class="form-group">
@@ -51,13 +54,19 @@ $geoCoord = static function ($v): string {
     <div class="geo__grid">
         <div class="form-group">
             <label class="form-label" for="<?= $uid ?>-lat">Latitude</label>
-            <input type="text" inputmode="decimal" id="<?= $uid ?>-lat" name="latitude" class="form-control"
-                   placeholder="-90 … 90" value="<?= $geoCoord($fd['latitude'] ?? '') ?>" data-geo-lat>
+            <input type="text" inputmode="decimal" id="<?= $uid ?>-lat" name="latitude"
+                   class="form-control<?= uiInvalidClass($errs, 'latitude') ?>"
+                   placeholder="-90 … 90" value="<?= $geoCoord($fd['latitude'] ?? '') ?>"
+                   data-geo-lat<?= uiFieldAria($errs, 'latitude') ?>>
+            <?= uiFieldError($errs, 'latitude') ?>
         </div>
         <div class="form-group">
             <label class="form-label" for="<?= $uid ?>-lng">Longitude</label>
-            <input type="text" inputmode="decimal" id="<?= $uid ?>-lng" name="longitude" class="form-control"
-                   placeholder="-180 … 180" value="<?= $geoCoord($fd['longitude'] ?? '') ?>" data-geo-lng>
+            <input type="text" inputmode="decimal" id="<?= $uid ?>-lng" name="longitude"
+                   class="form-control<?= uiInvalidClass($errs, 'longitude') ?>"
+                   placeholder="-180 … 180" value="<?= $geoCoord($fd['longitude'] ?? '') ?>"
+                   data-geo-lng<?= uiFieldAria($errs, 'longitude') ?>>
+            <?= uiFieldError($errs, 'longitude') ?>
         </div>
         <a class="geo__map is-disabled" href="#" target="_blank" rel="noopener noreferrer" data-geo-map>
             <i class="bi bi-map"></i> View on map

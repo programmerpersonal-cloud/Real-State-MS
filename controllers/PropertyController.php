@@ -159,15 +159,13 @@ class PropertyController
             $data = $this->extractPropertyData();
             $errors = $this->validateProperty($data);
             if (!empty($errors)) {
-                setFlash('error', implode(' ', $errors));
                 // Give back what was typed — including a coordinate that was
                 // rejected, which the parsed data drops — so the returning
                 // form shows the entry that needs correcting.
-                $_SESSION['form_data'] = array_merge($data, [
+                rejectForm($errors, array_merge($data, [
                     'latitude'  => trim((string)($_POST['latitude'] ?? '')),
                     'longitude' => trim((string)($_POST['longitude'] ?? '')),
-                ]);
-                redirect($failUrl);
+                ]), $failUrl);
             }
             $id = $this->model->create($data);
             if ($id) {
@@ -222,6 +220,21 @@ class PropertyController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
             $data = $this->extractPropertyData();
+
+            // Edit ran no validation at all, so a title or a location could be
+            // emptied here that create() would have refused, and a rejected
+            // coordinate was silently dropped. Same rules as create, applied
+            // to the same fields — a record cannot be edited into a state it
+            // could not have been created in.
+            $errors = $this->validateProperty($data);
+            if (!empty($errors)) {
+                rejectForm($errors, array_merge($data, [
+                    'id'        => $id,
+                    'latitude'  => trim((string)($_POST['latitude'] ?? '')),
+                    'longitude' => trim((string)($_POST['longitude'] ?? '')),
+                ]), APP_URL . '/index.php?page=properties&action=edit&id=' . $id);
+            }
+
             $oldStatus = $property['status'];
             $this->model->update($id, $data);
             if ($oldStatus !== $data['status']) {
@@ -420,28 +433,43 @@ class PropertyController
         return abs($number) <= $max ? round($number, 8) : null;
     }
 
+    /**
+     * The rules are unchanged; only the shape of the result is.
+     *
+     * Each message is now recorded against the field it belongs to as well as
+     * in the returned list, so the form that comes back can outline the box
+     * that needs fixing instead of only printing a sentence at the top of the
+     * page. addFieldError() writes both.
+     */
     private function validateProperty(array $d): array
     {
+        // Clear any keyed errors left by an earlier rejected attempt, so a
+        // field corrected on the second try does not come back still outlined.
+        unset($_SESSION['form_errors']);
+
         $errors = [];
-        if (empty($d['title'])) $errors[] = 'Title is required.';
-        if (empty($d['location'])) $errors[] = 'Location is required.';
+        if (empty($d['title']))    addFieldError($errors, 'title', 'Title is required.');
+        if (empty($d['location'])) addFieldError($errors, 'location', 'Location is required.');
 
         // Coordinates are optional, but one that was typed and cannot be
         // stored is reported rather than dropped without a word.
         foreach ([['latitude', 'Latitude', 90], ['longitude', 'Longitude', 180]] as [$key, $label, $max]) {
             if (trim((string)($_POST[$key] ?? '')) !== '' && $d[$key] === null) {
-                $errors[] = "$label must be a number between -$max and $max.";
+                addFieldError($errors, $key, "$label must be a number between -$max and $max.");
             }
         }
         if (($d['latitude'] === null) !== ($d['longitude'] === null)) {
-            $errors[] = 'Latitude and longitude must be provided together.';
+            // Reported against whichever half is missing, so the outline lands
+            // on the box that still needs a value.
+            addFieldError($errors, $d['latitude'] === null ? 'latitude' : 'longitude',
+                'Latitude and longitude must be provided together.');
         }
 
         if ($d['property_type'] !== 'sale' && empty($d['rent_amount'])) {
-            $errors[] = 'Rent amount is required for rentable property.';
+            addFieldError($errors, 'rent_amount', 'Rent amount is required for rentable property.');
         }
         if ($d['property_type'] !== 'rent' && empty($d['price'])) {
-            $errors[] = 'Sale price is required for property on sale.';
+            addFieldError($errors, 'price', 'Sale price is required for property on sale.');
         }
         return $errors;
     }

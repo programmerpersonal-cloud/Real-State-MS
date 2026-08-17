@@ -115,6 +115,42 @@
 .form-control[readonly]{background:var(--surface-2);border-color:var(--border);cursor:default}
 .form-control[readonly]:hover{border-color:var(--border)}
 .form-hint{font-size:.74rem;color:var(--text-subtle);margin-top:4px}
+/* The required marker. aria-hidden on the asterisk itself, because the
+   control carries `required` and a screen reader announces that already —
+   reading "star" after every label is noise. */
+.req{color:var(--danger);font-weight:600;margin-left:2px}
+
+/* ── Checkbox / radio rows ─────────────────────────────────
+   Replaces the inline flex + font-size that every form wrote by hand. The
+   whole row is the target, not just the 15px box: a checkbox is the
+   smallest control on any form and the label is the part people aim at. */
+/* The submit/cancel bar at the foot of a full-page form. Separated by a rule
+   rather than only by space, so on a long form it reads as the end of the
+   form rather than another section. */
+.form-actions{
+  display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;
+  margin-top:var(--space-6);padding-top:var(--space-5);
+  border-top:1px solid var(--border);
+}
+@media(max-width:560px){
+  .form-actions .btn{flex:1;justify-content:center;min-width:140px}
+}
+
+.check-row{display:flex;flex-wrap:wrap;gap:var(--space-3) var(--space-5);margin-bottom:var(--space-5)}
+.check{
+  display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+  font-size:var(--fs-sm);color:var(--text-body);
+  padding:7px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface);transition:border-color var(--transition),background var(--transition);
+  min-height:38px;
+}
+.check:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.check input{width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+/* :has is what lets the row show its own checked state. Where it is not
+   supported the control still reads correctly — only the tint is lost. */
+.check:has(input:checked){border-color:var(--primary-border);background:var(--primary-tint);color:var(--text)}
+.check:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
+@media(pointer:coarse){.check{min-height:44px}}
 .form-error{font-size:.74rem;color:var(--danger);margin-top:4px;display:flex;align-items:center;gap:4px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 select.form-control{
@@ -281,6 +317,7 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 }
 .upload-zone:hover{border-color:var(--primary);background:var(--primary-tint)}
 .upload-zone i{font-size:1.6rem;color:var(--text-subtle);margin-bottom:8px}
+.upload-zone__title{font-size:var(--fs-sm);font-weight:600;color:var(--text)}
 .upload-zone__hint{font-size:.78rem;color:var(--text-muted);margin-top:4px}
 .upload-zone input[type=file]{display:none}
 /* A file has been chosen — confirm it without needing a separate line. */

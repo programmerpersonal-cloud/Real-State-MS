@@ -430,9 +430,16 @@ function initUploadZone(input) {
 
   const original = label.textContent;
   input.addEventListener('change', () => {
-    const file = input.files && input.files[0];
-    label.textContent = file ? file.name : original;
-    zone.classList.toggle('is-filled', Boolean(file));
+    const files = input.files;
+    const count = files ? files.length : 0;
+
+    // One file is named; several are counted. Listing eight filenames in a
+    // 280px zone wraps to five lines and says less than "8 images selected".
+    label.textContent = count === 0 ? original
+      : count === 1 ? files[0].name
+      : count + ' images selected';
+
+    zone.classList.toggle('is-filled', count > 0);
   });
 }
 
