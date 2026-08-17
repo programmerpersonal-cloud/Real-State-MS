@@ -77,19 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-global-search]').forEach(initGlobalSearch);
 
   // ─── Tabs ──────────────────────────────────────────────
-  document.querySelectorAll('[data-tabs]').forEach(group => {
-    const items = group.querySelectorAll('.tabs__item');
-    items.forEach(item => {
-      item.addEventListener('click', () => {
-        const target = item.getAttribute('data-tab');
-        items.forEach(i => i.classList.remove('is-active'));
-        item.classList.add('is-active');
-        group.parentElement
-          .querySelectorAll('.tab-panel')
-          .forEach(p => p.classList.toggle('is-active', p.getAttribute('data-panel') === target));
-      });
-    });
-  });
+  document.querySelectorAll('[data-tabs]').forEach(initTabs);
 
   // ─── Modals ────────────────────────────────────────────
   document.querySelectorAll('[data-modal]').forEach(initModal);

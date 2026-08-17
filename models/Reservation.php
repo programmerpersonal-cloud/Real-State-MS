@@ -108,6 +108,8 @@ class Reservation
     {
         $where = []; $params = [];
         if (!empty($filters['status'])) { $where[] = "r.status = :st"; $params[':st'] = $filters['status']; }
+        // Bound and cast, for the property detail page's Reservations tab.
+        if (!empty($filters['property_id'])) { $where[] = "r.property_id = :pid"; $params[':pid'] = (int) $filters['property_id']; }
         if (!empty($filters['search'])) {
             $where[] = "(r.reservation_code LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s)";
             $params[':s'] = '%' . $filters['search'] . '%';

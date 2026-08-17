@@ -76,6 +76,8 @@ class Payment
         if (!empty($filters['status'])) { $where[] = "py.status = :st"; $params[':st'] = $filters['status']; }
         if (!empty($filters['payment_type'])) { $where[] = "py.payment_type = :pt"; $params[':pt'] = $filters['payment_type']; }
         if (!empty($filters['customer_id'])) { $where[] = "py.customer_id = :cid"; $params[':cid'] = $filters['customer_id']; }
+        // Bound and cast, for the property detail page's Payments tab.
+        if (!empty($filters['property_id'])) { $where[] = "py.property_id = :pid"; $params[':pid'] = (int) $filters['property_id']; }
         if (!empty($filters['search'])) {
             $where[] = "(py.payment_code LIKE :s OR c.full_name LIKE :s)";
             $params[':s'] = '%' . $filters['search'] . '%';

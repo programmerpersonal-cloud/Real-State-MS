@@ -293,6 +293,33 @@ class PropertyController
         ]);
         $documentStats = $docModel->statsForReference('property', $id, $scope);
 
+        /* ── Related records, one query per tab ────────────────────────
+           The detail page gained Reservations, Maintenance and Payments
+           tabs, so it gained exactly three queries — each a single scoped
+           SELECT for the whole tab, never one per row, and each behind the
+           permission that governs the module it belongs to. A role without
+           that permission does not pay for the query and does not get the
+           tab.
+
+           MaintenanceRequest::getAll() carries its own view scope on top of
+           this, so a technician sees the jobs that are theirs rather than
+           every job at the address. */
+        require_once BASE_PATH . '/models/Reservation.php';
+        require_once BASE_PATH . '/models/MaintenanceRequest.php';
+        require_once BASE_PATH . '/models/Payment.php';
+
+        $reservations = can('reservations.view')
+            ? (new Reservation())->getAll(['property_id' => $id], 50, 0)
+            : [];
+        $maintenance = can('maintenance.view')
+            ? (new MaintenanceRequest())->getAll(['property_id' => $id], 50, 0)
+            : [];
+        // Payments are the owner's income and the tenant's record; the same
+        // pair who may read the tenancy above may read what was paid on it.
+        $payments = (can('payments.view') || ownsProperty($property))
+            ? (new Payment())->getAll(['property_id' => $id], 50, 0)
+            : [];
+
         renderPage(VIEWS_PATH . '/admin/properties/show.php', [
             'property'      => $property,
             'images'        => $images,
@@ -300,6 +327,9 @@ class PropertyController
             'activeLease'   => $activeLease,
             'documents'     => $documents,
             'documentStats' => $documentStats,
+            'reservations'  => $reservations,
+            'maintenance'   => $maintenance,
+            'payments'      => $payments,
             // Only the people who can upload need the form's option lists.
             'categories'    => documentCanManage() ? (new DocumentCategory())->options() : [],
             'categoryMeta'  => documentCanManage() ? (new DocumentCategory())->formMeta() : [],

@@ -105,6 +105,68 @@ function initFlash(flash) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * A tab strip and the panels it switches between.
+ *
+ * The panels are siblings of the strip rather than children, so they are
+ * found from the strip's parent. Both halves are rendered server-side from
+ * one list, so a tab can never point at a panel that was not drawn.
+ *
+ * aria-selected is kept honest and the arrow keys walk the strip, because a
+ * tab that only responds to a mouse is a link that lies about being a tab.
+ * The chosen tab is written to the URL hash so a reload, a bookmark or a
+ * shared link comes back to the same one.
+ */
+function initTabs(group) {
+  const items = Array.from(group.querySelectorAll('.tabs__item'));
+  const panels = Array.from(group.parentElement.querySelectorAll('.tab-panel'));
+  if (!items.length) return;
+
+  const select = (item, moveFocus) => {
+    const target = item.getAttribute('data-tab');
+    items.forEach(i => {
+      const on = i === item;
+      i.classList.toggle('is-active', on);
+      i.setAttribute('aria-selected', on ? 'true' : 'false');
+      // Only the selected tab is in the tab order; the rest are reached with
+      // the arrow keys. Tabbing through eight tabs to reach the panel is what
+      // the roving tabindex exists to avoid.
+      i.tabIndex = on ? 0 : -1;
+    });
+    panels.forEach(p => p.classList.toggle('is-active', p.getAttribute('data-panel') === target));
+    if (moveFocus) item.focus();
+
+    try {
+      history.replaceState(null, '', '#' + target);
+    } catch (err) { /* file:// and sandboxed frames refuse this */ }
+  };
+
+  items.forEach((item, i) => {
+    item.tabIndex = item.classList.contains('is-active') ? 0 : -1;
+    item.addEventListener('click', () => select(item, false));
+    item.addEventListener('keydown', (e) => {
+      const map = { ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last' };
+      if (!(e.key in map)) return;
+      e.preventDefault();
+      const step = map[e.key];
+      const next = step === 'first' ? 0
+                 : step === 'last' ? items.length - 1
+                 : (i + step + items.length) % items.length;
+      select(items[next], true);
+    });
+  });
+
+  // Reopen the tab named in the URL, so a reload does not silently drop the
+  // reader back on Overview.
+  const fromHash = window.location.hash.replace('#', '');
+  const wanted = items.find(i => i.getAttribute('data-tab') === fromHash);
+  if (wanted) select(wanted, false);
+}
+
+/* ═══════════════════════════════════════════════════════════
    ROW MENU
    The compact action list behind the ⋮ in a table's last column.
    ═══════════════════════════════════════════════════════════ */

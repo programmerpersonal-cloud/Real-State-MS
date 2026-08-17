@@ -312,6 +312,29 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
    things moving at once for one intention reads as fidgeting. */
 .prop-card__cover{display:block}
 
+/* ─── Detail page columns ───────────────────────────────────
+   The two-column body every detail page uses: the narrative on the left,
+   the record's facts on the right. Replaces the inline
+   `grid-template-columns:2fr 1fr` that each show page carried its own copy
+   of — an inline grid template also beats every stylesheet rule, so those
+   pages could not be made to stack on a phone.
+
+   minmax(0,…) on both tracks: grid items default to min-width:auto, so one
+   long unbroken string — a code, a URL in a description — would otherwise
+   push the column wider than its share and take the page with it. */
+.detail-cols{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--space-5);align-items:start}
+.detail-cols__main{min-width:0}
+/* Sticky so the facts stay in view while a long description scrolls past.
+   Offset by the topbar, which is what it would otherwise slide under. */
+.detail-cols__side{min-width:0;position:sticky;top:calc(var(--header-height) + var(--space-4))}
+@media(max-width:1024px){
+  .detail-cols{grid-template-columns:1fr}
+  .detail-cols__side{position:static}
+}
+
+/* Long-form copy inside a card — a description, a note, stored terms. */
+.prose{color:var(--text-body);line-height:var(--lh-body);max-width:72ch;overflow-wrap:anywhere}
+
 /* ─── Profile / detail ──────────────────────────────────── */
 .profile-grid{display:grid;grid-template-columns:300px 1fr;gap:20px}
 @media(max-width:900px){.profile-grid{grid-template-columns:1fr}}
@@ -947,6 +970,37 @@ a.person:hover .person__name{color:var(--primary)}
 .detail-header__meta span{display:inline-flex;align-items:center;gap:5px}
 .detail-header__meta i{color:var(--text-subtle)}
 .detail-header__actions{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;flex-wrap:wrap}
+/* ── Data list ─────────────────────────────────────────────
+   Key/value rows: the shape every detail page needs and every one of them
+   was rebuilding as a <table> with inline cell padding. A description list
+   is what this actually is, so screen readers announce "Status, Available"
+   as a pair rather than reading two unrelated table cells.
+
+   The label column is sized in ch rather than a percentage so the values
+   line up at the same x on every card regardless of how wide the card is. */
+.datalist{display:flex;flex-direction:column}
+.datalist__row{
+  display:grid;grid-template-columns:minmax(9ch,14ch) 1fr;
+  gap:var(--space-4);align-items:baseline;
+  padding:9px 0;border-bottom:1px solid var(--border);
+}
+.datalist__row:last-child{border-bottom:none}
+.datalist__row:first-child{padding-top:0}
+.datalist dt{font-size:var(--fs-xs);color:var(--text-muted);margin:0}
+.datalist dd{
+  margin:0;font-size:var(--fs-sm);color:var(--text);
+  min-width:0;overflow-wrap:anywhere;
+}
+.datalist dd strong{font-weight:600}
+/* Figures in a data list get the tabular set, so a column of money or dates
+   down a detail page lines up the way it does in a table. */
+.datalist dd.num{font-variant-numeric:tabular-nums}
+@media(max-width:480px){
+  /* Below this the two columns leave the value about twelve characters —
+     stacking keeps the pairing without squeezing either half. */
+  .datalist__row{grid-template-columns:1fr;gap:2px}
+}
+
 /* A row of figures under the header — rent, deposit, balance. */
 .detail-stats{display:flex;gap:var(--space-6);flex-wrap:wrap;margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--border)}
 .detail-stat__label{font-size:var(--fs-2xs);text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle)}
