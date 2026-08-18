@@ -1,0 +1,87 @@
+/* ================================================================
+   MARKO REAL ESTATE — Application token layer  ·  Phase 6, step 1
+   ----------------------------------------------------------------
+   design-system.css is shared by three bundles: the signed-in
+   application, the auth screens, and the public marketing site. Its
+   type scale is therefore a compromise between a dense operations
+   console and a photography-led brochure, and the console lost.
+
+   This file is loaded by the app and auth bundles only (see
+   views/components/styles.php), immediately after design-system.css.
+   Everything below is a *redeclaration* of tokens that file already
+   owns, plus a few the application alone needs — so raising the
+   console's type scale and setting its density cannot reflow a single
+   public page.
+
+   Nothing here introduces a colour. The brand ramp, the eight status
+   tones, the radius scale and the five-step shadow scale all stay
+   exactly where design-system.css put them.
+   ================================================================ */
+
+:root {
+
+  /* ── Type ──────────────────────────────────────────────────────
+     The console was set below the readable floor: body at 0.95rem
+     (15.2px) and the label size at 0.72rem (11.5px), which is where
+     sustained reading measurably gets harder. Every value below is
+     the same role, moved up to a size that survives a working day.
+
+     Marketing keeps the fluid --fs-display/h1/h2/h3 scale, which the
+     application never referenced in the first place.               */
+  --fs-body: 1rem;        /* 16px — was 15.2. The readable floor.   */
+  --fs-sm:   0.9rem;      /* 14.4 — was 13.8. Cells, controls, buttons */
+  --fs-xs:   0.8125rem;   /* 13   — was 12.5. Meta lines, small buttons */
+  --fs-2xs:  0.75rem;     /* 12   — was 11.5. Labels. The hard floor. */
+
+  /* The fixed heading scale the console needs — --fs-page, --fs-title,
+     --fs-lede — is deliberately NOT declared here. Nothing reads it
+     until the page header is rebuilt in step 2, and a token no rule
+     consumes is the same dead weight as the skeleton CSS this phase
+     is removing. It arrives with the component that uses it.
+
+     Slightly tighter than the shared 1.65: the line is longer now
+     that the text is bigger, and 1.6 keeps the block from loosening. */
+  --lh-body: 1.6;
+
+  /* ── Density ───────────────────────────────────────────────────
+     One switch, two settings. Comfortable is the default because the
+     type scale just went up and the two have to be decided together;
+     compact returns the old rhythm for anyone working a long register.
+
+     The control that flips this is not built yet — it belongs with the
+     table work in step 3. Declared here because density is a token
+     decision, and the table already reads these values.             */
+  --cell-x: 16px;
+  --cell-y: 12px;
+  --cell-head-y: 10px;
+}
+
+/* Set on <html> or <body>. Until step 3 ships the toggle, this is
+   reachable only by hand — which is enough to verify it resolves. */
+[data-density="compact"] {
+  --cell-x: 12px;
+  --cell-y: 7px;
+  --cell-head-y: 7px;
+}
+
+/* ── Form controls on touch ───────────────────────────────────────
+   iOS zooms the viewport when a focused input is under 16px, which
+   throws the whole layout sideways mid-typing and does not undo
+   itself. 14.4px is right for a dense desktop form and wrong the
+   moment a finger is involved, so the size is raised where the
+   pointer is coarse rather than everywhere.
+
+   The same query lifts controls to the 44px touch minimum. Both are
+   pointer-driven, not width-driven: a touchscreen laptop needs this
+   at 1400px and a mouse-driven small window does not. */
+@media (pointer: coarse) {
+  :root {
+    --fs-sm: 1rem;
+    --cell-y: 14px;
+  }
+  input, select, textarea, .form-control {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  textarea, textarea.form-control { min-height: 88px; }
+}

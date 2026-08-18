@@ -3,12 +3,18 @@
  * Stylesheet links — the one place the CSS load order is decided.
  *
  * Order is load-bearing, not cosmetic:
- *   design-system → layout → components → pages/* → responsive
+ *   design-system → tokens-app → layout → components → pages/* → responsive
  *
  * design-system first because every other file reads its custom properties,
  * and responsive last because its narrow-width rules override component and
  * layout defaults at equal specificity — at equal specificity the later rule
  * wins, so moving it earlier silently un-does the mobile layout.
+ *
+ * tokens-app sits second and only in the two signed-in bundles. It redeclares
+ * the type scale and density that design-system.css sets for everybody, so the
+ * console can be read at a working size without reflowing the marketing site
+ * that shares the same file. It must come after design-system (it overrides it)
+ * and before everything that reads a type token.
  *
  * Expects: $bundle  'app' (default) | 'public' | 'auth'
  *
@@ -20,8 +26,8 @@ $bundle = $bundle ?? 'app';
 
 $sheets = match ($bundle) {
     'public' => ['design-system', 'components', 'public'],
-    'auth'   => ['design-system', 'components', 'pages/auth'],
-    default  => ['design-system', 'layout', 'components', 'pages/dashboard', 'pages/settings'],
+    'auth'   => ['design-system', 'tokens-app', 'components', 'pages/auth'],
+    default  => ['design-system', 'tokens-app', 'layout', 'components', 'pages/dashboard', 'pages/settings'],
 };
 $sheets[] = 'responsive';
 

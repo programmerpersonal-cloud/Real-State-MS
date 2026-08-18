@@ -158,6 +158,18 @@
   --space-8: 32px;  --space-10: 40px; --space-12: 48px;
   --space-16: 64px; --space-20: 80px; --space-24: 96px;
 
+  /* ── Table density ─────────────────────────────────────
+     Declared here, not only in tokens-app.css, because .table lives in
+     components.css and components.css ships in all three bundles — a
+     token defined only for the application would resolve to nothing on
+     a public page and collapse the cell padding to zero.
+
+     These are the values the table has always had. tokens-app.css
+     raises them for the console; the marketing site keeps them. */
+  --cell-x: 16px;
+  --cell-y: 13px;
+  --cell-head-y: 11px;
+
   /* Vertical rhythm for marketing sections */
   --section-y: 80px;
   --section-y-sm: 56px;
@@ -177,9 +189,36 @@
   --shadow-xl: 0 20px 48px rgba(29,51,64,.14);
   --ring: 0 0 0 3px var(--primary-ring);
 
-  /* ── Motion ────────────────────────────────────────────  */
-  --transition: 180ms cubic-bezier(.4,0,.2,1);
-  --transition-slow: 320ms cubic-bezier(.4,0,.2,1);
+  /* ── Motion ────────────────────────────────────────────
+     Three durations and three curves, chosen by what is moving rather
+     than copied from one blanket value:
+
+       --dur-fast   a colour or a border changing under the cursor
+       --dur-base   something appearing in place — a menu, a panel
+       --dur-slow   something crossing the screen — a drawer, a sheet
+
+     The curves carry direction. Things arriving decelerate, things
+     leaving accelerate, and an exit is deliberately quicker than the
+     matching entrance: a dialog that takes as long to go as it took to
+     arrive reads as unresponsive.
+
+     --transition and --transition-slow are kept and re-derived from
+     the durations, so every `transition: x var(--transition)` already
+     written across these stylesheets picks the system up without being
+     touched. --transition keeps its exact previous value.           */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+
+  --ease-standard: cubic-bezier(.4,0,.2,1);   /* symmetric, in-place  */
+  --ease-enter:    cubic-bezier(.16,1,.3,1);  /* decelerate, arriving */
+  --ease-exit:     cubic-bezier(.4,0,1,1);    /* accelerate, leaving  */
+
+  --transition-fast: var(--dur-fast) var(--ease-standard);
+  --transition:      var(--dur-base) var(--ease-standard);
+  --transition-slow: var(--dur-slow) var(--ease-standard);
+  /* Retained name — --ease-enter is the same curve under the label the
+     rest of the system now uses. Both resolve identically. */
   --ease-out: cubic-bezier(.16,1,.3,1);
 
   /* Drives both the admin topbar and the sidebar's brand row, so the two

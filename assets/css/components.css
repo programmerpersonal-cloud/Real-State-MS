@@ -108,12 +108,17 @@
 
 /* ─── Forms ─────────────────────────────────────────────── */
 .form-group{margin-bottom:18px}
-.form-label{display:block;font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-.1px}
+/* Read the scale rather than restating it. These three carried literal rem
+   values — .82 / .88 — which meant the type tokens governed everything except
+   the controls people actually spend the day in. */
+.form-label{display:block;font-size:var(--fs-xs);font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-.1px}
 .form-control{
   width:100%;padding:10px 13px;
   border:1px solid var(--border-strong);border-radius:var(--radius-sm);
-  font-size:.88rem;color:var(--text);background:var(--surface);
-  transition:all var(--transition);
+  font-size:var(--fs-sm);color:var(--text);background:var(--surface);
+  /* Colour and shadow only. `all` also animated padding and border-width,
+     which is what made a focused field appear to twitch. */
+  transition:border-color var(--transition),box-shadow var(--transition),background var(--transition);
 }
 .form-control:hover{border-color:#cbd0d8}
 .form-control:focus{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
@@ -211,13 +216,16 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 
 /* ─── Tables ────────────────────────────────────────────── */
 .table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
-.table{width:100%;border-collapse:collapse;font-size:.86rem}
+/* Cell padding comes from the density tokens rather than a literal, which is
+   what makes comfortable/compact one switch instead of an edit in forty
+   places. Type comes from the scale for the same reason the form does. */
+.table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
 .table th{
-  background:var(--surface-2);font-weight:600;font-size:.74rem;
+  background:var(--surface-2);font-weight:600;font-size:var(--fs-2xs);
   text-transform:uppercase;letter-spacing:.6px;color:var(--text-muted);
-  padding:11px 16px;text-align:left;border-bottom:1px solid var(--border);
+  padding:var(--cell-head-y) var(--cell-x);text-align:left;border-bottom:1px solid var(--border);
 }
-.table td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text)}
+.table td{padding:var(--cell-y) var(--cell-x);border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text)}
 .table tr:last-child td{border-bottom:none}
 .table tbody tr{transition:background var(--transition)}
 .table tbody tr:hover td{background:var(--surface-2)}
