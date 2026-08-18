@@ -29,6 +29,12 @@
   .stat-card__value{font-size:1.5rem}
   .form-row{grid-template-columns:1fr}
   .page-header{flex-direction:column;align-items:flex-start;gap:10px}
+  /* The lead carries flex:1 1 320px so it holds a sensible column beside the
+     actions on a wide header. Stacked, the main axis is vertical and that
+     320px becomes a *height* basis — an empty band the depth of a phone
+     screen between the title and the button under it. Reset with the
+     direction that caused it. */
+  .page-header__lead{flex:0 0 auto;width:100%}
   .page-header__actions{width:100%}
   .app__content{padding:14px 14px 18px}
   .app__header{padding:0 14px;gap:10px}
@@ -65,6 +71,40 @@
 }
 @media(max-width:480px){
   .form-row--3,.form-row--4{grid-template-columns:1fr}
+}
+
+/* ─── Table column priority ─────────────────────────────────
+   The semantics of .col-lo / .col-mid are documented with the table
+   component; the widths they trigger at are here, because these rules
+   have to beat the component defaults and this file loads last.
+
+   The thresholds are measured, not chosen. The rail stays pinned until
+   768, so the content column is 1127px at a 1440 viewport, 967px at
+   1280 and 723px from 1024 down — a 244px cliff between 1280 and 1024
+   that no amount of tidying inside the table can absorb. Each step
+   below drops the next tier of columns just before the tables that
+   carry them would start to overflow.
+
+   The bounds are inclusive of the breakpoint itself, matching the rest
+   of this file: a 1280px window is one of the commonest laptop widths
+   and is exactly where the first tier needs to go, so writing 1279 here
+   would leave the most common case unhandled by one pixel.
+
+   Above 1280 nothing is hidden: on a full desktop every column the
+   module offers is on screen, which is the point of having them. */
+@media (max-width:1280px){
+  .table .col-lo{display:none}
+  .cell-fold--lo{display:block}
+}
+@media (max-width:1024px){
+  .table .col-mid{display:none}
+  .cell-fold--mid{display:block}
+  /* Less room, so the cap on a text column comes down with it — one long
+     value should not be spending a fifth of a tablet's width. */
+  .table{--cell-max:180px}
+}
+@media (max-width:768px){
+  .table{--cell-max:150px}
 }
 
 /* ─── Reduced motion ────────────────────────────────────── */

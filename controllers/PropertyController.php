@@ -104,6 +104,7 @@ class PropertyController
             'pageTitle'  => 'Properties',
             'breadcrumbs'=> [['label' => 'Properties']],
             'actionButton' => [
+                'can'   => 'properties.create',
                 'label' => 'Add Property',
                 'icon'  => 'bi-plus-lg',
                 'url'   => APP_URL . '/index.php?page=properties&action=create',

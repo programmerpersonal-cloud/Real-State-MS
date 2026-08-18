@@ -142,10 +142,10 @@ $missingProfile = static function (array $u): ?array {
                 <thead>
                     <tr>
                         <?= uiSortHeader('Name', ['asc' => 'name_asc', 'desc' => 'name_desc']) ?>
-                        <th>Signs in with</th>
+                        <th class="col-mid">Signs in with</th>
                         <?= uiSortHeader('Role', ['asc' => 'role_asc', 'desc' => 'role_desc']) ?>
-                        <th>Linked record</th>
-                        <?= uiSortHeader('Last signed in', ['desc' => 'signin_desc', 'asc' => 'signin_asc'], 'sort', 'cell-date') ?>
+                        <th class="col-lo">Linked record</th>
+                        <?= uiSortHeader('Last signed in', ['desc' => 'signin_desc', 'asc' => 'signin_asc'], 'sort', 'cell-date col-mid') ?>
                         <th>Access</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
@@ -170,7 +170,7 @@ $missingProfile = static function (array $u): ?array {
                                     <span class="status status--primary">You</span>
                                 <?php endif ?>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <div><?= sanitize($u['email']) ?></div>
                                 <div class="person__meta"><?= sanitize($u['username']) ?></div>
                             </td>
@@ -180,7 +180,7 @@ $missingProfile = static function (array $u): ?array {
                                     <div class="person__meta"><?= sanitize($u['branch_name']) ?></div>
                                 <?php endif ?>
                             </td>
-                            <td>
+                            <td class="col-lo">
                                 <?php if ($u['owner_profile_id']): ?>
                                     <a href="<?= APP_URL ?>/index.php?page=owners&amp;action=show&amp;id=<?= (int) $u['owner_profile_id'] ?>">
                                         <i class="bi bi-link-45deg" aria-hidden="true"></i>
@@ -213,7 +213,7 @@ $missingProfile = static function (array $u): ?array {
                                     <span class="text-subtle">—</span>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-date">
+                            <td class="col-mid cell-date">
                                 <?php if ($u['last_login_at']): ?>
                                     <?= formatDate($u['last_login_at']) ?>
                                     <div class="person__meta"><?= date('H:i', strtotime($u['last_login_at'])) ?></div>

@@ -121,10 +121,10 @@ $settled = ['completed', 'rejected', 'cancelled'];
                 <thead>
                     <tr>
                         <?= uiSortHeader('Priority', ['desc' => 'priority', 'asc' => 'priority_asc']) ?>
-                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc']) ?>
-                        <th>Property</th>
+                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
+                        <th class="col-mid">Property</th>
                         <th>Fault</th>
-                        <th>Assigned to</th>
+                        <th class="col-mid">Assigned to</th>
                         <?= uiSortHeader('Reported', ['desc' => 'newest', 'asc' => 'oldest'], 'sort', 'cell-date') ?>
                         <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
@@ -140,10 +140,10 @@ $settled = ['completed', 'rejected', 'cancelled'];
                         ?>
                         <tr>
                             <td class="cell-tight"><?= uiPriority((string) $r['priority']) ?></td>
-                            <td class="cell-tight">
+                            <td class="col-lo cell-tight">
                                 <a href="<?= sanitize($showUrl($id)) ?>" class="table__id"><?= sanitize($r['request_code']) ?></a>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $r['property_id'] ?>" class="cell-strong">
                                     <?= sanitize($r['property_title']) ?>
                                 </a>
@@ -155,7 +155,7 @@ $settled = ['completed', 'rejected', 'cancelled'];
                                 <?php endif ?>
                                 <div class="person__meta"><?= sanitize(truncate($r['description'], 70)) ?></div>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <?php if (!empty($r['assigned_name'])): ?>
                                     <?= uiPersonCell($r['assigned_name'], $r['assigned_avatar'] ?? null) ?>
                                 <?php else: ?>

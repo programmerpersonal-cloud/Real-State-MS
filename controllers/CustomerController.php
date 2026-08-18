@@ -112,6 +112,7 @@ class CustomerController
             'pageTitle'  => 'Customers',
             'breadcrumbs'=> [['label' => 'Customers']],
             'actionButton' => [
+                'can'   => 'customers.create',
                 'label' => 'Add Customer',
                 'icon'  => 'bi-person-plus',
                 'url'   => APP_URL . '/index.php?page=customers&action=create',

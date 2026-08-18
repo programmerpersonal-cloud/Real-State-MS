@@ -39,8 +39,8 @@ $listUrl = APP_URL . '/index.php?page=branches';
                 <thead>
                     <tr>
                         <th>Branch</th>
-                        <th>Manager</th>
-                        <th>Contact</th>
+                        <th class="col-mid">Manager</th>
+                        <th class="col-mid">Contact</th>
                         <th class="cell-num">Staff</th>
                         <th>Status</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
@@ -67,14 +67,14 @@ $listUrl = APP_URL . '/index.php?page=branches';
                                     </div>
                                 <?php endif ?>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <?php if (!empty($b['manager_name'])): ?>
                                     <?= sanitize($b['manager_name']) ?>
                                 <?php else: ?>
                                     <span class="text-subtle">Unassigned</span>
                                 <?php endif ?>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <div><?= sanitize($b['phone'] ?: '—') ?></div>
                                 <?php if (!empty($b['email'])): ?>
                                     <div class="person__meta"><?= sanitize($b['email']) ?></div>

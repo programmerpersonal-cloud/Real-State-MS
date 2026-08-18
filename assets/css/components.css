@@ -831,8 +831,8 @@ a.person:hover .person__name{color:var(--primary)}
 a.segmented__btn{text-decoration:none;color:var(--text-muted)}
 a.segmented__btn.is-active{color:var(--text)}
 
-/* A single headline figure inside a card body — an acceptance count, a
-   balance. Not a stat card: it has no icon and no strip to sit in. */
+/* A single headline figure inside a card body — a balance, a total. Not a
+   stat card: it has no icon and no strip to sit in. */
 .bignum{
   font-size:1.7rem;font-weight:700;color:var(--text);
   font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;
@@ -1833,4 +1833,180 @@ a.segmented__btn.is-active{color:var(--text)}
      takes its transition away entirely, and re-declaring anything for it
      from further down would quietly hand the motion back. */
   .toast__progress{animation-timing-function:steps(10,end)}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STEP 6 — TABLE WIDTH AND OVERFLOW
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Why this block exists ──────────────────────────────────────────
+   Measured across the fifteen list tables before writing any of it:
+   two scrolled sideways at 1440, seven at 1280, and fourteen at 1024.
+   A horizontal scrollbar under every table is not a table problem to be
+   solved fifteen times — it is one shared-layer problem, and three
+   things were causing it.
+
+   1. Text cells had no upper bound. .person__name is nowrap with an
+      ellipsis, but an ellipsis needs a width to trigger against, and a
+      table using automatic layout just grows the column to fit the
+      longest value on the page. One long email address was setting the
+      width of that column for every row under it.
+   2. Nothing ever gave way. Every column was equally important, so the
+      only thing left that could yield was the viewport.
+   3. When scrolling was genuinely unavoidable, it was a raw OS
+      scrollbar with no indication that there was anything to scroll to,
+      and the identity column slid out of view the moment you used it —
+      leaving rows you could read but not identify.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* An upper bound on a text column. Auto table layout treats this as the
+   column's ceiling, which is what finally lets the ellipsis on a person
+   cell do its job. Deliberately not applied to the columns whose width
+   is already their content: money, dates, status and the action menu are
+   short and fixed, and capping them would only wrap them. */
+.table td{max-width:var(--cell-max,220px)}
+.table .cell-actions,
+.table .cell-tight,
+.table .cell-num,
+.table .cell-date{max-width:none}
+
+/* Long single words — an email, a reference, a URL someone pasted into a
+   note — break rather than push the column past the cap. */
+.table td{overflow-wrap:anywhere}
+/* …except where the value is a unit that must not be split across lines. */
+.table .table__id,
+.table .cell-num,
+.table .cell-date,
+.table .status,
+.table .badge{overflow-wrap:normal}
+
+/* The person cell fills the capped cell and ellipsises inside it, rather
+   than setting the cell's width from its longest name. */
+.table .person{max-width:100%}
+
+/* ── Column priority ────────────────────────────────────────────────
+   Which column yields first, declared once. The actual hiding lives in
+   responsive.css so it wins on source order; these are the semantics.
+
+     .col-lo   Reference codes, IP addresses, "last updated" — data that
+               is on the record's own page and is not what anyone scans
+               the list by. First to go.
+     .col-mid  Secondary identity — the assigned agent, a linked record,
+               a category already implied by the row. Goes next.
+
+   Unclassed columns are essential and never hide at any width: who or
+   what the row is, the money, the status, and the actions.
+
+   Nothing is discarded. A column that hides hands its value to a
+   .cell-fold line inside the identity cell, which appears at exactly the
+   width its own column disappears — so the row carries the same
+   information in less space rather than less information. */
+.cell-fold{
+  display:none;
+  font-size:var(--fs-2xs);color:var(--text-subtle);
+  line-height:1.4;margin-top:2px;
+}
+.cell-fold__label{font-weight:600;color:var(--text-muted)}
+
+/* The same two tiers, decided per table rather than per viewport.
+
+   A viewport breakpoint can only guess at how much room a table has. It
+   cannot know that the rail is pinned, or that this is the one table in
+   the application that needs 1216px of the 1127 a 1440 window gave it,
+   or — the commoner case — that a table it just stripped to four columns
+   had room for six. So the media rules above stand as the pre-scripting
+   baseline, and the measurement picks the real answer: the most columns
+   this table can show in the width it actually has.
+
+   Three states, most columns first. Higher specificity than the media
+   rules on purpose, in both directions: this has to be able to hide a
+   column the viewport kept and restore one the viewport hid. */
+.table-card.is-cols-all .table .col-lo,
+.table-card.is-cols-all .table .col-mid,
+.table-card.is-cols-mid .table .col-mid{display:table-cell}
+.table-card.is-cols-mid .table .col-lo,
+.table-card.is-cols-min .table .col-lo,
+.table-card.is-cols-min .table .col-mid{display:none}
+
+.table-card.is-cols-mid .cell-fold--lo,
+.table-card.is-cols-min .cell-fold--lo,
+.table-card.is-cols-min .cell-fold--mid{display:block}
+.table-card.is-cols-all .cell-fold--lo,
+.table-card.is-cols-all .cell-fold--mid,
+.table-card.is-cols-mid .cell-fold--mid{display:none}
+
+/* ── Scrolling, when it is genuinely needed ─────────────────────────
+   Below the tablet breakpoint a seven-column table cannot be made to fit
+   a phone by hiding columns — there is no honest arrangement of that
+   much data in 349px. So the wrap scrolls, and the job here is to make
+   that read as a considered affordance instead of a raw OS scrollbar. */
+
+/* The same faint-at-rest treatment the sidebar's own scroll uses, so the
+   application has one scrollbar idiom rather than two. */
+.table-wrap{
+  scrollbar-width:thin;
+  scrollbar-color:var(--border-strong) transparent;
+  /* Momentum on touch, and the sticky column below needs a positioned
+     ancestor that is also the scroll container. */
+  -webkit-overflow-scrolling:touch;
+}
+.table-wrap::-webkit-scrollbar{height:8px}
+.table-wrap::-webkit-scrollbar-track{background:transparent}
+.table-wrap::-webkit-scrollbar-thumb{
+  background:var(--border-strong);border-radius:4px;
+  border:2px solid var(--surface);
+  transition:background var(--dur-base) var(--ease-standard);
+}
+.table-wrap:hover::-webkit-scrollbar-thumb{background:var(--text-subtle)}
+
+/* Edge shadows: a soft inner edge on whichever side has content out of
+   view. This is what tells someone there is more table before they find
+   the scrollbar — and it disappears at each end, so it is also the cue
+   that they have reached it. Toggled by JS from scrollLeft, because CSS
+   cannot ask how far a box is scrolled. */
+.table-wrap{position:relative}
+.table-card{position:relative}
+.table-card::before,
+.table-card::after{
+  content:'';position:absolute;top:0;bottom:0;width:28px;
+  pointer-events:none;z-index:3;opacity:0;
+  transition:opacity var(--dur-base) var(--ease-standard);
+}
+.table-card::before{
+  left:0;
+  background:linear-gradient(to right,rgba(15,23,42,.13),transparent);
+}
+.table-card::after{
+  right:0;
+  background:linear-gradient(to left,rgba(15,23,42,.13),transparent);
+}
+.table-card.is-scroll-start::before{opacity:1}
+.table-card.is-scroll-end::after{opacity:1}
+
+/* The identity column stays put while the rest slides under it. Scrolling
+   a table sideways and losing track of whose row you are reading is the
+   thing that makes a scrolling table feel broken; this is the fix.
+   Applied only while the table actually overflows — pinned on a table
+   that fits, the column would carry a divider for no reason. */
+.table-card.is-scrollable .table tbody td:first-child,
+.table-card.is-scrollable .table thead th:first-child{
+  position:sticky;left:0;z-index:1;
+  background:var(--surface);
+}
+.table-card.is-scrollable .table thead th:first-child{
+  z-index:4;                      /* over the sticky header and the body */
+  background:var(--surface-2);
+}
+/* A hairline that only shows once the column is actually holding content
+   back, so a table scrolled to the far left looks untouched. */
+.table-card.is-scrollable.is-scroll-start .table tbody td:first-child,
+.table-card.is-scrollable.is-scroll-start .table thead th:first-child{
+  box-shadow:1px 0 0 var(--border);
+}
+/* Row hover has to reach the pinned cell too, or the frozen column stays
+   white while the rest of its row highlights. */
+.table-card.is-scrollable .table tbody tr:hover td:first-child{background:var(--surface-2)}
+
+@media (prefers-reduced-motion:reduce){
+  .table-card::before,.table-card::after{transition:none}
 }

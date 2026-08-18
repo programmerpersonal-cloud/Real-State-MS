@@ -69,12 +69,6 @@ $toolbar = [
         ['view' => 'table', 'icon' => 'bi-list-ul',  'label' => 'Table'],
         ['view' => 'grid',  'icon' => 'bi-grid-3x3-gap', 'label' => 'Grid'],
     ]],
-    'actions' => [
-        ['label' => 'Add Property', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
-         'can' => 'properties.create',
-         'url' => $listUrl . '&action=create',
-         'attrs' => ['data-modal-open' => 'propertyCreateModal']],
-    ],
 ];
 
 /** The row actions a property offers, filtered by permission inside uiRowActions(). */
@@ -163,13 +157,13 @@ $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): str
         <table class="table">
             <thead>
                 <tr>
-                    <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc']) ?>
+                    <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
                     <?= uiSortHeader('Property', ['asc' => 'title_asc', 'desc' => 'title_desc']) ?>
-                    <th>Type</th>
-                    <th>Owner</th>
+                    <th class="col-mid">Type</th>
+                    <th class="col-mid">Owner</th>
                     <?= uiSortHeader('Price', ['asc' => 'price_asc', 'desc' => 'price_desc'], 'sort', 'cell-num') ?>
                     <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
-                    <?= uiSortHeader('Updated', ['desc' => 'updated_desc', 'asc' => 'updated_asc']) ?>
+                    <?= uiSortHeader('Updated', ['desc' => 'updated_desc', 'asc' => 'updated_asc'], 'sort', 'cell-date col-mid') ?>
                     <th class="cell-actions"><span class="sr-only">Actions</span></th>
                 </tr>
             </thead>
@@ -177,7 +171,7 @@ $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): str
                 <?php foreach ($properties as $p): ?>
                     <?php $price = propertyPrice($p); ?>
                     <tr>
-                        <td><span class="table__id"><?= sanitize($p['property_code']) ?></span></td>
+                        <td class="col-lo"><span class="table__id"><?= sanitize($p['property_code']) ?></span></td>
                         <td>
                             <a href="<?= $showUrl((int) $p['id']) ?>" class="cell-strong">
                                 <?= sanitize($p['title']) ?>
@@ -189,13 +183,13 @@ $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): str
                                 </div>
                             <?php endif ?>
                         </td>
-                        <td>
+                        <td class="col-mid">
                             <span class="text-muted">
                                 <i class="bi <?= categoryIcon($p['category']) ?>" aria-hidden="true"></i>
                                 <?= sanitize(uiLabel($p['category'])) ?>
                             </span>
                         </td>
-                        <td><?= sanitize($p['owner_name'] ?: '—') ?></td>
+                        <td class="col-mid"><?= sanitize($p['owner_name'] ?: '—') ?></td>
                         <td class="cell-num">
                             <?php if ($price['amount'] > 0): ?>
                                 <?= formatCurrency($price['amount']) ?>
@@ -205,7 +199,7 @@ $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): str
                             <?php endif ?>
                         </td>
                         <td><?= uiStatus($p['status']) ?></td>
-                        <td class="cell-date"><?= formatDate($p['updated_at'] ?? $p['created_at']) ?></td>
+                        <td class="cell-date col-mid"><?= formatDate($p['updated_at'] ?? $p['created_at']) ?></td>
                         <td class="cell-actions"><?= $rowActions($p) ?></td>
                     </tr>
                 <?php endforeach ?>

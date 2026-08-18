@@ -100,8 +100,8 @@ $statusFilter = [
                         <th>Author</th>
                         <th>Rating</th>
                         <th>Review</th>
-                        <th>Related to</th>
-                        <th class="cell-date">Added</th>
+                        <th class="col-mid">Related to</th>
+                        <th class="cell-date col-lo">Added</th>
                         <th>Status</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
@@ -129,7 +129,7 @@ $statusFilter = [
                                 </span>
                             </td>
                             <td class="cell-clip"><?= sanitize(truncate($t['body'], 80)) ?></td>
-                            <td>
+                            <td class="col-mid">
                                 <?php if (!empty($t['property_title'])): ?>
                                     <div><?= sanitize($t['property_title']) ?></div>
                                 <?php endif ?>
@@ -140,7 +140,7 @@ $statusFilter = [
                                     <span class="text-subtle">—</span>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-date"><?= formatDate($t['created_at']) ?></td>
+                            <td class="col-lo cell-date"><?= formatDate($t['created_at']) ?></td>
                             <td>
                                 <?= uiStatus($approved ? 'active' : 'pending',
                                              $approved ? 'Live' : 'Awaiting approval') ?>

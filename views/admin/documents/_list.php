@@ -68,10 +68,10 @@ $visIcon = ['public' => 'bi-globe', 'staff' => 'bi-people', 'private' => 'bi-loc
         <thead>
             <tr>
                 <?= $th('Document', ['asc' => 'title_asc', 'desc' => 'title_desc']) ?>
-                <?= $th('Category', ['asc' => 'cat_asc']) ?>
-                <?php if ($showProperty): ?><th>Property</th><?php endif ?>
+                <?= $th('Category', ['asc' => 'cat_asc'], 'col-mid') ?>
+                <?php if ($showProperty): ?><th class="col-mid">Property</th><?php endif ?>
                 <?= $th('State', ['asc' => 'expiry_asc', 'desc' => 'expiry_desc']) ?>
-                <?= $th('Uploaded', ['desc' => 'newest', 'asc' => 'oldest'], 'cell-date') ?>
+                <?= $th('Uploaded', ['desc' => 'newest', 'asc' => 'oldest'], 'cell-date col-lo') ?>
                 <th class="cell-actions"><span class="sr-only">Actions</span></th>
             </tr>
         </thead>
@@ -103,7 +103,7 @@ $visIcon = ['public' => 'bi-globe', 'staff' => 'bi-people', 'private' => 'bi-loc
                         </span>
                     </span>
                 </td>
-                <td>
+                <td class="col-mid">
                     <span class="tag">
                         <i class="bi <?= sanitize($d['category_icon'] ?: 'bi-file-earmark') ?>" aria-hidden="true"></i>
                         <?= sanitize($d['category_name'] ?? 'Uncategorised') ?>
@@ -114,7 +114,7 @@ $visIcon = ['public' => 'bi-globe', 'staff' => 'bi-people', 'private' => 'bi-loc
                     </div>
                 </td>
                 <?php if ($showProperty): ?>
-                <td class="cell-clip">
+                <td class="cell-clip col-mid">
                     <?php if (!empty($d['property_title'])): ?>
                         <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $d['reference_id'] ?>">
                             <?= sanitize($d['property_title']) ?>
@@ -130,7 +130,7 @@ $visIcon = ['public' => 'bi-globe', 'staff' => 'bi-people', 'private' => 'bi-loc
                         <div class="person__meta"><?= sanitize($note) ?></div>
                     <?php endif ?>
                 </td>
-                <td class="cell-date">
+                <td class="cell-date col-lo">
                     <?= formatDate($d['created_at']) ?>
                     <div class="person__meta"><?= sanitize($d['uploaded_by_name'] ?? 'Unknown') ?></div>
                 </td>

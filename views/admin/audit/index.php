@@ -120,9 +120,9 @@ $transition = static function (array $l): string {
                         <?= uiSortHeader('When', ['desc' => 'newest', 'asc' => 'oldest'], 'sort', 'cell-date') ?>
                         <?= uiSortHeader('Who', ['asc' => 'user_asc', 'desc' => 'user_desc']) ?>
                         <?= uiSortHeader('Did what', ['asc' => 'action_asc', 'desc' => 'action_desc']) ?>
-                        <th>To which record</th>
-                        <th>Change</th>
-                        <th>From</th>
+                        <th class="col-lo">To which record</th>
+                        <th class="col-mid">Change</th>
+                        <th class="col-lo">From</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -146,7 +146,7 @@ $transition = static function (array $l): string {
                                 <?php endif ?>
                             </td>
                             <td><?= uiStatus('new', uiLabel((string) $l['action'])) ?></td>
-                            <td>
+                            <td class="col-lo">
                                 <?php if (empty($l['entity_type'])): ?>
                                     <span class="text-subtle">—</span>
                                 <?php elseif ($canGo): ?>
@@ -157,14 +157,14 @@ $transition = static function (array $l): string {
                                     <?= sanitize(uiLabel((string) $l['entity_type'])) ?><?= $entId ? ' #' . $entId : '' ?>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-clip">
+                            <td class="col-mid cell-clip">
                                 <?php if ($change !== ''): ?>
                                     <span class="person__meta"><?= $change ?></span>
                                 <?php else: ?>
                                     <span class="text-subtle">—</span>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-tight">
+                            <td class="col-lo cell-tight">
                                 <span class="person__meta"><?= sanitize($l['ip_address'] ?: '—') ?></span>
                             </td>
                         </tr>

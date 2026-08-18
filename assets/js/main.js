@@ -131,7 +131,106 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Step 5 ────────────────────────────────────────────
   initStickyActions();
+
+  // ─── Step 6 ────────────────────────────────────────────
+  document.querySelectorAll('.table-wrap').forEach(initTableScroll);
 });
+
+/**
+ * Tell the CSS how a table is scrolled.
+ *
+ * CSS can style a scroll container but cannot ask how far it has been
+ * scrolled, so the three states a wide table needs — it overflows at all,
+ * there is content hidden to the left, there is content hidden to the right —
+ * are set here as classes and drawn there.
+ *
+ * The alternative is what was here before: a raw scrollbar, no indication
+ * that there was more table until you noticed it, and an identity column that
+ * slid away the moment you used it, leaving rows you could read but not
+ * identify.
+ */
+function initTableScroll(wrap) {
+  // The classes go on the card, because the edge shadows have to sit over the
+  // table rather than scroll along with it.
+  const card = wrap.closest('.table-card') || wrap.parentElement;
+  if (!card) return;
+
+  // A few pixels of slack, used by every comparison below. Sub-pixel column
+  // layout leaves a fractional remainder on tables with nothing actually
+  // hidden — six columns rounding up a fraction each is a 2-3px "overflow"
+  // that is not one. Without the slack a table drops a whole column to pay
+  // for it, and an affordance appears that never quite goes away, which reads
+  // as a rendering fault.
+  const SLACK = 4;
+  const overflow = () => wrap.scrollWidth - wrap.clientWidth;
+
+  let settling = false;
+
+  /**
+   * Show the most columns this table can fit in the width it actually has.
+   *
+   * The stylesheet's breakpoints are a baseline for the no-scripting case and
+   * a reasonable first paint, but they can only reason about the viewport.
+   * They cannot know that the rail is pinned, that this is the one table that
+   * needs 1216px of the 1127 a 1440 window gave it, or — much more often —
+   * that a table they just stripped to four columns had room for six.
+   *
+   * So all three states are tried here, widest first, and the first one that
+   * fits wins. Re-derived from scratch every pass rather than nudged from the
+   * current state, because a window being widened has to be able to bring
+   * columns back, not only take them away.
+   */
+  const TIERS = ['is-cols-all', 'is-cols-mid', 'is-cols-min'];
+  const fit = () => {
+    for (const tier of TIERS) {
+      card.classList.remove(...TIERS);
+      card.classList.add(tier);
+      if (overflow() <= SLACK) return;  // fits — keep this one
+    }
+    // Nothing fits: a phone cannot hold eight columns however few are hidden.
+    // The narrowest state stands and the wrap scrolls, which is what the
+    // pinned first column and the edge shadows below are for.
+  };
+
+  let frame = 0;
+  const sync = () => {
+    frame = 0;
+    settling = true;        // the class changes below resize the wrap
+    fit();
+
+    const max = overflow();
+    const scrollable = max > SLACK;
+    card.classList.toggle('is-scrollable', scrollable);
+    card.classList.toggle('is-scroll-start', scrollable && wrap.scrollLeft > SLACK);
+    card.classList.toggle('is-scroll-end', scrollable && wrap.scrollLeft < max - SLACK);
+    settling = false;
+  };
+  const schedule = () => { if (!frame) frame = requestAnimationFrame(sync); };
+
+  // Scrolling moves the shadows but must never re-run the column fit: the
+  // table's width has not changed, and re-measuring mid-scroll would fight
+  // the gesture.
+  const shadows = () => {
+    const max = overflow();
+    card.classList.toggle('is-scroll-start', max > SLACK && wrap.scrollLeft > SLACK);
+    card.classList.toggle('is-scroll-end', max > SLACK && wrap.scrollLeft < max - SLACK);
+  };
+  let shadowFrame = 0;
+  wrap.addEventListener('scroll', () => {
+    if (!shadowFrame) shadowFrame = requestAnimationFrame(() => { shadowFrame = 0; shadows(); });
+  }, { passive: true });
+
+  sync();
+  window.addEventListener('resize', schedule);
+
+  // The table changes width without the window doing so: the density toggle
+  // switches, a filter returns longer values, the rail collapses. The guard
+  // is what stops fit() — which resizes the very box being observed — from
+  // calling itself forever.
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => { if (!settling) schedule(); }).observe(wrap);
+  }
+}
 
 /**
  * Pin a form's action bar to the foot of the viewport — but only on a form

@@ -124,11 +124,11 @@ $daysTo = static function (string $date): int {
             <table class="table">
                 <thead>
                     <tr>
-                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc']) ?>
+                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
                         <th>Tenant</th>
-                        <th>Property</th>
+                        <th class="col-mid">Property</th>
                         <?= uiSortHeader('Term ends', ['asc' => 'end_asc', 'desc' => 'end_desc'], 'sort', 'cell-date') ?>
-                        <?= uiSortHeader('Rent', ['desc' => 'rent_desc', 'asc' => 'rent_asc'], 'sort', 'cell-num') ?>
+                        <?= uiSortHeader('Rent', ['desc' => 'rent_desc', 'asc' => 'rent_asc'], 'sort', 'cell-num col-mid') ?>
                         <th class="cell-num">Arrears</th>
                         <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
@@ -143,7 +143,7 @@ $daysTo = static function (string $date): int {
                         $left    = $daysTo($l['end_date']);
                         ?>
                         <tr>
-                            <td class="cell-tight">
+                            <td class="cell-tight col-lo">
                                 <a href="<?= sanitize($showUrl($id)) ?>" class="table__id"><?= sanitize($l['lease_code']) ?></a>
                             </td>
                             <td>
@@ -154,7 +154,7 @@ $daysTo = static function (string $date): int {
                                     APP_URL . '/index.php?page=customers&action=show&id=' . (int) $l['customer_id']
                                 ) ?>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $l['property_id'] ?>" class="cell-strong">
                                     <?= sanitize($l['property_title']) ?>
                                 </a>
@@ -174,7 +174,7 @@ $daysTo = static function (string $date): int {
                                     </div>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-num">
+                            <td class="col-mid cell-num">
                                 <?= formatCurrency((float) $l['rent_amount']) ?>
                                 <div class="person__meta"><?= sanitize(uiLabel((string) $l['payment_schedule'])) ?></div>
                             </td>

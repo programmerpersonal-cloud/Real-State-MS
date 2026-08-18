@@ -129,10 +129,10 @@ $without = static function (string $key) use ($listUrl): string {
             <table class="table">
                 <thead>
                     <tr>
-                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc']) ?>
+                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
                         <th>Customer</th>
-                        <th>Property</th>
-                        <th>For</th>
+                        <th class="col-mid">Property</th>
+                        <th class="col-mid">For</th>
                         <?= uiSortHeader('Amount', ['desc' => 'amount_desc', 'asc' => 'amount_asc'], 'sort', 'cell-num') ?>
                         <?= uiSortHeader('Received', ['desc' => 'date_desc', 'asc' => 'date_asc'], 'sort', 'cell-date') ?>
                         <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
@@ -143,7 +143,7 @@ $without = static function (string $key) use ($listUrl): string {
                     <?php foreach ($payments as $p): ?>
                         <?php $id = (int) $p['id']; ?>
                         <tr>
-                            <td class="cell-tight">
+                            <td class="cell-tight col-lo">
                                 <a href="<?= $listUrl ?>&amp;action=receipt&amp;id=<?= $id ?>" class="table__id">
                                     <?= sanitize($p['payment_code']) ?>
                                 </a>
@@ -156,7 +156,7 @@ $without = static function (string $key) use ($listUrl): string {
                                     APP_URL . '/index.php?page=customers&action=show&id=' . (int) $p['customer_id']
                                 ) ?>
                             </td>
-                            <td class="cell-clip">
+                            <td class="cell-clip col-mid">
                                 <?php if (!empty($p['property_title'])): ?>
                                     <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $p['property_id'] ?>">
                                         <?= sanitize($p['property_title']) ?>
@@ -165,7 +165,7 @@ $without = static function (string $key) use ($listUrl): string {
                                     <span class="text-subtle">—</span>
                                 <?php endif ?>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <div><?= sanitize(uiLabel((string) $p['payment_type'])) ?></div>
                                 <div class="person__meta"><?= sanitize(uiLabel((string) $p['payment_method'])) ?></div>
                             </td>

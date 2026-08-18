@@ -52,12 +52,6 @@ $toolbar = [
         ['name' => 'login', 'label' => 'Access', 'value' => $filters['login'] ?? '',
          'options' => $loginStates, 'all' => 'Any access'],
     ],
-    'actions' => [
-        ['label' => 'Add Owner', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
-         'can' => 'owners.create',
-         'url' => $listUrl . '&action=create',
-         'attrs' => ['data-modal-open' => 'ownerCreateModal']],
-    ],
 ];
 ?>
 
@@ -111,8 +105,8 @@ $toolbar = [
                     <tr>
                         <?= uiSortHeader('Owner', ['asc' => 'name_asc', 'desc' => 'name_desc']) ?>
                         <th>Contact</th>
-                        <?= uiSortHeader('Commission', ['desc' => 'comm_desc', 'asc' => 'comm_asc'], 'sort', 'cell-num') ?>
-                        <th>Portal access</th>
+                        <?= uiSortHeader('Commission', ['desc' => 'comm_desc', 'asc' => 'comm_asc'], 'sort', 'cell-num col-mid') ?>
+                        <th class="col-mid">Portal access</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
@@ -133,8 +127,8 @@ $toolbar = [
                                     <div class="person__meta"><?= sanitize($o['email']) ?></div>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-num"><?= number_format((float) $o['commission_rate'], 1) ?>%</td>
-                            <td>
+                            <td class="cell-num col-mid"><?= number_format((float) $o['commission_rate'], 1) ?>%</td>
+                            <td class="col-mid">
                                 <?php if (!$o['account_id']): ?>
                                     <span class="text-subtle" title="Business record only — no account">No account</span>
                                 <?php else: ?>

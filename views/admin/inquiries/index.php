@@ -100,9 +100,9 @@ $without = static function (string $key) use ($listUrl): string {
                         <?php if ($isStaff): ?>
                             <?= uiSortHeader('From', ['asc' => 'name_asc', 'desc' => 'name_desc']) ?>
                         <?php endif ?>
-                        <th>Property</th>
+                        <th class="col-lo">Property</th>
                         <?= uiSortHeader('Enquiry', ['asc' => 'subject_asc', 'desc' => 'subject_desc']) ?>
-                        <?= uiSortHeader('Received', ['desc' => 'newest', 'asc' => 'oldest'], 'sort', 'cell-date') ?>
+                        <?= uiSortHeader('Received', ['desc' => 'newest', 'asc' => 'oldest'], 'sort', 'cell-date col-mid') ?>
                         <?php if ($isStaff): ?>
                             <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
                         <?php endif ?>
@@ -133,7 +133,7 @@ $without = static function (string $key) use ($listUrl): string {
                                     ) ?>
                                 </td>
                             <?php endif ?>
-                            <td>
+                            <td class="col-lo">
                                 <?php if (!empty($i['property_title'])): ?>
                                     <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $i['property_id'] ?>" class="cell-strong">
                                         <?= sanitize($i['property_title']) ?>
@@ -149,7 +149,7 @@ $without = static function (string $key) use ($listUrl): string {
                                 </a>
                                 <div class="person__meta"><?= sanitize(truncate($i['message'], 70)) ?></div>
                             </td>
-                            <td class="cell-date">
+                            <td class="col-mid cell-date">
                                 <?= formatDate($i['created_at']) ?>
                                 <div class="person__meta"><?= date('H:i', strtotime($i['created_at'])) ?></div>
                             </td>

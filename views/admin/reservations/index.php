@@ -107,11 +107,11 @@ $daysLeft = static function (string $expiry): int {
             <table class="table">
                 <thead>
                     <tr>
-                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc']) ?>
+                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
                         <th>Property</th>
                         <th>Customer</th>
                         <?= uiSortHeader('Expires', ['asc' => 'expiry_asc', 'desc' => 'expiry_desc'], 'sort', 'cell-date') ?>
-                        <?= uiSortHeader('Deposit', ['desc' => 'deposit_desc', 'asc' => 'deposit_asc'], 'sort', 'cell-num') ?>
+                        <?= uiSortHeader('Deposit', ['desc' => 'deposit_desc', 'asc' => 'deposit_asc'], 'sort', 'cell-num col-mid') ?>
                         <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
@@ -124,7 +124,7 @@ $daysLeft = static function (string $expiry): int {
                         $actionId = '&id=' . (int) $r['id'];
                         ?>
                         <tr>
-                            <td class="cell-tight"><span class="table__id"><?= sanitize($r['reservation_code']) ?></span></td>
+                            <td class="cell-tight col-lo"><span class="table__id"><?= sanitize($r['reservation_code']) ?></span></td>
                             <td>
                                 <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $r['property_id'] ?>" class="cell-strong">
                                     <?= sanitize($r['property_title']) ?>
@@ -149,7 +149,7 @@ $daysLeft = static function (string $expiry): int {
                                     </div>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-num">
+                            <td class="col-mid cell-num">
                                 <?php if ((float) $r['deposit_amount'] > 0): ?>
                                     <?= formatCurrency((float) $r['deposit_amount']) ?>
                                 <?php else: ?>

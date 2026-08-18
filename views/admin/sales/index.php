@@ -125,13 +125,13 @@ $without = static function (string $key) use ($listUrl): string {
             <table class="table">
                 <thead>
                     <tr>
-                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc']) ?>
+                        <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
                         <th>Property</th>
                         <th>Buyer</th>
                         <?= uiSortHeader('Sale price', ['desc' => 'amount_desc', 'asc' => 'amount_asc'], 'sort', 'cell-num') ?>
-                        <?= uiSortHeader('Commission', ['desc' => 'comm_desc', 'asc' => 'comm_asc'], 'sort', 'cell-num') ?>
-                        <th>Agent</th>
-                        <?= uiSortHeader('Date', ['desc' => 'date_desc', 'asc' => 'date_asc'], 'sort', 'cell-date') ?>
+                        <?= uiSortHeader('Commission', ['desc' => 'comm_desc', 'asc' => 'comm_asc'], 'sort', 'cell-num col-lo') ?>
+                        <th class="col-mid">Agent</th>
+                        <?= uiSortHeader('Date', ['desc' => 'date_desc', 'asc' => 'date_asc'], 'sort', 'cell-date col-mid') ?>
                         <?= uiSortHeader('Stage', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
@@ -144,7 +144,7 @@ $without = static function (string $key) use ($listUrl): string {
                         $comm  = (float) $s['commission_amount'];
                         ?>
                         <tr>
-                            <td class="cell-tight">
+                            <td class="cell-tight col-lo">
                                 <a href="<?= sanitize($showUrl($id)) ?>" class="table__id"><?= sanitize($s['sale_code']) ?></a>
                             </td>
                             <td>
@@ -172,7 +172,7 @@ $without = static function (string $key) use ($listUrl): string {
                                     </div>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-num">
+                            <td class="col-lo cell-num">
                                 <?php if ($comm > 0): ?>
                                     <?= formatCurrency($comm) ?>
                                     <?php if ($price > 0): ?>
@@ -182,14 +182,14 @@ $without = static function (string $key) use ($listUrl): string {
                                     <span class="text-subtle">—</span>
                                 <?php endif ?>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <?php if (!empty($s['agent_name'])): ?>
                                     <?= uiPersonCell($s['agent_name'], $s['agent_avatar'] ?? null) ?>
                                 <?php else: ?>
                                     <span class="text-subtle">Unassigned</span>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-date"><?= formatDate($s['sale_date']) ?></td>
+                            <td class="cell-date col-mid"><?= formatDate($s['sale_date']) ?></td>
                             <td>
                                 <?= uiStatus($s['status']) ?>
                                 <div class="person__meta"><?= sanitize($paymentTypes[$s['payment_type']] ?? uiLabel((string) $s['payment_type'])) ?></div>

@@ -78,6 +78,7 @@ class OwnerController
             'pageTitle'  => 'Property Owners',
             'breadcrumbs'=> [['label' => 'Owners']],
             'actionButton' => [
+                'can'   => 'owners.create',
                 'label' => 'Add Owner',
                 'icon'  => 'bi-plus-lg',
                 'url'   => APP_URL . '/index.php?page=owners&action=create',

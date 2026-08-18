@@ -22,6 +22,12 @@
  * Expects:  $pageTitle
  * Optional: $pageSubtitle, $actionButton, $actionButtons, $pageHeaderVariant,
  *           $pageEyebrow, $backLink ['url'=>…, 'label'=>…], $pageMeta (html)
+ *
+ * An action may carry 'can' => 'module.action', and is then rendered only for
+ * someone who holds it — the same contract list_toolbar.php uses, so the
+ * primary action reads identically wherever it is placed. This mirrors the
+ * permission; it never stands in for it. authorize() in the controller is
+ * still what decides, and a hand-typed URL still gets a 403.
  */
 $variant = $pageHeaderVariant ?? 'list';
 if (!in_array($variant, ['list', 'record', 'form'], true)) {
@@ -82,6 +88,7 @@ if (!empty($actionButtons) && is_array($actionButtons)) {
     <?php if ($actions): ?>
         <div class="page-header__actions">
             <?php foreach ($actions as $btn): ?>
+                <?php if (!empty($btn['can']) && !can((string) $btn['can'])) continue; ?>
                 <a href="<?= $btn['url'] ?? '#' ?>"
                    class="btn <?= sanitize((string) $btn['class']) ?>"<?= $renderActionAttrs($btn) ?>>
                     <?php if (!empty($btn['icon'])): ?>

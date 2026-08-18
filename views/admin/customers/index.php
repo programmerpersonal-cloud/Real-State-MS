@@ -56,12 +56,6 @@ $toolbar = [
         ['name' => 'login', 'label' => 'Access', 'value' => $filters['login'] ?? '',
          'options' => $loginStates, 'all' => 'Any access'],
     ],
-    'actions' => [
-        ['label' => 'Add Customer', 'icon' => 'bi-person-plus', 'class' => 'btn--primary',
-         'can' => 'customers.create',
-         'url' => $listUrl . '&action=create',
-         'attrs' => ['data-modal-open' => 'customerCreateModal']],
-    ],
 ];
 ?>
 
@@ -115,9 +109,9 @@ $toolbar = [
                     <tr>
                         <?= uiSortHeader('Customer', ['asc' => 'name_asc', 'desc' => 'name_desc']) ?>
                         <th>Contact</th>
-                        <?= uiSortHeader('Type', ['asc' => 'type_asc', 'desc' => 'type_desc']) ?>
-                        <?= uiSortHeader('Risk', ['desc' => 'risk_desc', 'asc' => 'risk_asc']) ?>
-                        <th>Portal access</th>
+                        <?= uiSortHeader('Type', ['asc' => 'type_asc', 'desc' => 'type_desc'], 'sort', 'col-lo') ?>
+                        <?= uiSortHeader('Risk', ['desc' => 'risk_desc', 'asc' => 'risk_asc'], 'sort', 'col-mid') ?>
+                        <th class="col-mid">Portal access</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
@@ -141,8 +135,8 @@ $toolbar = [
                                     <div class="person__meta"><?= sanitize($c['email']) ?></div>
                                 <?php endif ?>
                             </td>
-                            <td><?= sanitize(uiLabel((string) $c['customer_type'])) ?></td>
-                            <td>
+                            <td class="col-lo"><?= sanitize(uiLabel((string) $c['customer_type'])) ?></td>
+                            <td class="col-mid">
                                 <?php /* Risk is its own vocabulary, so it is mapped onto the
                                          shared status tones rather than given a private set. */ ?>
                                 <?= uiStatus(
@@ -150,7 +144,7 @@ $toolbar = [
                                     uiLabel((string) $c['risk_level']) . ' risk'
                                 ) ?>
                             </td>
-                            <td>
+                            <td class="col-mid">
                                 <?php /* Read from the linked account itself, so this column
                                          and the Users page can never disagree. */ ?>
                                 <?php if (!$c['account_id']): ?>
