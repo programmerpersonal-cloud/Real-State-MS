@@ -24,7 +24,12 @@
  * interest in their properties, a tenant's is their own correspondence. Same
  * page, same permission, honest name.
  *
- * @return array<int, array{0: string, 1: array<int, array{0: string, 1: string, 2: string}>}>
+ * Each section carries a third element: a stable key derived from its label.
+ * The rail's collapsed/expanded state is remembered against that key, so it
+ * has to survive a label being re-worded — it is derived once, here, rather
+ * than in the view where a second copy could drift.
+ *
+ * @return array<int, array{0: string, 1: array<int, array{0: string, 1: string, 2: string}>, 2: string}>
  */
 function appNavSections(): array
 {
@@ -106,11 +111,42 @@ function appNavSections(): array
             fn(array $item): bool => canAccessPage($item[0])
         ));
         if ($allowed) {
-            $visible[] = [$label, $allowed];
+            $visible[] = [$label, $allowed, navSectionKey($label)];
         }
     }
 
     return $cache = $visible;
+}
+
+/**
+ * A stable storage key for a section, from its label.
+ *
+ * "My Portfolio" → "my-portfolio". Used by the rail to remember which groups
+ * a person keeps closed; kept here so the key is derived in one place rather
+ * than recomputed in the markup.
+ */
+function navSectionKey(string $label): string
+{
+    return strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $label), '-'));
+}
+
+/**
+ * Does this section contain the page currently being viewed?
+ *
+ * The rail uses this to force a group open regardless of what the browser
+ * remembered: a stored preference that hides the page you are on is a bug
+ * wearing the costume of a preference.
+ *
+ * @param array<int, array{0: string, 1: string, 2: string}> $items
+ */
+function navSectionHoldsPage(array $items, string $page): bool
+{
+    foreach ($items as [$slug]) {
+        if ($slug === $page) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**

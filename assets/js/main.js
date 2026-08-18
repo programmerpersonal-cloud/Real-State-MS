@@ -116,7 +116,162 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Password reveal ───────────────────────────────────
   document.querySelectorAll('[data-reveal]').forEach(initReveal);
+
+  // ─── Shell (Phase 6) ───────────────────────────────────
+  initNavGroups();
+  initRailToggle();
+  initHeaderCondense();
 });
+
+/* ═══════════════════════════════════════════════════════════
+   SHELL
+   ═══════════════════════════════════════════════════════════ */
+
+const RAIL_KEY = 'saxane.rail';
+const NAV_KEY = 'saxane.nav.closed';
+
+/** Read a JSON array from storage, tolerating private mode and junk. */
+function readClosedGroups() {
+  try {
+    const raw = localStorage.getItem(NAV_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeClosedGroups(keys) {
+  try {
+    localStorage.setItem(NAV_KEY, JSON.stringify(keys));
+  } catch (e) { /* private mode: the rail simply forgets between visits */ }
+}
+
+/**
+ * Collapsible navigation groups.
+ *
+ * The group holding the current page is always opened, whatever was stored.
+ * A remembered preference that hides the page you are on is a bug wearing the
+ * costume of a preference — so `data-holds-current` overrules storage, and the
+ * stored entry is dropped so it stops fighting on the next visit too.
+ */
+function initNavGroups() {
+  const sections = document.querySelectorAll('[data-nav-section]');
+  if (!sections.length) return;
+
+  let closed = readClosedGroups();
+
+  sections.forEach((section) => {
+    const toggle = section.querySelector('[data-nav-toggle]');
+    if (!toggle) return;   // single-item group: nothing to collapse
+
+    const key = section.dataset.navSection;
+    const holdsCurrent = section.hasAttribute('data-holds-current');
+
+    if (closed.includes(key) && !holdsCurrent) {
+      setGroup(section, toggle, false);
+    } else if (holdsCurrent && closed.includes(key)) {
+      closed = closed.filter((k) => k !== key);
+      writeClosedGroups(closed);
+    }
+
+    toggle.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') === 'true';
+      setGroup(section, toggle, !open);
+      closed = readClosedGroups().filter((k) => k !== key);
+      if (open) closed.push(key);
+      writeClosedGroups(closed);
+    });
+  });
+}
+
+/**
+ * Open or close one group.
+ *
+ * `inert` is what takes the hidden rows out of the tab order. Visually
+ * collapsing a list while leaving its links focusable is how a keyboard user
+ * ends up tabbing into something they cannot see.
+ */
+function setGroup(section, toggle, open) {
+  section.classList.toggle('is-collapsed', !open);
+  toggle.setAttribute('aria-expanded', String(open));
+  const panel = section.querySelector('.sidebar__items');
+  if (!panel) return;
+  if (open) panel.removeAttribute('inert');
+  else panel.setAttribute('inert', '');
+}
+
+/**
+ * The 68px icon rail.
+ *
+ * The class lives on <html> and is also written by an inline script in the
+ * layout head, so the collapsed width is correct on the first paint rather
+ * than snapping into place after the stylesheet and this file have both run.
+ */
+function initRailToggle() {
+  const btn = document.querySelector('[data-rail-toggle]');
+  if (!btn) return;
+
+  const root = document.documentElement;
+  const sync = () => {
+    const collapsed = root.classList.contains('rail-collapsed');
+    btn.setAttribute('aria-pressed', String(collapsed));
+    btn.setAttribute('aria-label', collapsed ? 'Expand the navigation rail' : 'Collapse the navigation rail');
+    btn.title = collapsed ? 'Expand rail' : 'Collapse rail';
+  };
+  sync();
+
+  btn.addEventListener('click', () => {
+    const collapsed = root.classList.toggle('rail-collapsed');
+    try {
+      localStorage.setItem(RAIL_KEY, collapsed ? 'collapsed' : 'expanded');
+    } catch (e) { /* private mode: the choice lasts for this page only */ }
+    sync();
+  });
+}
+
+/**
+ * Condense the page header once the page has scrolled past it.
+ *
+ * Only the title size and the subtitle's height change; nothing is removed
+ * and no control moves out of reach, so a keyboard user part-way down a long
+ * register does not lose the thing they were heading for.
+ *
+ * Under prefers-reduced-motion the class still toggles — the layout still
+ * tightens — but the CSS transitions are switched off, so it arrives at the
+ * same place without animating. Reduced motion means less movement, not less
+ * function.
+ */
+function initHeaderCondense() {
+  const header = document.querySelector('[data-page-header]');
+  if (!header) return;
+
+  const ON = 90;
+  const OFF = 60;   // hysteresis: a single threshold flickers when a scroll
+                    // settles exactly on it
+  let condensed = false;
+  let ticking = false;
+
+  const apply = () => {
+    ticking = false;
+    const y = window.scrollY || window.pageYOffset;
+    if (!condensed && y > ON) {
+      condensed = true;
+      document.body.classList.add('is-condensed');
+    } else if (condensed && y < OFF) {
+      condensed = false;
+      document.body.classList.remove('is-condensed');
+    }
+  };
+
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(apply);
+  }, { passive: true });
+
+  apply();
+}
 
 /**
  * Show/hide a password field.

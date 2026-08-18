@@ -33,15 +33,27 @@
   --fs-xs:   0.8125rem;   /* 13   — was 12.5. Meta lines, small buttons */
   --fs-2xs:  0.75rem;     /* 12   — was 11.5. Labels. The hard floor. */
 
-  /* The fixed heading scale the console needs — --fs-page, --fs-title,
-     --fs-lede — is deliberately NOT declared here. Nothing reads it
-     until the page header is rebuilt in step 2, and a token no rule
-     consumes is the same dead weight as the skeleton CSS this phase
-     is removing. It arrives with the component that uses it.
+  /* Headings, fixed rather than fluid — wired in step 2 by the page
+     header that reads them. A title that resizes with the window is
+     right for a landing page and wrong for a screen someone keeps open
+     beside a spreadsheet.
 
-     Slightly tighter than the shared 1.65: the line is longer now
+     28px is the number that matters: at the old 1.35rem the page title
+     and a card title (1.05rem) were close enough to read as siblings,
+     which is why a page felt like a stack of panels rather than a page
+     about something. */
+  --fs-page:  1.75rem;    /* 28px — page title, clearly outranks a card */
+  --fs-lede:  0.9375rem;  /* 15px — the sentence under a page title     */
+
+  /* Slightly tighter than the shared 1.65: the line is longer now
      that the text is bigger, and 1.6 keeps the block from loosening. */
   --lh-body: 1.6;
+
+  /* ── Shell ─────────────────────────────────────────────────────
+     The width of the rail when it is collapsed to icons. Wide enough
+     for a 36px target plus its breathing room, narrow enough that the
+     table beside it gains a column. */
+  --rail-width-collapsed: 68px;
 
   /* ── Density ───────────────────────────────────────────────────
      One switch, two settings. Comfortable is the default because the

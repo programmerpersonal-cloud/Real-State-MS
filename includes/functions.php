@@ -304,6 +304,51 @@ function getUnreadNotificationCount(): int
 }
 
 /**
+ * What the header bell needs: the unread total *and* the newest few, in one
+ * query.
+ *
+ * The panel could not exist on a count alone, and fetching the preview
+ * separately would have added a query to every page in the application for a
+ * dropdown most requests never open. COUNT(*) OVER() returns the full unread
+ * total on every row of a LIMITed result, so the panel and the badge come
+ * back together and the page pays exactly what it paid before — one query.
+ *
+ * No unread rows means no rows at all, which is the correct answer for both:
+ * a zero badge and an empty panel.
+ *
+ * @return array{count:int, items:array<int, array<string,mixed>>}
+ */
+function notificationBell(int $limit = 5): array
+{
+    if (!isLoggedIn()) {
+        return ['count' => 0, 'items' => []];
+    }
+
+    try {
+        $stmt = getDBConnection()->prepare("
+            SELECT id, title, message, type, reference_type, reference_id, created_at,
+                   COUNT(*) OVER () AS unread_total
+            FROM notifications
+            WHERE user_id = :uid AND is_read = 0
+            ORDER BY created_at DESC
+            LIMIT :lim
+        ");
+        $stmt->bindValue(':uid', $_SESSION['user_id'], PDO::PARAM_INT);
+        $stmt->bindValue(':lim', max(1, $limit), PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+
+        return [
+            'count' => $rows ? (int) $rows[0]['unread_total'] : 0,
+            'items' => $rows,
+        ];
+    } catch (PDOException $e) {
+        // A bell that fails is a bell that shows nothing, not a page that dies.
+        return ['count' => 0, 'items' => []];
+    }
+}
+
+/**
  * Truncate text to a max length with ellipsis.
  */
 function truncate(string $text, int $length = 100): string

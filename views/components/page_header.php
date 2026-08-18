@@ -1,11 +1,33 @@
 <?php
 /**
- * Page Header Component
- * Expects: $pageTitle, $breadcrumbs (passed to header), optional $pageSubtitle, $actionButton, $actionButtons
+ * Page Header — three declensions of one component.
  *
- * An action may carry an 'attrs' map (e.g. ['data-modal-open' => 'id']) when
- * it drives something on the page rather than navigating away.
+ * Every page in the application opens with one of three shapes, and before
+ * Phase 6 they all used the same one:
+ *
+ *   list    a register. Title, what it holds, and the primary action.
+ *   record  one thing. Title with an eyebrow naming what kind of thing it is.
+ *   form    creating or editing. Title, a way back, and nothing competing
+ *           with the form's own Save.
+ *
+ * Set $pageHeaderVariant to pick one; 'list' is the default because most
+ * pages are registers. The variant changes emphasis and what is allowed in the
+ * bar, not the markup contract — every page keeps passing $pageTitle,
+ * $pageSubtitle and $actionButton(s) exactly as before.
+ *
+ * The breadcrumb is deliberately absent: it lives in the topbar, and rendering
+ * it twice on one screen is the commonest way an admin panel wastes its first
+ * two inches.
+ *
+ * Expects:  $pageTitle
+ * Optional: $pageSubtitle, $actionButton, $actionButtons, $pageHeaderVariant,
+ *           $pageEyebrow, $backLink ['url'=>…, 'label'=>…], $pageMeta (html)
  */
+$variant = $pageHeaderVariant ?? 'list';
+if (!in_array($variant, ['list', 'record', 'form'], true)) {
+    $variant = 'list';
+}
+
 $renderActionAttrs = static function (array $btn): string {
     $out = '';
     foreach ($btn['attrs'] ?? [] as $name => $value) {
@@ -14,30 +36,60 @@ $renderActionAttrs = static function (array $btn): string {
     }
     return $out;
 };
+
+/* One list either way, so the two branches below cannot drift. The single
+   $actionButton keeps its historic default of btn--primary; a set of them
+   defaults to outline, because a bar with three primaries has none. */
+$actions = [];
+if (!empty($actionButtons) && is_array($actionButtons)) {
+    foreach ($actionButtons as $b) {
+        $b['class'] = $b['class'] ?? 'btn--outline';
+        $actions[] = $b;
+    }
+} elseif (!empty($actionButton)) {
+    $b = $actionButton;
+    $b['class'] = $b['class'] ?? 'btn--primary';
+    $b['icon']  = $b['icon'] ?? 'bi-plus-lg';
+    $actions[]  = $b;
+}
 ?>
-<div class="page-header">
-    <div>
+<div class="page-header page-header--<?= $variant ?>" data-page-header>
+    <div class="page-header__lead">
+        <?php if (!empty($backLink)): ?>
+            <a class="page-header__back" href="<?= sanitize((string) ($backLink['url'] ?? '#')) ?>">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                <?= sanitize((string) ($backLink['label'] ?? 'Back')) ?>
+            </a>
+        <?php endif ?>
+
+        <?php if (!empty($pageEyebrow)): ?>
+            <div class="page-header__eyebrow"><?= sanitize($pageEyebrow) ?></div>
+        <?php endif ?>
+
         <h1 class="page-header__title"><?= sanitize($pageTitle ?? 'Page') ?></h1>
+
         <?php if (!empty($pageSubtitle)): ?>
             <p class="page-header__subtitle"><?= sanitize($pageSubtitle) ?></p>
-        <?php endif; ?>
+        <?php endif ?>
+
+        <?php /* Pre-escaped by the caller — used for status pills and counts
+                 that belong beside the title rather than under it. */ ?>
+        <?php if (!empty($pageMeta)): ?>
+            <div class="page-header__meta"><?= $pageMeta ?></div>
+        <?php endif ?>
     </div>
 
-    <?php if (!empty($actionButtons) && is_array($actionButtons)): ?>
+    <?php if ($actions): ?>
         <div class="page-header__actions">
-            <?php foreach ($actionButtons as $btn): ?>
-                <a href="<?= $btn['url'] ?? '#' ?>" class="btn <?= $btn['class'] ?? 'btn--outline' ?>"<?= $renderActionAttrs($btn) ?>>
-                    <?php if (!empty($btn['icon'])): ?><i class="bi <?= $btn['icon'] ?>"></i><?php endif; ?>
-                    <?= sanitize($btn['label'] ?? 'Action') ?>
+            <?php foreach ($actions as $btn): ?>
+                <a href="<?= $btn['url'] ?? '#' ?>"
+                   class="btn <?= sanitize((string) $btn['class']) ?>"<?= $renderActionAttrs($btn) ?>>
+                    <?php if (!empty($btn['icon'])): ?>
+                        <i class="bi <?= sanitize((string) $btn['icon']) ?>" aria-hidden="true"></i>
+                    <?php endif ?>
+                    <?= sanitize((string) ($btn['label'] ?? 'Action')) ?>
                 </a>
-            <?php endforeach; ?>
+            <?php endforeach ?>
         </div>
-    <?php elseif (!empty($actionButton)): ?>
-        <div class="page-header__actions">
-            <a href="<?= $actionButton['url'] ?? '#' ?>" class="btn <?= $actionButton['class'] ?? 'btn--primary' ?>"<?= $renderActionAttrs($actionButton) ?>>
-                <i class="bi <?= $actionButton['icon'] ?? 'bi-plus-lg' ?>"></i>
-                <?= sanitize($actionButton['label'] ?? 'Action') ?>
-            </a>
-        </div>
-    <?php endif; ?>
+    <?php endif ?>
 </div>

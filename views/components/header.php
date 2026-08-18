@@ -1,16 +1,27 @@
 <?php
 /**
- * Header / Topbar
- * Minimal SaaS header — breadcrumb on the left, search in the middle, actions
- * on the right.
- * Expects: $currentUser, optional $breadcrumbs ([['label'=>..., 'url'=>...], ...])
+ * Header / Topbar — the application's command bar.
  *
- * Search sits here rather than in the rail because it is a way of *acting* on
- * the application, not a place inside it: the topbar is where the page-level
+ * Rebuilt in Phase 6. The bar previously carried six things, one of which was
+ * duplicated: breadcrumb, search, Visit Site, notifications, Settings, and an
+ * account menu that also contained Settings. The duplicate is gone — a control
+ * offered twice in one bar makes neither instance look like the real one.
+ *
+ * What is here now, left to right:
+ *   · the drawer toggle (mobile) and the breadcrumb — where you are
+ *   · the command surface — a search that reads as something you press
+ *   · notifications, with the newest unread readable without a page load
+ *   · the account menu — profile, settings, sign out
+ *
+ * Search stays here rather than in the rail because it is a way of *acting* on
+ * the application, not a place inside it: the topbar is where page-level
  * controls live, it stays put while the rail scrolls, and one width serves it
  * on every screen where the rail is a drawer the user has to open first.
+ *
+ * Expects: $currentUser, $notif (from notificationBell()), optional $breadcrumbs
  */
-$notifCount = getUnreadNotificationCount();
+$notif      = $notif ?? notificationBell();
+$notifCount = (int) $notif['count'];
 $role       = $currentUser['role'] ?? '';
 
 // What the search can find is exactly what this user is allowed to open —
@@ -21,29 +32,46 @@ $searchIndexJson = json_encode(
     appNavSearchIndex(),
     JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
 );
+
+/* Where a notification points, when it names a record it can reach. Mirrors
+   the map the notifications page uses; anything unlisted stays unlinked
+   rather than becoming a link to a 404. */
+$notifTargets = [
+    'property' => 'properties', 'lease' => 'leases', 'payment' => 'payments',
+    'maintenance' => 'maintenance', 'inquiry' => 'inquiries',
+    'reservation' => 'reservations', 'sale' => 'sales', 'document' => 'documents',
+];
+$notifLook = [
+    'success' => ['bi-check-circle-fill', 'success'],
+    'warning' => ['bi-exclamation-triangle-fill', 'warning'],
+    'error'   => ['bi-x-octagon-fill', 'danger'],
+    'danger'  => ['bi-x-octagon-fill', 'danger'],
+    'info'    => ['bi-info-circle-fill', 'info'],
+];
 ?>
 <header class="app__header">
     <div class="header__left">
         <button class="header__toggle" id="sidebarToggle" aria-label="Toggle navigation">
-            <i class="bi bi-list"></i>
+            <i class="bi bi-list" aria-hidden="true"></i>
         </button>
 
         <nav class="header__breadcrumb" aria-label="Breadcrumb">
-            <a href="<?= APP_URL ?>/index.php?page=dashboard" title="Dashboard">
-                <i class="bi bi-house-door"></i>
+            <a href="<?= APP_URL ?>/index.php?page=dashboard" title="Dashboard" class="header__crumb-home">
+                <i class="bi bi-house-door" aria-hidden="true"></i>
+                <span class="sr-only">Dashboard</span>
             </a>
             <?php if (!empty($breadcrumbs)): ?>
                 <?php foreach ($breadcrumbs as $i => $crumb): ?>
-                    <i class="bi bi-chevron-right sep"></i>
+                    <i class="bi bi-chevron-right sep" aria-hidden="true"></i>
                     <?php if (!empty($crumb['url']) && $i < count($breadcrumbs) - 1): ?>
                         <a href="<?= $crumb['url'] ?>"><?= sanitize($crumb['label']) ?></a>
                     <?php else: ?>
-                        <span><?= sanitize($crumb['label']) ?></span>
+                        <span aria-current="page"><?= sanitize($crumb['label']) ?></span>
                     <?php endif; ?>
                 <?php endforeach; ?>
             <?php elseif (!empty($pageTitle)): ?>
-                <i class="bi bi-chevron-right sep"></i>
-                <span><?= sanitize($pageTitle) ?></span>
+                <i class="bi bi-chevron-right sep" aria-hidden="true"></i>
+                <span aria-current="page"><?= sanitize($pageTitle) ?></span>
             <?php endif; ?>
         </nav>
     </div>
@@ -96,38 +124,97 @@ $searchIndexJson = json_encode(
 
     <div class="header__right">
         <a href="<?= APP_URL ?>/index.php?page=home" class="header__visit" title="View the public website">
-            <i class="bi bi-globe2"></i>
-            <span>Visit Site</span>
-        </a>
-        <a href="<?= APP_URL ?>/index.php?page=notifications" class="header__icon-btn" title="Notifications" aria-label="Notifications">
-            <i class="bi bi-bell"></i>
-            <?php if ($notifCount > 0): ?>
-                <span class="header__badge"><?= $notifCount > 9 ? '9+' : $notifCount ?></span>
-            <?php endif; ?>
-        </a>
-        <a href="<?= APP_URL ?>/index.php?page=settings" class="header__icon-btn" title="Settings" aria-label="Settings">
-            <i class="bi bi-gear"></i>
+            <i class="bi bi-globe2" aria-hidden="true"></i>
+            <span>Visit site</span>
         </a>
 
+        <?php /* Notifications. The newest unread arrive with the page from the
+                 same query that produces the badge, so opening this costs
+                 nothing extra — see notificationBell(). */ ?>
+        <div class="dropdown dropdown--panel">
+            <button type="button" class="header__icon-btn" data-dropdown
+                    aria-haspopup="true" aria-expanded="false"
+                    aria-label="Notifications<?= $notifCount > 0 ? ', ' . $notifCount . ' unread' : '' ?>">
+                <i class="bi bi-bell" aria-hidden="true"></i>
+                <?php if ($notifCount > 0): ?>
+                    <span class="header__badge"><?= $notifCount > 9 ? '9+' : $notifCount ?></span>
+                <?php endif; ?>
+            </button>
+
+            <div class="dropdown__menu notif-panel">
+                <div class="notif-panel__head">
+                    <span class="notif-panel__title">Notifications</span>
+                    <?php if ($notifCount > 0): ?>
+                        <span class="notif-panel__count"><?= number_format($notifCount) ?> unread</span>
+                    <?php endif ?>
+                </div>
+
+                <?php if (empty($notif['items'])): ?>
+                    <div class="notif-panel__empty">
+                        <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                        <span>You are up to date.</span>
+                    </div>
+                <?php else: ?>
+                    <ul class="notif-panel__list">
+                        <?php foreach ($notif['items'] as $n): ?>
+                            <?php
+                            [$icon, $tone] = $notifLook[$n['type'] ?? 'info'] ?? $notifLook['info'];
+                            $slug = $notifTargets[$n['reference_type'] ?? ''] ?? null;
+                            $link = ($slug && (int) ($n['reference_id'] ?? 0) > 0 && canAccessPage($slug))
+                                ? APP_URL . '/index.php?page=' . $slug . '&action=show&id=' . (int) $n['reference_id']
+                                : APP_URL . '/index.php?page=notifications';
+                            ?>
+                            <li>
+                                <a class="notif-item" href="<?= sanitize($link) ?>">
+                                    <span class="notif-item__icon notif-item__icon--<?= $tone ?>">
+                                        <i class="bi <?= $icon ?>" aria-hidden="true"></i>
+                                    </span>
+                                    <span class="notif-item__body">
+                                        <span class="notif-item__title"><?= sanitize($n['title']) ?></span>
+                                        <?php if (!empty($n['message'])): ?>
+                                            <span class="notif-item__text"><?= sanitize(truncate($n['message'], 64)) ?></span>
+                                        <?php endif ?>
+                                        <span class="notif-item__time"><?= formatDateTime($n['created_at']) ?></span>
+                                    </span>
+                                </a>
+                            </li>
+                        <?php endforeach ?>
+                    </ul>
+                <?php endif ?>
+
+                <div class="notif-panel__foot">
+                    <a href="<?= APP_URL ?>/index.php?page=notifications">
+                        Open notifications <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <?php /* The standalone Settings icon that used to sit here is gone. It
+                 duplicated the entry in the account menu below. */ ?>
+
         <div class="dropdown">
-            <div class="header__user" data-dropdown role="button" tabindex="0">
-                <img src="<?= getAvatarUrl($currentUser['avatar'] ?? null) ?>" alt="Avatar">
+            <div class="header__user" data-dropdown role="button" tabindex="0"
+                 aria-haspopup="true" aria-expanded="false">
+                <img src="<?= getAvatarUrl($currentUser['avatar'] ?? null) ?>" alt="">
                 <div class="header__user-info">
                     <div class="header__user-name"><?= sanitize($currentUser['full_name'] ?? 'User') ?></div>
-                    <div class="header__user-role"><?= ucfirst($role) ?></div>
+                    <div class="header__user-role"><?= sanitize(uiLabel((string) $role)) ?></div>
                 </div>
-                <i class="bi bi-chevron-down" style="color:var(--text-subtle);font-size:.7rem;margin-left:2px"></i>
+                <i class="bi bi-chevron-down header__user-chev" aria-hidden="true"></i>
             </div>
             <div class="dropdown__menu">
                 <a href="<?= APP_URL ?>/index.php?page=profile" class="dropdown__item">
-                    <i class="bi bi-person"></i> My Profile
+                    <i class="bi bi-person" aria-hidden="true"></i> My profile
                 </a>
-                <a href="<?= APP_URL ?>/index.php?page=settings" class="dropdown__item">
-                    <i class="bi bi-gear"></i> Settings
-                </a>
+                <?php if (canAccessPage('settings')): ?>
+                    <a href="<?= APP_URL ?>/index.php?page=settings" class="dropdown__item">
+                        <i class="bi bi-gear" aria-hidden="true"></i> Settings
+                    </a>
+                <?php endif ?>
                 <div class="dropdown__divider"></div>
                 <a href="<?= APP_URL ?>/index.php?page=logout" class="dropdown__item dropdown__item--danger">
-                    <i class="bi bi-box-arrow-right"></i> Sign Out
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign out
                 </a>
             </div>
         </div>

@@ -30,7 +30,26 @@ if ($resolvedViewFile && file_exists($resolvedViewFile)) {
     <link rel="stylesheet" href="<?= VENDOR_URL ?>/bootstrap-icons/bootstrap-icons.min.css">
     <?php $bundle = 'app'; require VIEWS_PATH . '/components/styles.php'; ?>
 </head>
+<?php
+/* Fetched once, here, because both the rail and the topbar want it: the bell
+   badge and its panel in the header, and the count beside the Notifications
+   row in the sidebar. One call, one query — asking twice would double a cost
+   every page in the application pays. */
+$notif = notificationBell();
+?>
 <body>
+<?php /* Applied before first paint so a collapsed rail does not render wide and
+         then snap. The class is written by the same key the toggle stores, and
+         the script is inline and synchronous for that reason. */ ?>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem('saxane.rail') === 'collapsed') {
+      document.documentElement.classList.add('rail-collapsed');
+    }
+  } catch (e) { /* private mode: the rail simply starts expanded */ }
+})();
+</script>
 <div class="app">
     <?php require VIEWS_PATH . '/components/sidebar.php'; ?>
 

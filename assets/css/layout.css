@@ -37,10 +37,6 @@
 /* min-width:0 so a wide table inside can shrink instead of stretching the
    column; flex:1 is what pushes the footer down on a short page. */
 .app__content{padding:14px 24px 24px;flex:1;min-width:0}
-.app__footer{
-  padding:11px 24px;text-align:center;font-size:.76rem;color:var(--text-subtle);
-  border-top:1px solid var(--border);background:var(--surface);
-}
 
 /* ─── Sidebar ───────────────────────────────────────────── */
 /* The brand sits in its own banded row so the rail reads as three parts —
@@ -100,35 +96,57 @@
 .sidebar__nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;transition:background var(--transition)}
 .sidebar__nav:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.26)}
 
-/* Density is deliberate, and it is the whole reason the account moved out of
-   the top of the rail: an admin sees 20 destinations under 6 headings, and a
-   row that has to be scrolled to is a row that might as well not be there.
-   26 rows into the ~870px a rail has left over is a hard budget of ~33px
-   each, which is what sets the numbers below — the full admin menu then
-   stands without scrolling from roughly 910px of viewport height up, and
-   every lighter role fits from 800px.
-
-   30px rows are dense, not cramped: this is a desktop rail, where the
-   pointer-target minimum is 24px, and the icon column and label keep their
-   own sizes so only the dead space between rows is spent. On a phone it is
-   a drawer, and a drawer is expected to scroll. */
-.sidebar__section{margin-bottom:4px}
+/* Density, revisited in Phase 6.
+   The rail used to hold every destination open at once — 26 rows for an
+   administrator — which forced 30px rows at .83rem to make them fit. Groups
+   collapse now, so a typical session shows eight to twelve rows and the
+   height that bought back goes into the rows themselves: 36px at the
+   application's own --fs-sm, which is a comfortable pointer target rather
+   than a tolerable one. On a phone the rail is a drawer, and a drawer is
+   expected to scroll. */
+.sidebar__section{margin-bottom:2px}
 .sidebar__section:last-child{margin-bottom:0}
+
+/* The heading is a <button> when its group can collapse and a <div> when it
+   holds a single row. One rule dresses both so the two never sit at
+   different heights in the same column. */
 .sidebar__label{
-  font-size:.615rem;text-transform:uppercase;letter-spacing:1.15px;line-height:1.2;
-  color:var(--sidebar-muted);padding:6px 10px 2px;font-weight:700;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+  font-size:.63rem;text-transform:uppercase;letter-spacing:1.15px;line-height:1.2;
+  color:var(--sidebar-muted);padding:9px 10px 5px;font-weight:700;
+  background:none;border:0;text-align:left;font-family:inherit;
 }
+.sidebar__label--toggle{cursor:pointer;border-radius:var(--radius-sm);transition:color var(--transition)}
+.sidebar__label--toggle:hover{color:var(--sidebar-text-strong)}
+.sidebar__label--toggle:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+.sidebar__label-chev{
+  font-size:.6rem;flex-shrink:0;opacity:.7;
+  transition:transform var(--dur-base) var(--ease-standard);
+}
+.sidebar__label--toggle[aria-expanded="false"] .sidebar__label-chev{transform:rotate(-90deg)}
 .sidebar__section:first-child .sidebar__label{padding-top:2px}
+
+/* The collapsing panel. Height is animated via grid-template-rows rather than
+   max-height: a guessed max-height either clips a long group or leaves the
+   animation idling through empty space on a short one. */
+.sidebar__items{
+  display:grid;grid-template-rows:1fr;
+  transition:grid-template-rows var(--dur-base) var(--ease-standard);
+}
+.sidebar__items > *{min-height:0}
+.sidebar__section.is-collapsed .sidebar__items{grid-template-rows:0fr}
+/* Hidden rows must leave the tab order, not merely stop being painted. */
+.sidebar__section.is-collapsed .sidebar__items{overflow:hidden;visibility:hidden}
 
 /* One row shape for every item: a fixed icon column, a fixed gap, and a
    fixed min-height, so labels start on the same x and rows keep the same
    rhythm whether the text wraps or not. */
 .sidebar__link{
-  display:flex;align-items:center;gap:11px;padding:5px 10px;min-height:30px;
+  display:flex;align-items:center;gap:11px;padding:6px 10px;min-height:36px;
   border-radius:var(--radius);
-  color:var(--sidebar-text);font-size:.83rem;font-weight:500;line-height:1.3;
-  transition:background var(--transition),color var(--transition),transform var(--transition);
-  margin-bottom:1px;position:relative;
+  color:var(--sidebar-text);font-size:var(--fs-sm);font-weight:500;line-height:1.3;
+  transition:background var(--transition),color var(--transition);
+  margin-bottom:2px;position:relative;
 }
 .sidebar__link i{
   font-size:1rem;width:var(--sidebar-icon-col);flex-shrink:0;
@@ -136,23 +154,38 @@
   color:var(--sidebar-muted);
   transition:color var(--transition);
 }
-/* The whole row slides as one unit. The glyph is deliberately not scaled on
-   top of that — two transforms compounding is what makes an icon look like
-   it jumps out of its column while the label stays put. */
-.sidebar__link:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text-strong);transform:translateX(2px)}
+/* No transform on hover. The row shifting sideways under the cursor moved its
+   neighbours' apparent baseline and made a settled list look nervous; ground
+   and colour say "this one" without anything having to move. */
+.sidebar__link:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text-strong)}
 .sidebar__link:hover i{color:var(--sidebar-text-strong)}
-/* Active is a solid brand fill, not a tint: on navy a tinted row is barely
-   a shade off its neighbours, and the eye has to hunt for where it is. It
-   also stays put on hover — the current page is not going anywhere. */
+
+/* Active carries two signals, not one: a solid brand fill and an indicator bar
+   on the leading edge. The bar is what survives being read by someone who
+   cannot separate the two tones on navy, and it is the piece that still shows
+   when the rail collapses to icons. */
 .sidebar__link--active,
 .sidebar__link--active:hover{
   background:var(--sidebar-active-bg);
   color:var(--sidebar-active-text);font-weight:600;
   box-shadow:0 2px 8px rgba(0,117,192,.28);
-  transform:none;
+}
+.sidebar__link--active::before{
+  content:"";position:absolute;left:-10px;top:50%;transform:translateY(-50%);
+  width:3px;height:20px;border-radius:0 3px 3px 0;background:#fff;
 }
 .sidebar__link--active i,
 .sidebar__link--active:hover i{color:var(--sidebar-active-text)}
+.sidebar__link-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A count on a row. Tabular so 9 and 11 occupy the same width and the column
+   does not twitch as the number changes. */
+.sidebar__link-count{
+  margin-left:auto;flex-shrink:0;
+  min-width:20px;padding:1px 6px;border-radius:var(--radius-pill);
+  background:rgba(255,255,255,.14);color:var(--sidebar-text-strong);
+  font-size:.66rem;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;
+}
+.sidebar__link--active .sidebar__link-count{background:rgba(255,255,255,.24);color:#fff}
 .sidebar__link .chev{margin-left:auto;font-size:.7rem;color:var(--sidebar-muted)}
 .sidebar__link:focus-visible{outline:2px solid #fff;outline-offset:-2px}
 
@@ -465,17 +498,259 @@
 .dropdown__item--danger:hover{background:var(--danger-bg)}
 
 /* ─── Page Header ───────────────────────────────────────── */
-/* Tightened so the first real content on a page — the KPI row on the
-   dashboard, the table on a module page — starts higher up the screen. The
-   title is still comfortably the largest thing on the page (a card title is
-   1.05rem), it just stops claiming a full band of its own before anything
-   useful appears. Shared by every page on purpose: a dashboard whose heading
-   sat at a different size from every other page's would read as a mistake. */
-.page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:12px}
-.page-header__title{font-family:var(--font-display);font-size:1.35rem;font-weight:700;color:var(--text);letter-spacing:-.028em;line-height:1.15}
-.page-header__subtitle{font-size:.82rem;color:var(--text-muted);margin-top:2px;max-width:72ch;line-height:1.4}
-.page-header__breadcrumb{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-muted);margin-bottom:6px}
-.page-header__breadcrumb a{color:var(--text-muted)}
-.page-header__breadcrumb a:hover{color:var(--text)}
-.page-header__breadcrumb span{color:var(--text);font-weight:500}
-.page-header__actions{display:flex;align-items:center;gap:8px}
+
+/* ════════════════════════════════════════════════════════════════════
+   PHASE 6 — SHELL
+   Rail collapse, the notification panel, the page header's three
+   declensions, and the footer's three slots. Everything below is new
+   surface; the rules above it are the parts of the shell that were
+   already right and only needed their density revisited.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Brand row: text + collapse control ─────────────────────────────
+   The logo tile never moves between states. Only the text beside it and
+   the rail's own width change, which is what makes collapsing read as
+   the column narrowing rather than the brand being replaced. */
+.sidebar__brand-text{min-width:0;flex:1}
+.sidebar__collapse{
+  flex-shrink:0;width:28px;height:28px;display:grid;place-items:center;
+  border:1px solid transparent;border-radius:var(--radius-sm);
+  background:transparent;color:var(--sidebar-muted);cursor:pointer;
+  font-size:.78rem;
+  transition:background var(--transition),color var(--transition),border-color var(--transition);
+}
+.sidebar__collapse:hover{
+  background:var(--sidebar-hover-bg);color:var(--sidebar-text-strong);
+  border-color:var(--sidebar-border);
+}
+.sidebar__collapse:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+.sidebar__collapse i{transition:transform var(--dur-base) var(--ease-standard)}
+
+/* ── Collapsed rail ─────────────────────────────────────────────────
+   68px of icons. Driven by a class on <html> so the width is correct on
+   the very first paint — a rail that renders wide and then snaps narrow
+   is worse than one that never collapsed.
+
+   Labels are not display:none. They are clipped, so the accessible name
+   of every row survives; a rail that reads as eight unlabelled buttons
+   to a screen reader is not a collapsed rail, it is a broken one. */
+.rail-collapsed .app__sidebar{width:var(--rail-width-collapsed)}
+.rail-collapsed .app__main{margin-left:var(--rail-width-collapsed)}
+
+.rail-collapsed .sidebar__brand{padding:0 10px;justify-content:center}
+.rail-collapsed .sidebar__brand-text{display:none}
+.rail-collapsed .sidebar__collapse{position:absolute;top:calc(var(--header-height) - 6px);right:16px;z-index:2}
+.rail-collapsed .sidebar__collapse i{transform:rotate(180deg)}
+
+.rail-collapsed .sidebar__nav{padding:14px 10px}
+.rail-collapsed .sidebar__label{
+  height:1px;padding:0;margin:10px 0;overflow:hidden;
+  border-top:1px solid var(--sidebar-border);
+  color:transparent;pointer-events:none;
+}
+.rail-collapsed .sidebar__label-chev{display:none}
+.rail-collapsed .sidebar__section:first-child .sidebar__label{display:none}
+/* Groups are always open when collapsed: there is no heading left to
+   press, so a remembered collapse would hide rows with no way back. */
+.rail-collapsed .sidebar__items{grid-template-rows:1fr !important;visibility:visible !important;overflow:visible !important}
+
+.rail-collapsed .sidebar__link{justify-content:center;padding:6px;gap:0}
+.rail-collapsed .sidebar__link-text{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;
+}
+.rail-collapsed .sidebar__link-count{
+  position:absolute;top:2px;right:2px;margin:0;min-width:16px;
+  padding:0 4px;font-size:.6rem;line-height:16px;
+}
+.rail-collapsed .sidebar__link--active::before{left:-10px;height:24px}
+
+.rail-collapsed .sidebar__footer{padding:8px 8px 10px}
+.rail-collapsed .sidebar__account{justify-content:center;padding:7px}
+.rail-collapsed .sidebar__account-info,
+.rail-collapsed .sidebar__account-chevron{display:none}
+
+/* The label as a flyout, on hover and on keyboard focus alike — a
+   collapsed rail that only answers a mouse is a rail half the people
+   using it cannot read. */
+.rail-collapsed .sidebar__link,
+.rail-collapsed .sidebar__account{position:relative}
+.rail-collapsed .sidebar__link::after,
+.rail-collapsed .sidebar__account::after{
+  content:attr(data-rail-label);
+  position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%) translateX(-4px);
+  padding:6px 10px;border-radius:var(--radius-sm);white-space:nowrap;
+  background:var(--ink);color:#fff;font-size:var(--fs-xs);font-weight:600;
+  box-shadow:var(--shadow-md);
+  opacity:0;pointer-events:none;z-index:120;
+  transition:opacity var(--dur-fast) var(--ease-standard),transform var(--dur-fast) var(--ease-standard);
+}
+.rail-collapsed .sidebar__link:hover::after,
+.rail-collapsed .sidebar__link:focus-visible::after,
+.rail-collapsed .sidebar__account:hover::after,
+.rail-collapsed .sidebar__account:focus-visible::after{
+  opacity:1;transform:translateY(-50%) translateX(0);
+}
+
+/* The rail becomes a drawer at 768px — the breakpoint responsive.css uses —
+   and collapsing means nothing to a drawer. It must be this number and not a
+   rounder one: between 769px and 1024px the rail is still pinned and visible,
+   so zeroing the content margin there would slide the page underneath it. */
+@media (max-width:768px){
+  .rail-collapsed .app__sidebar{width:var(--sidebar-width)}
+  .rail-collapsed .app__main{margin-left:0}
+  .rail-collapsed .sidebar__brand-text,
+  .rail-collapsed .sidebar__account-info{display:block}
+  .rail-collapsed .sidebar__link{justify-content:flex-start;padding:6px 10px;gap:11px}
+  .rail-collapsed .sidebar__link-text{position:static;width:auto;height:auto;clip:auto;clip-path:none}
+  .rail-collapsed .sidebar__link::after,
+  .rail-collapsed .sidebar__account::after{content:none}
+  .sidebar__collapse{display:none}
+}
+
+/* ── Notification panel ─────────────────────────────────────────────
+   A dropdown that holds content rather than a list of links, so it sets
+   its own width and lets the menu rules govern only the shell. */
+.dropdown--panel .dropdown__menu{width:340px;padding:0;overflow:hidden}
+.notif-panel__head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface-2);
+}
+.notif-panel__title{font-size:var(--fs-sm);font-weight:700;color:var(--text)}
+.notif-panel__count{font-size:var(--fs-2xs);color:var(--text-muted);font-variant-numeric:tabular-nums}
+.notif-panel__list{list-style:none;margin:0;padding:0;max-height:320px;overflow-y:auto}
+.notif-item{
+  display:flex;align-items:flex-start;gap:10px;padding:11px 14px;
+  border-bottom:1px solid var(--border);transition:background var(--transition);
+}
+.notif-item:hover{background:var(--surface-2);text-decoration:none}
+.notif-panel__list li:last-child .notif-item{border-bottom:0}
+.notif-item__icon{
+  flex-shrink:0;width:28px;height:28px;border-radius:var(--radius-sm);
+  display:grid;place-items:center;font-size:.82rem;
+  background:var(--surface-3);color:var(--text-muted);
+}
+.notif-item__icon--success{background:var(--success-bg);color:var(--success)}
+.notif-item__icon--warning{background:var(--warning-bg);color:var(--warning)}
+.notif-item__icon--danger{background:var(--danger-bg);color:var(--danger)}
+.notif-item__icon--info{background:var(--info-bg);color:var(--info)}
+.notif-item__body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.notif-item__title{font-size:var(--fs-xs);font-weight:600;color:var(--text);line-height:1.35}
+.notif-item__text{font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.45}
+.notif-item__time{font-size:var(--fs-2xs);color:var(--text-subtle);font-variant-numeric:tabular-nums}
+.notif-panel__empty{
+  display:flex;align-items:center;gap:9px;justify-content:center;
+  padding:26px 14px;color:var(--text-muted);font-size:var(--fs-xs);
+}
+.notif-panel__empty i{color:var(--success);font-size:1rem}
+.notif-panel__foot{
+  padding:9px 14px;border-top:1px solid var(--border);background:var(--surface-2);text-align:center;
+}
+.notif-panel__foot a{
+  font-size:var(--fs-xs);font-weight:600;display:inline-flex;align-items:center;gap:6px;
+}
+@media (max-width:480px){
+  .dropdown--panel .dropdown__menu{width:min(340px,calc(100vw - 32px))}
+}
+
+/* ── Page header: three declensions ─────────────────────────────────
+   The title is 28px so it clearly outranks a card heading. At 1.35rem the
+   two were close enough to read as siblings, which is why the old pages
+   felt like a stack of panels rather than a page about something. */
+.page-header{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);
+  flex-wrap:wrap;margin-bottom:var(--space-4);padding-bottom:var(--space-4);
+  border-bottom:1px solid var(--border);
+}
+.page-header__lead{min-width:0;flex:1 1 320px}
+.page-header__title{
+  font-family:var(--font-display);font-size:var(--fs-page);font-weight:700;
+  color:var(--text);letter-spacing:-.028em;line-height:1.12;text-wrap:balance;
+}
+.page-header__subtitle{
+  font-size:var(--fs-lede);color:var(--text-muted);
+  margin-top:5px;max-width:76ch;line-height:1.5;
+}
+.page-header__eyebrow{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--primary-ink);margin-bottom:4px;
+}
+.page-header__meta{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-top:10px}
+.page-header__actions{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;flex-wrap:wrap}
+.page-header__back{
+  display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;
+  font-size:var(--fs-xs);font-weight:600;color:var(--text-muted);
+}
+.page-header__back:hover{color:var(--primary)}
+
+/* A register. The rule under it separates the page's identity from the
+   toolbar that filters it. */
+.page-header--list{align-items:flex-end}
+/* One record. No rule: the record header component directly beneath it
+   draws its own box, and two horizontal lines 16px apart is a seam. */
+.page-header--record{border-bottom:0;padding-bottom:0;margin-bottom:var(--space-3)}
+/* A form. Narrower measure, and no competing action — the form owns its
+   own Save. */
+.page-header--form{border-bottom:0;padding-bottom:0;margin-bottom:var(--space-4)}
+.page-header--form .page-header__subtitle{max-width:64ch}
+
+/* ── Condense on scroll ─────────────────────────────────────────────
+   Past the first ~90px the header gives its air back to the content.
+   Nothing is removed and nothing moves position — only scale and spacing
+   change, so no control leaves the reach of a keyboard part-way through
+   a scroll. Under reduced motion the same end state applies with no
+   transition, which is the point: the layout still tightens, it just
+   does not animate doing it. */
+.page-header{
+  transition:padding-bottom var(--dur-base) var(--ease-standard),
+             margin-bottom var(--dur-base) var(--ease-standard);
+}
+.page-header__title{transition:font-size var(--dur-base) var(--ease-standard)}
+.page-header__subtitle{
+  transition:opacity var(--dur-base) var(--ease-standard),
+             max-height var(--dur-base) var(--ease-standard),
+             margin-top var(--dur-base) var(--ease-standard);
+  max-height:4rem;overflow:hidden;
+}
+.is-condensed .page-header{padding-bottom:var(--space-3);margin-bottom:var(--space-3)}
+.is-condensed .page-header__title{font-size:1.35rem}
+.is-condensed .page-header__subtitle{opacity:0;max-height:0;margin-top:0}
+
+@media (prefers-reduced-motion:reduce){
+  .page-header,.page-header__title,.page-header__subtitle,
+  .sidebar__items,.sidebar__label-chev,.sidebar__collapse i,
+  .rail-collapsed .sidebar__link::after,
+  .rail-collapsed .sidebar__account::after{transition:none}
+}
+
+/* ── Footer: three slots ────────────────────────────────────────────
+   Was one centred line repeating the company name the rail already
+   shows. It is the last thing on every page, so it answers the three
+   questions a support ticket opens with: which product, where to go,
+   which build. */
+.app__footer{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  flex-wrap:wrap;
+  padding:var(--space-3) var(--space-6);
+  border-top:1px solid var(--border);background:var(--surface);
+  font-size:var(--fs-2xs);color:var(--text-subtle);
+}
+.app__footer-slot{display:flex;align-items:center;gap:8px;min-width:0}
+.app__footer-slot--center{flex:1;justify-content:center}
+.app__footer-slot--end{justify-content:flex-end;font-variant-numeric:tabular-nums}
+.app__footer a{color:var(--text-muted);font-weight:500}
+.app__footer a:hover{color:var(--primary)}
+.app__footer-dot{color:var(--border-strong)}
+.app__footer-version{
+  font-family:var(--font-mono);letter-spacing:.02em;color:var(--text-subtle);
+}
+/* Only rendered off production, where knowing which box you are on matters. */
+.app__footer-env{
+  padding:1px 7px;border-radius:var(--radius-pill);
+  background:var(--warning-bg);color:var(--warning);
+  font-weight:700;letter-spacing:.06em;
+}
+@media (max-width:640px){
+  .app__footer{justify-content:center;text-align:center;gap:6px}
+  .app__footer-slot--center{flex:0 0 100%;order:3}
+}
