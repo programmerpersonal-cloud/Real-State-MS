@@ -31,12 +31,8 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
 </div>
 
 <div class="form-grid--2">
-    <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-phone">Phone</label>
-        <input class="form-control<?= $bad('phone') ?>" id="<?= $uid ?>-phone" name="phone"
-               type="tel" value="<?= sanitize($b['phone'] ?? '') ?>"<?= $aria('phone') ?>>
-        <?= $err('phone') ?>
-    </div>
+    <?php $phoneField = ['name' => 'phone', 'id' => $uid . '-phone', 'label' => 'Phone', 'value' => $b['phone'] ?? ''];
+          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
     <div class="form-group">
         <label class="form-label" for="<?= $uid ?>-email">Email</label>
         <input class="form-control<?= $bad('email') ?>" id="<?= $uid ?>-email" name="email"

@@ -31,12 +31,8 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
                value="<?= sanitize($fd['full_name'] ?? '') ?>" required<?= $aria('full_name') ?>>
         <?= $err('full_name') ?>
     </div>
-    <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-phone">Phone <span class="req" aria-hidden="true">*</span></label>
-        <input type="tel" id="<?= $uid ?>-phone" name="phone" class="form-control<?= $bad('phone') ?>"
-               value="<?= sanitize($fd['phone'] ?? '') ?>" required<?= $aria('phone') ?>>
-        <?= $err('phone') ?>
-    </div>
+    <?php $phoneField = ['name' => 'phone', 'id' => $uid . '-phone', 'label' => 'Phone', 'value' => $fd['phone'] ?? '', 'required' => true];
+          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
 </div>
 
 <div class="form-row">
@@ -112,11 +108,8 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
         <input type="text" id="<?= $uid ?>-econtact" name="emergency_contact" class="form-control"
                value="<?= sanitize($fd['emergency_contact'] ?? '') ?>">
     </div>
-    <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-ephone">Emergency Phone</label>
-        <input type="tel" id="<?= $uid ?>-ephone" name="emergency_phone" class="form-control"
-               value="<?= sanitize($fd['emergency_phone'] ?? '') ?>">
-    </div>
+    <?php $phoneField = ['name' => 'emergency_phone', 'id' => $uid . '-ephone', 'label' => 'Emergency Phone', 'value' => $fd['emergency_phone'] ?? ''];
+          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
 </div>
 
 <div class="form-row">

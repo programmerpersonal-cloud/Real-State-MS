@@ -191,12 +191,12 @@ class AuthController
         $errors  = [];
         $failUrl = APP_URL . '/index.php?page=register';
 
-        if ($data['full_name'] === '') {
-            addFieldError($errors, 'full_name', 'Your full name is required.');
-        }
-        if ($data['email'] === '' || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            addFieldError($errors, 'email', 'A valid email address is required.');
-        } elseif ($this->userModel->emailExists($data['email'])) {
+        normalisePhoneFields($data);
+        // Shape first, from the shared ruleset; the identity checks below are
+        // this controller's own and deliberately overwrite it.
+        validateSharedFields($data, $errors, ['full_name', 'email']);
+
+        if ($data['email'] !== '' && $this->userModel->emailExists($data['email'])) {
             addFieldError($errors, 'email', 'An account already uses that email address.');
         }
         if (strlen($data['username']) < 3) {

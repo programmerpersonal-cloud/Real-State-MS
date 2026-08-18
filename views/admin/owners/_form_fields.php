@@ -31,12 +31,8 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
                value="<?= sanitize($fd['full_name'] ?? '') ?>" required<?= $aria('full_name') ?>>
         <?= $err('full_name') ?>
     </div>
-    <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-phone">Phone <span class="req" aria-hidden="true">*</span></label>
-        <input type="tel" id="<?= $uid ?>-phone" name="phone" class="form-control<?= $bad('phone') ?>"
-               value="<?= sanitize($fd['phone'] ?? '') ?>" required<?= $aria('phone') ?>>
-        <?= $err('phone') ?>
-    </div>
+    <?php $phoneField = ['name' => 'phone', 'id' => $uid . '-phone', 'label' => 'Phone', 'value' => $fd['phone'] ?? '', 'required' => true];
+          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
 </div>
 
 <div class="form-row">

@@ -388,8 +388,7 @@ class OwnerController
     private function validateOwner(array $d, ?int $excludeId = null): array
     {
         $errors = [];
-        if ($d['full_name'] === '') $this->fieldError($errors, 'full_name', 'Full name is required.');
-        if ($d['phone'] === '')     $this->fieldError($errors, 'phone', 'Phone is required.');
+        validateSharedFields($d, $errors, ['full_name', 'phone']);
 
         if ($d['email'] !== '' && !filter_var($d['email'], FILTER_VALIDATE_EMAIL)) {
             $this->fieldError($errors, 'email', 'That email address is not valid.');
@@ -495,7 +494,7 @@ class OwnerController
 
     private function extractData(): array
     {
-        return [
+        $d = [
             'full_name'       => sanitize($_POST['full_name'] ?? ''),
             'phone'           => sanitize($_POST['phone'] ?? ''),
             'email'           => sanitize($_POST['email'] ?? ''),
@@ -507,5 +506,11 @@ class OwnerController
             'revenue_share'   => ($_POST['revenue_share'] ?? '') !== '' ? $_POST['revenue_share'] : null,
             'notes'           => sanitize($_POST['notes'] ?? ''),
         ];
+
+        /* Number and country selector folded into the one value that gets
+           stored, before validation or any duplicate check reads it. */
+        normalisePhoneFields($d);
+
+        return $d;
     }
 }

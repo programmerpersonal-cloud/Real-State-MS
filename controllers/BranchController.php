@@ -60,6 +60,7 @@ class BranchController
                 'manager_name' => sanitize($_POST['manager_name'] ?? ''),
                 'is_active'    => isset($_POST['is_active']) ? 1 : 0,
             ];
+            normalisePhoneFields($data);
             if ($errors = $this->validate($data)) {
                 rejectForm($errors, $data, $failUrl);
             }
@@ -119,6 +120,7 @@ class BranchController
                 'manager_name' => sanitize($_POST['manager_name'] ?? ''),
                 'is_active'    => isset($_POST['is_active']) ? 1 : 0,
             ];
+            normalisePhoneFields($data);
             // Editing had no validation: a branch could be renamed to nothing,
             // and it would then appear as a blank line in every staff form
             // that offers it.
@@ -166,6 +168,10 @@ class BranchController
     {
         unset($_SESSION['form_errors']);
         $errors = [];
+
+        // Shape first, from the shared ruleset: a manager's name is letters,
+        // a phone answers to its own country, an email is an email.
+        validateSharedFields($d, $errors, ['name']);
 
         // A branch with no name is unusable everywhere it is offered.
         if ($d['name'] === '') {

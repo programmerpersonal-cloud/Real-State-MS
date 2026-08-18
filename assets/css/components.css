@@ -2010,3 +2010,42 @@ a.segmented__btn.is-active{color:var(--text)}
 @media (prefers-reduced-motion:reduce){
   .table-card::before,.table-card::after{transition:none}
 }
+
+/* ── Phone field ────────────────────────────────────────────────────
+   A country selector welded to the number box, reading as one control:
+   two boxes side by side would look like two questions, and a phone
+   number is one. The selector takes only the width its dial code needs
+   so the number — the part people actually check — keeps the room.
+
+   The pair is validated against the selected country's own digit
+   lengths rather than one hard-coded length, which is the whole reason
+   the selector exists. */
+.phone-field{display:flex;align-items:stretch}
+.phone-field__country{
+  flex:0 0 auto;width:auto;max-width:11rem;
+  border-top-right-radius:0;border-bottom-right-radius:0;
+  border-right-color:transparent;
+  background-color:var(--surface-2);
+  font-size:var(--fs-xs);
+}
+.phone-field__number{
+  flex:1 1 auto;min-width:0;
+  border-top-left-radius:0;border-bottom-left-radius:0;
+}
+/* The seam only reads as one control while both halves agree on their
+   border; whichever half has focus owns it. */
+.phone-field__country:focus,
+.phone-field__number:focus{position:relative;z-index:1}
+.phone-field--error .phone-field__country{border-color:var(--danger)}
+
+@media (max-width:420px){
+  /* Below this a dial code and a nine-digit number stop fitting on one
+     line, and squeezing them makes both unreadable. */
+  .phone-field{flex-direction:column}
+  .phone-field__country{
+    max-width:none;
+    border-radius:var(--radius-sm) var(--radius-sm) 0 0;
+    border-right-color:var(--border);border-bottom-color:transparent;
+  }
+  .phone-field__number{border-radius:0 0 var(--radius-sm) var(--radius-sm)}
+}

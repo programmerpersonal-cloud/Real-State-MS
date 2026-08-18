@@ -159,6 +159,17 @@ function rejectForm(array $errors, array $data, string $failUrl): void
         : 'Please correct the ' . count($errors) . ' problems highlighted below.');
 
     unset($data['password'], $data['confirm_password'], $data['current_password']);
+
+    /* The country selector beside a phone number is not a column, so it never
+       reaches $data — but without it the number comes back judged against the
+       wrong country, and a valid Kenyan number is told it is the wrong length
+       for Somalia. Carried over from the request that was just rejected. */
+    foreach ($_POST as $key => $value) {
+        if (is_string($value) && str_ends_with($key, '_country') && !isset($data[$key])) {
+            $data[$key] = $value;
+        }
+    }
+
     $_SESSION['form_data'] = $data;
 
     redirect($failUrl);

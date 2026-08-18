@@ -162,13 +162,15 @@ class UserController
             unset($_SESSION['form_errors']);
             $errors = [];
 
-            if ($data['full_name'] === '') addFieldError($errors, 'full_name', 'A name is required.');
-            if ($data['email'] === '')     addFieldError($errors, 'email', 'An email address is required.');
+            normalisePhoneFields($data);
+            // Shape first, from the shared ruleset. The identity checks below
+            // are this module's own and deliberately overwrite it: "that email
+            // is already taken" is more use than "that is not an email".
+            validateSharedFields($data, $errors, ['full_name', 'email']);
+
             if ($data['username'] === '')  addFieldError($errors, 'username', 'A username is required.');
 
-            if ($data['email'] !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                addFieldError($errors, 'email', 'That does not look like an email address.');
-            } elseif ($data['email'] !== '' && $this->model->emailExists($data['email'])) {
+            if ($data['email'] !== '' && $this->model->emailExists($data['email'])) {
                 addFieldError($errors, 'email', 'An account already uses that email address.');
             }
             if ($data['username'] !== '' && $this->model->usernameExists($data['username'])) {
@@ -247,13 +249,15 @@ class UserController
             unset($_SESSION['form_errors']);
             $errors = [];
 
-            if ($data['full_name'] === '') addFieldError($errors, 'full_name', 'A name is required.');
-            if ($data['email'] === '')     addFieldError($errors, 'email', 'An email address is required.');
+            normalisePhoneFields($data);
+            // Shape first, from the shared ruleset. The identity checks below
+            // are this module's own and deliberately overwrite it: "that email
+            // is already taken" is more use than "that is not an email".
+            validateSharedFields($data, $errors, ['full_name', 'email']);
+
             if ($data['username'] === '')  addFieldError($errors, 'username', 'A username is required.');
 
-            if ($data['email'] !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                addFieldError($errors, 'email', 'That does not look like an email address.');
-            } elseif ($data['email'] !== '' && $this->model->emailExists($data['email'], $id)) {
+            if ($data['email'] !== '' && $this->model->emailExists($data['email'], $id)) {
                 addFieldError($errors, 'email', 'Another account already uses that email address.');
             }
             if ($data['username'] !== '' && $this->model->usernameExists($data['username'], $id)) {

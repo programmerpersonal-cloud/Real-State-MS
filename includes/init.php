@@ -45,10 +45,13 @@ require_once __DIR__ . '/navigation.php';
 // the status tone map lives there.
 require_once __DIR__ . '/ui.php';
 
-// Loaded after auth.php: all three read the signed-in role through
+/* One ruleset for what a name, a price, an email and a phone number are,
+   shared by the controllers and — as JSON — by the browser. */
+require_once __DIR__ . '/validation.php';
+
+// Loaded after auth.php: both read the signed-in role through
 // getUserRole()/hasRole().
 require_once __DIR__ . '/documents.php';
-require_once __DIR__ . '/legal.php';
 require_once __DIR__ . '/property_access.php';
 
 // Security headers

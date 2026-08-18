@@ -61,12 +61,8 @@ $defaultEmail = $fd['email'] ?? ($isStaff ? '' : ($currentUser['email'] ?? ''));
                     <?= $err('name') ?>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="inq-phone">Phone</label>
-                    <input class="form-control<?= $bad('phone') ?>" id="inq-phone" name="phone"
-                           type="tel" autocomplete="tel" value="<?= sanitize($fd['phone'] ?? '') ?>"<?= $aria('phone') ?>>
-                    <?= $err('phone') ?>
-                </div>
+    <?php $phoneField = ['name' => 'phone', 'id' => 'inq-phone', 'label' => 'Phone', 'value' => $fd['phone'] ?? ''];
+          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
             </div>
 
             <div class="form-group">

@@ -573,28 +573,159 @@ function setFieldError(field, message) {
 }
 
 /** Why this control is not acceptable, or '' when it is. */
+/* The shared ruleset, as PHP declared it. Read once, on first use.
+
+   This is the same table includes/validation.php validates against on the
+   server — handed over as data rather than restated here, because two
+   descriptions of what a valid phone number is will eventually disagree and
+   the one people meet first is this one. */
+let VALIDATION = null;
+function validationRules() {
+  if (VALIDATION !== null) return VALIDATION;
+  const el = document.getElementById('validationRules');
+  try {
+    VALIDATION = el ? JSON.parse(el.textContent) : {};
+  } catch (e) {
+    VALIDATION = {};       // malformed: fall back to the browser's own checks
+  }
+  return VALIDATION;
+}
+
+function validationMessage(key, vars) {
+  const rules = validationRules();
+  let msg = (rules.messages && rules.messages[key]) || '';
+  for (const k in (vars || {})) msg = msg.replace('{' + k + '}', vars[k]);
+  return msg;
+}
+
+/** Which rule applies to a control: what it says it is, else what it is named. */
+function fieldRule(field) {
+  const rules = validationRules();
+  const declared = field.dataset.validateType;
+  if (declared) return { type: declared, opts: {} };
+
+  const spec = (rules.fields || {})[field.name];
+  if (spec) {
+    const opts = Object.assign({}, spec);
+    delete opts.type;
+    return { type: spec.type, opts };
+  }
+  return null;
+}
+
+/** The country a phone input is currently set to, from its sibling selector. */
+function phoneCountryOf(field) {
+  const sel = field.form && field.form.querySelector('[name="' + field.name + '_country"]');
+  const rules = validationRules();
+  return (sel && sel.value) || rules.defaultCountry || 'SO';
+}
+
 function fieldProblem(field) {
   if (field.disabled || field.type === 'hidden') return '';
 
-  if (field.hasAttribute('required') && !field.value.trim()) {
-    return fieldLabel(field) + ' is required.';
+  const rules = validationRules();
+  const value = (field.value || '').trim();
+
+  // Empty first, always: telling someone their blank field is the wrong shape
+  // is nonsense, and "fill this in" is the only useful thing to say.
+  if (field.hasAttribute('required') && !value) {
+    return validationMessage('required') || (fieldLabel(field) + ' is required.');
   }
-  if (field.value.trim() && !field.checkValidity()) {
-    // The browser already knows what is wrong with an email or a number, and
-    // its wording is localised — better than anything hard-coded here.
-    return field.validationMessage;
+  if (!value) return '';
+
+  const rule = fieldRule(field);
+  if (rule && rules.types) {
+    if (rule.type === 'phone') {
+      const c = (rules.countries || {})[phoneCountryOf(field)];
+      if (c) {
+        const digits = value.replace(/\D+/g, '').replace(/^0+/, '');
+        if (!digits) return validationMessage('phone');
+        if (c.lengths.indexOf(digits.length) === -1) {
+          return validationMessage('phoneLen', {
+            country: c.name, lengths: c.lengths.join(' ama '),
+          });
+        }
+        return '';
+      }
+    }
+
+    const t = rules.types[rule.type];
+    if (t && t.pattern && !new RegExp(t.pattern, 'u').test(value)) {
+      return validationMessage(t.message);
+    }
+
+    const o = rule.opts || {};
+    if (o.max && value.length > o.max) return validationMessage('max', { max: o.max });
+    if (o.min && value.length < o.min) return validationMessage('min', { min: o.min });
+
+    if (rule.type === 'number' || rule.type === 'integer') {
+      const n = parseFloat(value);
+      if (o.positive && !(n > 0)) return validationMessage('positive');
+      if (o.minValue !== undefined && n < o.minValue) return validationMessage('minValue', { min: o.minValue });
+      if (o.maxValue !== undefined && n > o.maxValue) return validationMessage('maxValue', { max: o.maxValue });
+    }
+    return '';
   }
+
+  // No shared rule for this field: the browser's own check still applies, and
+  // its wording is localised, which is better than anything invented here.
+  if (!field.checkValidity()) return field.validationMessage;
   return '';
+}
+
+/**
+ * Refuse characters that cannot belong in a field as they are typed.
+ *
+ * Only where the wrong character is unambiguous — a letter in a price, a digit
+ * in a person's name. Never on free text, where guessing at what someone meant
+ * to type is how a form starts fighting the person filling it in. The caret is
+ * put back where it was, so correcting a character mid-word does not throw the
+ * cursor to the end.
+ */
+function initInputFilter(field) {
+  const rule = fieldRule(field);
+  const rules = validationRules();
+  if (!rule || !rules.types || !rules.types[rule.type] || !rules.types[rule.type].filter) return;
+
+  const keep = {
+    name: /[^\p{L} '\-.]/gu,
+    integer: /[^0-9]/g,
+    number: /[^0-9.]/g,
+    phone: /[^0-9 ]/g,
+  }[rule.type];
+  if (!keep) return;
+
+  field.addEventListener('input', () => {
+    const before = field.value;
+    const cleaned = before.replace(keep, '');
+    if (cleaned === before) return;
+    const at = field.selectionStart;
+    field.value = cleaned;
+    const moved = before.length - cleaned.length;
+    try { field.setSelectionRange(at - moved, at - moved); } catch (e) { /* not a text input */ }
+  });
 }
 
 function initFormValidation(form) {
   const controls = () => Array.from(form.elements).filter(el =>
     el.name && !el.disabled && ['hidden', 'submit', 'button'].indexOf(el.type) === -1);
 
+  /* Hand the browser's own validation over to ours — but only once this code
+     is running, which is why it is set here rather than in the markup.
+
+     A `required` field the browser considers empty cancels submission before
+     the submit event is dispatched, so none of the handling below ever ran:
+     the user got the browser's native bubble, in the browser's language,
+     floating above the field instead of the message that belongs beside it.
+     With scripting off the attribute is never set and native validation is
+     still the fallback, which is exactly the right order of precedence. */
+  form.noValidate = true;
+
   // Validate on blur, never on keystroke: marking a field invalid while it is
   // still being typed into tells someone they are wrong before they have
   // finished. Once marked, it clears as soon as it is fixed.
   controls().forEach(field => {
+    initInputFilter(field);
     field.addEventListener('blur', () => {
       if (field.value.trim() || field.classList.contains('form-control--error')) {
         setFieldError(field, fieldProblem(field));
@@ -604,6 +735,20 @@ function initFormValidation(form) {
       if (field.classList.contains('form-control--error') && !fieldProblem(field)) {
         setFieldError(field, '');
       }
+    });
+  });
+
+  // A phone is judged against its country, so changing the country re-judges
+  // the number. Without this a field stays marked wrong after the very action
+  // that made it right.
+  form.querySelectorAll('.phone-field__country').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const num = form.querySelector('[name="' + sel.name.replace(/_country$/, '') + '"]');
+      if (!num) return;
+      const rules = validationRules();
+      const c = (rules.countries || {})[sel.value];
+      if (c) num.placeholder = c.example;
+      if (num.value.trim()) setFieldError(num, fieldProblem(num));
     });
   });
 
@@ -619,7 +764,7 @@ function initFormValidation(form) {
     const pw = form.querySelector('[name="password"]');
     const cpw = form.querySelector('[name="confirm_password"]');
     if (pw && cpw && cpw.value && pw.value !== cpw.value) {
-      const msg = 'The two passwords do not match.';
+      const msg = validationMessage('passwordMatch') || 'The two passwords do not match.';
       setFieldError(cpw, msg);
       bad.push([cpw, msg]);
     }
@@ -631,9 +776,8 @@ function initFormValidation(form) {
       // Valid: show the submit working, so a slow save does not read as a
       // dead button and get pressed a second time.
       //
-      // e.submitter, not the first submit button in the form. A form with two
-      // submits — "Save draft" and "Save & publish" on the terms editor —
-      // would otherwise spin the wrong one.
+      // e.submitter, not the first submit button in the form. A form with
+      // more than one submit button would otherwise spin the wrong one.
       const submit = e.submitter && e.submitter.type === 'submit'
         ? e.submitter
         : form.querySelector('[type="submit"]');
@@ -642,10 +786,10 @@ function initFormValidation(form) {
         submit.classList.add('is-loading');
         // Deliberately NOT `submit.disabled = true`. A disabled submit button
         // is excluded from the form's data, so disabling it here would drop
-        // its name and value from the request that is about to be sent —
-        // which on the terms editor turned "Save & publish" into a plain
-        // save. .is-loading already sets pointer-events:none, and the flag
-        // below is what actually stops a second submission.
+        // its name and value from the request that is about to be sent, which
+        // silently changes what a form with more than one submit asks for.
+        // .is-loading already sets pointer-events:none, and the flag below
+        // is what actually stops a second submission.
         if (form.dataset.submitting === '1') {
           e.preventDefault();
           return;

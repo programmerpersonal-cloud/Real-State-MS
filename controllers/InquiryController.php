@@ -155,6 +155,11 @@ class InquiryController
             $errors  = [];
             $failUrl = APP_URL . '/index.php?page=inquiries&action=create';
 
+            normalisePhoneFields($data);
+            // No required list: an enquiry needs a name and a way to reply,
+            // and which of email or phone that is stays this module's rule.
+            validateSharedFields($data, $errors);
+
             if (!$data['message']) {
                 addFieldError($errors, 'message', 'Write the enquiry itself — this is what the office will read.');
             }

@@ -27,12 +27,8 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
                autocomplete="name" value="<?= sanitize($u['full_name'] ?? '') ?>" required<?= $aria('full_name') ?>>
         <?= $err('full_name') ?>
     </div>
-    <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-phone">Phone</label>
-        <input class="form-control<?= $bad('phone') ?>" id="<?= $uid ?>-phone" name="phone"
-               type="tel" autocomplete="tel" value="<?= sanitize($u['phone'] ?? '') ?>"<?= $aria('phone') ?>>
-        <?= $err('phone') ?>
-    </div>
+    <?php $phoneField = ['name' => 'phone', 'id' => $uid . '-phone', 'label' => 'Phone', 'value' => $u['phone'] ?? ''];
+          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
 </div>
 
 <h4 class="form-section">How they sign in</h4>

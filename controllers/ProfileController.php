@@ -34,6 +34,7 @@ class ProfileController
             'email'     => sanitize($_POST['email']),
             'phone'     => sanitize($_POST['phone'] ?? ''),
         ];
+        normalisePhoneFields($data);
         if (!empty($_FILES['avatar']['name'])) {
             $path = uploadFile($_FILES['avatar'], 'avatars', ALLOWED_IMAGE_TYPES);
             if ($path) {

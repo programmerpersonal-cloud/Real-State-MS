@@ -445,8 +445,9 @@ class CustomerController
     private function validateCustomer(array $d, ?int $excludeId = null): array
     {
         $errors = [];
-        if ($d['full_name'] === '') $this->fieldError($errors, 'full_name', 'Full name is required.');
-        if ($d['phone'] === '')     $this->fieldError($errors, 'phone', 'Phone is required.');
+        // Shape first, from the shared ruleset: required, letters-only names,
+        // a real email, a phone that matches its own country's digit lengths.
+        validateSharedFields($d, $errors, ['full_name', 'phone']);
 
         // The type decides which lists and reports this person belongs in, so a
         // value outside the column's enum is refused here rather than being
@@ -455,9 +456,6 @@ class CustomerController
             $this->fieldError($errors, 'customer_type', 'Choose a customer type: Tenant, Buyer, or Both.');
         }
 
-        if ($d['email'] !== '' && !filter_var($d['email'], FILTER_VALIDATE_EMAIL)) {
-            $this->fieldError($errors, 'email', 'That email address is not valid.');
-        }
         // A second profile for the same person is the very thing that split the
         // Customers and Users lists apart, so identity clashes are refused here.
         if ($d['email'] !== '' && ($clash = $this->model->findByEmail($d['email'], $excludeId))) {
@@ -583,7 +581,7 @@ class CustomerController
         // validateCustomer(), so a tampered <select> cannot write nonsense.
         $gender = $_POST['gender'] ?? '';
 
-        return [
+        $d = [
             'full_name'         => sanitize($_POST['full_name'] ?? ''),
             'email'             => sanitize($_POST['email'] ?? ''),
             'phone'             => sanitize($_POST['phone'] ?? ''),
@@ -600,5 +598,12 @@ class CustomerController
             'notes'             => sanitize($_POST['notes'] ?? ''),
             'risk_level'        => in_array($_POST['risk_level'] ?? '', self::RISKS, true) ? $_POST['risk_level'] : 'low',
         ];
+
+        /* Number and country selector folded into one stored value before
+           anything else looks at it — validation, the duplicate-phone check
+           and the write all have to be reading the same string. */
+        normalisePhoneFields($d);
+
+        return $d;
     }
 }

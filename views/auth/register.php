@@ -56,13 +56,9 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
                                autocomplete="email" placeholder="you@example.com" required<?= $aria('email') ?>>
                         <?= $err('email') ?>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="phone">Phone</label>
-                        <input type="tel" class="form-control<?= $bad('phone') ?>" id="phone" name="phone"
-                               value="<?= sanitize($formData['phone'] ?? '') ?>"
-                               autocomplete="tel" placeholder="Optional"<?= $aria('phone') ?>>
-                        <?= $err('phone') ?>
-                    </div>
+                    <?php $phoneField = ['name' => 'phone', 'id' => 'phone', 'label' => 'Phone',
+                                        'value' => $formData['phone'] ?? ''];
+                          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
                 </div>
 
                 <div class="form-group">

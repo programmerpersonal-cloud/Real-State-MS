@@ -22,6 +22,14 @@ $jsVersion = static function (string $script): string {
     return $mtime === false ? '' : '?v=' . $mtime;
 };
 ?>
+<?php /* The validation ruleset, handed to the browser as data rather than
+         restated in JavaScript. There is one definition of what a valid
+         Somali phone number is and it lives in includes/validation.php; this
+         is a copy of it, not a second opinion. JSON, not inline JS, so the
+         page carries no executable string. */ ?>
+<script type="application/json" id="validationRules"><?=
+    json_encode(validationClientRules(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+?></script>
 <?php foreach (['main', 'components'] as $script): ?>
 <script src="<?= JS_URL ?>/<?= $script ?>.js<?= $jsVersion($script) ?>"></script>
 <?php endforeach ?>
