@@ -15,6 +15,10 @@
    Transient confirmation, announced politely.
    ═══════════════════════════════════════════════════════════ */
 
+/* How many toasts may stand at once. Past three the stack starts covering
+   the page it is reporting on, and nobody reads the fourth. */
+const TOAST_LIMIT = 3;
+
 const TOAST_ICONS = {
   success: 'bi-check-circle-fill',
   danger: 'bi-exclamation-triangle-fill',
@@ -40,8 +44,12 @@ function toastRegion() {
 }
 
 /**
- * Show a toast. Hovering pauses the timer — a message that disappears while
- * it is being read is worse than one that never appeared.
+ * Show a toast.
+ *
+ * A countdown bar along the foot says how long is left, and pointing at the
+ * toast or tabbing into it stops that clock: a message that disappears while
+ * it is being read is worse than one that never appeared. At most three stand
+ * at once — past that the stack covers the page it is reporting on.
  */
 function showToast(message, tone, title, timeout) {
   tone = tone || 'info';
@@ -63,20 +71,77 @@ function showToast(message, tone, title, timeout) {
   if (title) el.querySelector('.toast__title').textContent = title;
   el.querySelector('.toast__text').textContent = message;
 
-  toastRegion().appendChild(el);
+  // The dismiss clock, made visible. A toast that simply vanishes gives no
+  // sense of how long is left to read it; the bar does, and pausing it on
+  // hover or focus is what turns "read fast" into "read when you like".
+  if (timeout) {
+    const bar = document.createElement('span');
+    bar.className = 'toast__progress';
+    bar.style.animationDuration = timeout + 'ms';
+    el.appendChild(bar);
+  }
+
+  const region = toastRegion();
+  region.appendChild(el);
+
+  // Three at once is the ceiling. Beyond that the stack covers the page it is
+  // reporting on, and nobody reads the fourth — the oldest goes so the newest
+  // is always the one in view.
+  const live = region.querySelectorAll('.toast:not(.is-out)');
+  for (let i = 0; i < live.length - TOAST_LIMIT; i++) {
+    const old = live[i];
+    if (typeof old.dismissToast === 'function') old.dismissToast();
+  }
+
   requestAnimationFrame(() => el.classList.add('is-in'));
 
   let timer = null;
+  let dismissed = false;
+  let remaining = timeout;   // ms still owed; the bar above is its picture
+  let startedAt = 0;
+
   const dismiss = () => {
+    if (dismissed) return;   // close clicked while the timer was also firing
+    dismissed = true;
     clearTimeout(timer);
     el.classList.add('is-out');
     setTimeout(() => el.remove(), 220);
   };
-  const start = () => { if (timeout) timer = setTimeout(dismiss, timeout); };
+
+  const start = () => {
+    if (!timeout || dismissed || timer) return;
+    // The bar is paused by CSS on :hover and :focus-within, and resumes from
+    // where it stopped. The timer has to resume from the same place or the
+    // two disagree — a bar that empties with seconds still on the clock, or a
+    // toast that vanishes with bar left to run.
+    startedAt = Date.now();
+    timer = setTimeout(dismiss, remaining);
+  };
+  const pause = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+    remaining = Math.max(0, remaining - (Date.now() - startedAt));
+  };
+  // Pointer and keyboard hold the toast independently, and CSS keeps the bar
+  // paused while either applies. Resuming on one while the other still holds
+  // would restart the clock under a bar that is still stopped.
+  const held = () => el.matches(':hover') || el.contains(document.activeElement);
+  const release = () => { if (!held()) start(); };
+
+  // Exposed so the stack limit above can retire this toast through the same
+  // path a click takes, rather than tearing it out of the DOM mid-animation.
+  el.dismissToast = dismiss;
 
   el.querySelector('.toast__close').addEventListener('click', dismiss);
-  el.addEventListener('mouseenter', () => clearTimeout(timer));
-  el.addEventListener('mouseleave', start);
+  el.addEventListener('mouseenter', pause);
+  el.addEventListener('mouseleave', release);
+  // Keyboard users reach the close button by tabbing; the clock has to stop
+  // for them too, or the control moves out from under them mid-reach.
+  el.addEventListener('focusin', pause);
+  el.addEventListener('focusout', (e) => {
+    if (!el.contains(e.relatedTarget)) release();
+  });
   start();
 
   return el;
@@ -346,6 +411,9 @@ function openConfirm(trigger) {
   const el = confirmDialog();
   const dialog = el.querySelector('.modal__dialog');
   const d = trigger.dataset;
+  // Measured now, because closeRowMenus() below hides the menu this trigger
+  // may live in — and a hidden element has no rect to grow the dialog from.
+  const from = trigger.getBoundingClientRect();
   const tone = d.confirmTone || 'danger';
 
   el.classList.remove('confirm--warning', 'confirm--info');
@@ -368,6 +436,8 @@ function openConfirm(trigger) {
 
   const lastFocused = document.activeElement;
   el.hidden = false;
+  // Grows out of the control that asked the question.
+  setModalOrigin(dialog, from);
   lockPageScroll(true);
   requestAnimationFrame(() => {
     el.classList.add('is-open');

@@ -19,21 +19,23 @@ $showAccount = false;
         <form method="POST" enctype="multipart/form-data" data-validate>
             <?= csrfField() ?>
 
+            <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
+
             <?php require __DIR__ . '/_form_fields.php'; ?>
 
             <?php if (!empty($fd['account_id'])): ?>
                 <?php /* Renaming here also renames the account, so the two lists keep
                          describing one person. Said plainly rather than done quietly. */ ?>
-                <div class="form-hint mt-2" >
+                <div class="form-hint mt-2">
                     <i class="bi bi-info-circle"></i>
                     This customer signs in as <strong><?= sanitize($fd['account_email']) ?></strong>.
                     Changes to the name and phone are applied to that account too.
                 </div>
             <?php endif ?>
 
-            <div class="action-row">
-                <button type="submit" class="btn btn--primary btn--lg"><i class="bi bi-check-lg"></i> Save Changes</button>
-                <a href="<?= APP_URL ?>/index.php?page=customers&action=show&id=<?= $fd['id'] ?>" class="btn btn--outline btn--lg">Cancel</a>
+            <div class="form-actions">
+                <a href="<?= APP_URL ?>/index.php?page=customers&amp;action=show&amp;id=<?= (int) $fd['id'] ?>" class="btn btn--outline">Cancel</a>
+                <button type="submit" class="btn btn--primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save changes</button>
             </div>
         </form>
     </div>

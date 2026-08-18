@@ -26,14 +26,14 @@ foreach ($categoryMeta as $cid => $meta) {
 }
 ?>
 <div class="form-group">
-    <label class="form-label" for="<?= $uid ?>-title">Document name *</label>
+    <label class="form-label" for="<?= $uid ?>-title">Document name <span class="req" aria-hidden="true">*</span></label>
     <input type="text" id="<?= $uid ?>-title" name="title" class="form-control" required maxlength="200"
            value="<?= sanitize($fd['title'] ?? '') ?>" placeholder="e.g. Title deed — Plot 14/B">
 </div>
 
 <div class="form-grid--2">
     <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-category">Category *</label>
+        <label class="form-label" for="<?= $uid ?>-category">Category <span class="req" aria-hidden="true">*</span></label>
         <select name="category_id" id="<?= $uid ?>-category" class="form-control" required
                 data-doc-category data-visibility-map="<?= sanitize(json_encode($visibilityDefaults, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)) ?>">
             <option value="">— Select a category —</option>
@@ -52,7 +52,7 @@ foreach ($categoryMeta as $cid => $meta) {
     </div>
 
     <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-visibility">Visibility *</label>
+        <label class="form-label" for="<?= $uid ?>-visibility">Visibility <span class="req" aria-hidden="true">*</span></label>
         <select name="visibility" id="<?= $uid ?>-visibility" class="form-control" required data-doc-visibility>
             <?php foreach (DOC_VISIBILITIES as $key => $label): ?>
                 <option value="<?= $key ?>" <?= ($fd['visibility'] ?? 'staff') === $key ? 'selected' : '' ?>>
@@ -70,7 +70,7 @@ foreach ($categoryMeta as $cid => $meta) {
     <input type="hidden" name="property_id" value="<?= (int) $fixedProperty['id'] ?>">
 <?php else: ?>
     <div class="form-group">
-        <label class="form-label" for="<?= $uid ?>-property">Property *</label>
+        <label class="form-label" for="<?= $uid ?>-property">Property <span class="req" aria-hidden="true">*</span></label>
         <select name="property_id" id="<?= $uid ?>-property" class="form-control" required>
             <option value="">— Select property —</option>
             <?php foreach (($properties ?? []) as $p): ?>

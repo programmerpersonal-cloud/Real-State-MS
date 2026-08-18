@@ -29,13 +29,16 @@ $uid  = 'tf';
         <div class="card__body">
             <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
             <?php require __DIR__ . '/_form_fields.php'; ?>
-        </div>
 
-        <div class="card__footer">
+            <?php /* .form-actions already draws its own rule and top spacing, so
+                     the .card__footer this used to sit in drew both a second
+                     time. It closes the body now, as it does on every other
+                     form — which is also what lets it become sticky when the
+                     form outgrows the screen. */ ?>
             <div class="form-actions">
                 <a class="btn btn--ghost" href="<?= APP_URL ?>/index.php?page=testimonials">Cancel</a>
                 <button class="btn btn--primary" type="submit">
-                    <i class="bi bi-check-lg"></i> <?= $id ? 'Save changes' : 'Add review' ?>
+                    <i class="bi bi-check-lg" aria-hidden="true"></i> <?= $id ? 'Save changes' : 'Add review' ?>
                 </button>
             </div>
         </div>

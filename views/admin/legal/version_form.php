@@ -34,7 +34,7 @@ $formAction = $isNew
 
         <div class="card__body">
             <div class="form-group">
-                <label class="form-label" for="tv-title">Title *</label>
+                <label class="form-label" for="tv-title">Title <span class="req" aria-hidden="true">*</span></label>
                 <input type="text" id="tv-title" name="title" class="form-control" required maxlength="200"
                        value="<?= sanitize($fd['title'] ?? ($type['name'] . ' ' . $nextCode)) ?>">
             </div>
@@ -58,7 +58,7 @@ $formAction = $isNew
             <h4 class="form-section">Terms text</h4>
 
             <div class="form-group">
-                <label class="form-label" for="tv-body">Body *</label>
+                <label class="form-label" for="tv-body">Body <span class="req" aria-hidden="true">*</span></label>
                 <textarea id="tv-body" name="body" class="form-control form-control--code" rows="22" required
                           placeholder="## 1. Deposit&#10;&#10;The **deposit** is refundable within 14 days provided that:&#10;&#10;- the property is undamaged&#10;- all rent is settled"><?= sanitize($fd['body'] ?? '') ?></textarea>
                 <div class="form-hint">

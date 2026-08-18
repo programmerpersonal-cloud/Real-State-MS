@@ -140,13 +140,13 @@ $typeLabel = ucfirst($grantCustomer['customer_type'] ?? 'customer');
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="ca-password">Create Password *</label>
+                            <label class="form-label" for="ca-password">Create Password <span class="req" aria-hidden="true">*</span></label>
                             <input type="password" id="ca-password" name="password" class="form-control" required
                                    autocomplete="new-password" minlength="<?= PASSWORD_MIN_LENGTH ?>" data-password>
                             <div class="form-hint">At least <?= PASSWORD_MIN_LENGTH ?> characters. Stored hashed — never in plain text.</div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="ca-password2">Confirm Password *</label>
+                            <label class="form-label" for="ca-password2">Confirm Password <span class="req" aria-hidden="true">*</span></label>
                             <input type="password" id="ca-password2" name="confirm_password" class="form-control" required
                                    autocomplete="new-password" minlength="<?= PASSWORD_MIN_LENGTH ?>" data-password-confirm>
                             <div class="form-error" data-password-mismatch hidden>

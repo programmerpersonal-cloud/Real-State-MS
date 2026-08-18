@@ -53,7 +53,7 @@ $blocked   = $accountMatch && $matchRole !== ROLE_CUSTOMER;
                     <?php endif ?>
 
                     <div class="form-group">
-                        <label class="form-label" for="cl-email">Email / login *</label>
+                        <label class="form-label" for="cl-email">Email / login <span class="req" aria-hidden="true">*</span></label>
                         <input type="email" id="cl-email" name="email" class="form-control" required
                                value="<?= sanitize($blocked ? '' : ($customer['email'] ?? '')) ?>">
                         <div class="form-hint">This is what the customer types to sign in.</div>
@@ -61,13 +61,13 @@ $blocked   = $accountMatch && $matchRole !== ROLE_CUSTOMER;
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="cl-password">Password *</label>
+                            <label class="form-label" for="cl-password">Password <span class="req" aria-hidden="true">*</span></label>
                             <input type="password" id="cl-password" name="password" class="form-control"
                                    autocomplete="new-password" required minlength="<?= PASSWORD_MIN_LENGTH ?>">
                             <div class="form-hint">At least <?= PASSWORD_MIN_LENGTH ?> characters. Stored hashed.</div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="cl-password2">Confirm Password *</label>
+                            <label class="form-label" for="cl-password2">Confirm Password <span class="req" aria-hidden="true">*</span></label>
                             <input type="password" id="cl-password2" name="confirm_password" class="form-control"
                                    autocomplete="new-password" required minlength="<?= PASSWORD_MIN_LENGTH ?>">
                         </div>

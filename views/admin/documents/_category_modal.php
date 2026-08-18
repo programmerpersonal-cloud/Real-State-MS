@@ -39,7 +39,7 @@ $eid = (int) ($fd['id'] ?? $editing['id'] ?? 0);
 
             <div class="modal__body">
                 <div class="form-group">
-                    <label class="form-label" for="cat-name">Name *</label>
+                    <label class="form-label" for="cat-name">Name <span class="req" aria-hidden="true">*</span></label>
                     <input type="text" id="cat-name" name="name" class="form-control" required maxlength="100"
                            value="<?= sanitize($fd['name'] ?? '') ?>" placeholder="e.g. Energy Certificate">
                 </div>

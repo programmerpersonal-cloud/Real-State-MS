@@ -39,7 +39,7 @@ $adopting = !empty($accountMatch);
                     <input type="hidden" name="email" value="<?= sanitize($accountMatch['email']) ?>">
                 <?php else: ?>
                     <div class="form-group">
-                        <label class="form-label" for="ol-email">Email / login *</label>
+                        <label class="form-label" for="ol-email">Email / login <span class="req" aria-hidden="true">*</span></label>
                         <input type="email" id="ol-email" name="email" class="form-control" required
                                value="<?= sanitize($owner['email'] ?? '') ?>">
                         <div class="form-hint">This is what the owner types to sign in.</div>
@@ -47,13 +47,13 @@ $adopting = !empty($accountMatch);
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="ol-password">Password *</label>
+                            <label class="form-label" for="ol-password">Password <span class="req" aria-hidden="true">*</span></label>
                             <input type="password" id="ol-password" name="password" class="form-control"
                                    autocomplete="new-password" required minlength="<?= PASSWORD_MIN_LENGTH ?>">
                             <div class="form-hint">At least <?= PASSWORD_MIN_LENGTH ?> characters. Stored hashed.</div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="ol-password2">Confirm Password *</label>
+                            <label class="form-label" for="ol-password2">Confirm Password <span class="req" aria-hidden="true">*</span></label>
                             <input type="password" id="ol-password2" name="confirm_password" class="form-control"
                                    autocomplete="new-password" required minlength="<?= PASSWORD_MIN_LENGTH ?>">
                         </div>

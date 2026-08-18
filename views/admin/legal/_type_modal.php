@@ -35,7 +35,7 @@ $tid = (int) ($fd['id'] ?? $editingType['id'] ?? 0);
 
             <div class="modal__body">
                 <div class="form-group">
-                    <label class="form-label" for="tt-name">Name *</label>
+                    <label class="form-label" for="tt-name">Name <span class="req" aria-hidden="true">*</span></label>
                     <input type="text" id="tt-name" name="name" class="form-control" required maxlength="120"
                            value="<?= sanitize($fd['name'] ?? '') ?>" placeholder="e.g. Short-let Terms">
                 </div>

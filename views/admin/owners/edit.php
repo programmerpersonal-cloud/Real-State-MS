@@ -15,11 +15,13 @@ $showAccount = false;
         <form method="POST" data-validate>
             <?= csrfField() ?>
 
+            <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
+
             <?php require __DIR__ . '/_form_fields.php'; ?>
 
             <div class="form-actions">
                 <a href="<?= APP_URL ?>/index.php?page=owners&action=show&id=<?= $fd['id'] ?>" class="btn btn--outline">Cancel</a>
-                <button type="submit" class="btn btn--primary"><i class="bi bi-check-lg"></i> Save Changes</button>
+                <button type="submit" class="btn btn--primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save changes</button>
             </div>
         </form>
     </div>

@@ -175,14 +175,6 @@
 /* The submit/cancel bar at the foot of a full-page form. Separated by a rule
    rather than only by space, so on a long form it reads as the end of the
    form rather than another section. */
-.form-actions{
-  display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;
-  margin-top:var(--space-6);padding-top:var(--space-5);
-  border-top:1px solid var(--border);
-}
-@media(max-width:560px){
-  .form-actions .btn{flex:1;justify-content:center;min-width:140px}
-}
 
 .check-row{display:flex;flex-wrap:wrap;gap:var(--space-3) var(--space-5);margin-bottom:var(--space-5)}
 .check{
@@ -323,7 +315,6 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 @media(max-width:768px){.form-grid--2,.form-grid--3{grid-template-columns:1fr}}
 .form-checkbox{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--text);padding:8px 0;cursor:pointer}
 .form-checkbox input{width:16px;height:16px;accent-color:var(--primary);cursor:pointer}
-.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
 /* A figure the form derives rather than asks for — the buyer's total, a
    computed balance. It is an outcome, so it does not wear a label and a box
    like something you can type into. */
@@ -1444,9 +1435,9 @@ a.segmented__btn.is-active{color:var(--text)}
 .btn--primary:hover{box-shadow:0 2px 4px rgba(0,117,192,.28),0 6px 16px -4px rgba(0,117,192,.38)}
 .btn--primary:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,117,192,.24)}
 
-/* Quieter than primary and clearly not it: a border and the page ground,
-   no fill and no shadow. */
-.btn--outline{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+/* Quieter than primary and clearly not it: the base declaration above
+   already sets the ground and border; this only changes how it answers
+   the pointer — away from the brand tint, which read as a second primary. */
 .btn--outline:hover{background:var(--surface-2);border-color:var(--text-muted);color:var(--text)}
 .btn--ghost{background:transparent;border-color:transparent;color:var(--text-muted)}
 .btn--ghost:hover{background:var(--surface-3);color:var(--text)}
@@ -1738,10 +1729,6 @@ a.segmented__btn.is-active{color:var(--text)}
    a stray inline box that breaks the gap. */
 .inline-form{display:contents}
 
-/* A row of controls under a block of content. */
-.action-row{display:flex;gap:var(--space-3);flex-wrap:wrap;margin-top:var(--space-6)}
-.action-row--tight{margin-top:var(--space-3)}
-
 /* A record that is switched off — an inactive category, a disabled row.
    Dimmed rather than hidden, because it is still a record. */
 .is-muted-row{opacity:.55}
@@ -1750,3 +1737,100 @@ a.segmented__btn.is-active{color:var(--text)}
 /* A narrow single-column page: a short form, a preview. */
 .measure-sm{max-width:520px;margin-inline:auto}
 .measure-md{max-width:700px;margin-inline:auto}
+
+/* ════════════════════════════════════════════════════════════════════
+   STEP 5 — FORMS, MODALS, FEEDBACK
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Form rhythm ────────────────────────────────────────────────────
+   The pieces of a form were spaced by four different literals — 18px
+   between groups, 14px inside a grid, --space-5 under a check row —
+   so two forms built from the same partials sat to different rules.
+   One scale now, and the gaps step with meaning: fields inside a group
+   are closer than groups, groups closer than sections. */
+.form-group{margin-bottom:var(--space-4)}
+.form-group:last-child{margin-bottom:0}
+.form-row,
+.form-grid,
+.form-grid--2,
+.form-grid--3{gap:var(--space-4)}
+.check-row{margin-bottom:var(--space-4)}
+
+/* ── Sticky form actions ────────────────────────────────────────────
+   Applied by JS, and only to a form genuinely taller than the viewport:
+   Save pinned to the foot of a form that already fits is a bar taking
+   space for no reason. The class is what makes it opt-in rather than a
+   blanket rule.
+
+   It sits inside the card, so the card's own inset is cancelled and
+   re-applied — otherwise the bar would float in the middle of the
+   padding with the card's white showing beneath it. */
+.form-actions--sticky{
+  position:sticky;bottom:0;z-index:5;
+  margin:var(--space-6) calc(var(--card-pad-x) * -1) calc(var(--card-pad-x) * -1);
+  padding:var(--space-3) var(--card-pad-x);
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  /* The card is rounded and does not clip, so a square bar would show its
+     corners poking past the card's. It takes the card's own radius on the
+     two corners it shares. */
+  border-radius:0 0 var(--card-radius) var(--card-radius);
+  box-shadow:0 -4px 16px -8px rgba(29,51,64,.18);
+  transition:box-shadow var(--dur-base) var(--ease-standard);
+}
+/* Once the bar reaches the bottom of the form there is nothing below it to
+   separate from, so the lift goes away and it settles into the card. */
+.form-actions--sticky:not(.is-pinned){box-shadow:none}
+@media (max-width:520px){
+  /* The narrow-screen rule above stacks form buttons into a column, which is
+     right for a bar sitting at the end of a form and wrong for one pinned to
+     the screen: stacked, it would hold a sixth of a phone display for as long
+     as the form is open. Pinned, the two stay side by side. */
+  .form-actions--sticky{flex-direction:row;align-items:center}
+  .form-actions--sticky .btn{width:auto;flex:1}
+}
+/* A modal scrolls its own body, so a sticky bar inside one would pin to
+   the wrong box. The modal already has a footer for this. */
+.modal .form-actions--sticky{position:static;margin:0;box-shadow:none}
+
+/* ── Modal ──────────────────────────────────────────────────────────
+   The dialog grows from where it was opened rather than from the middle
+   of the screen. --modal-origin-x/y are written by JS from the trigger's
+   position; the fallback is the centre, which is what a modal opened by
+   the keyboard or by a redirect should do. */
+.modal__dialog{
+  transform-origin:var(--modal-origin-x,50%) var(--modal-origin-y,50%);
+}
+
+/* ── Toast ──────────────────────────────────────────────────────────
+   The bar is the dismiss timer made visible. Without it a toast that
+   vanishes reads as something the page did, not something on a clock —
+   and there is no way to tell how long is left to read it. */
+.toast{position:relative;overflow:hidden}
+.toast__progress{
+  position:absolute;left:0;bottom:0;height:2px;width:100%;
+  background:currentColor;opacity:.35;
+  transform-origin:left center;
+  animation:toastCountdown linear forwards;
+}
+@keyframes toastCountdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.toast--success .toast__progress{color:var(--success)}
+.toast--danger  .toast__progress{color:var(--danger)}
+.toast--warning .toast__progress{color:var(--warning)}
+.toast--info    .toast__progress{color:var(--info)}
+/* Hovering or tabbing into a toast stops the clock — reading it should
+   never be a race. */
+.toast:hover .toast__progress,
+.toast:focus-within .toast__progress{animation-play-state:paused}
+
+@media (prefers-reduced-motion:reduce){
+  /* The bar still reports how much time is left — removing it would remove
+     the information — but it drops in ten visible steps instead of sweeping
+     continuously. step-end on its own would hold at full and jump to empty,
+     which reports nothing at all.
+
+     The dialog is not touched here: the rule at the top of this file already
+     takes its transition away entirely, and re-declaring anything for it
+     from further down would quietly hand the motion back. */
+  .toast__progress{animation-timing-function:steps(10,end)}
+}

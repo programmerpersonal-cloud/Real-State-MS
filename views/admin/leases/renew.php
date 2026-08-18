@@ -15,7 +15,7 @@ $l = $lease;
                 <input type="text" class="form-control" value="<?= formatDate($l['end_date']) ?>" disabled>
             </div>
             <div class="form-group">
-                <label class="form-label">New End Date *</label>
+                <label class="form-label">New End Date <span class="req" aria-hidden="true">*</span></label>
                 <input type="date" class="form-control" name="end_date" value="<?= date('Y-m-d', strtotime($l['end_date'] . ' +1 year')) ?>" required>
             </div>
             <div class="form-group">

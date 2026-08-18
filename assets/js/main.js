@@ -128,7 +128,98 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Step 3 ────────────────────────────────────────────
   initDensityToggle();
+
+  // ─── Step 5 ────────────────────────────────────────────
+  initStickyActions();
 });
+
+/**
+ * Pin a form's action bar to the foot of the viewport — but only on a form
+ * that is genuinely taller than the screen.
+ *
+ * On a form that already fits, a pinned Save is a bar occupying space to
+ * solve a problem nobody has: the button is visible anyway. It earns its
+ * place only once finishing the form means losing sight of how to submit it.
+ * So the class is applied here, from measurement, rather than baked into the
+ * markup of every form.
+ *
+ * The bar sits inside the card and cancels the card's inset with negative
+ * margins, which only lands correctly when it is flush with the card's
+ * bottom edge — hence the last-child walk. Anything else is left alone.
+ */
+function initStickyActions() {
+  const bars = Array.from(document.querySelectorAll('form .form-actions'))
+    .filter((el) => {
+      if (el.closest('.modal')) return false;   // a modal has its own footer
+      const body = el.closest('.card__body');
+      if (!body) return false;
+      // Flush with the card's foot? Walk up to the card body; every step has
+      // to be the last thing in its parent, or there is content below the bar
+      // and pulling it to the card edge would overlap that content.
+      for (let n = el; n && n !== body; n = n.parentElement) {
+        if (n.parentElement && n !== n.parentElement.lastElementChild) return false;
+      }
+      return true;
+    });
+  if (!bars.length) return;
+
+  const measure = () => {
+    bars.forEach((el) => {
+      const form = el.closest('form');
+      // Measured without the class, so the reading is of the form itself and
+      // not of a layout the previous pass produced.
+      el.classList.remove('form-actions--sticky');
+      // A quarter-screen of margin: a form a few pixels over the fold does
+      // not need pinning, and flipping the bar on and off around an exact
+      // match would just make the page twitch on resize.
+      if (form && form.getBoundingClientRect().height > window.innerHeight * 1.25) {
+        el.classList.add('form-actions--sticky');
+      }
+    });
+  };
+
+  // A sticky element gives no signal that it is currently stuck, so the
+  // shadow is toggled from the geometry: pinned to the viewport foot means
+  // there is content underneath to lift away from; resting at the end of the
+  // form means there is not, and the shadow would be a shadow over nothing.
+  let frame = 0;
+  const pinned = () => {
+    frame = 0;
+    bars.forEach((el) => {
+      if (!el.classList.contains('form-actions--sticky')) return;
+      const stuck = el.getBoundingClientRect().bottom >= window.innerHeight - 1;
+      el.classList.toggle('is-pinned', stuck);
+    });
+  };
+  const schedule = () => { if (!frame) frame = requestAnimationFrame(pinned); };
+
+  measure();
+  pinned();
+  window.addEventListener('scroll', schedule, { passive: true });
+
+  // Re-measured on resize and on rotation, because both change which side of
+  // the threshold a form sits on. Debounced: this reads layout, and doing it
+  // per resize event is a scroll-jank generator.
+  let t = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { measure(); pinned(); }, 150);
+  });
+
+  // Forms grow: an error summary appears, a conditional section unfolds, a
+  // repeatable row is added. One observer over the action bars catches all of
+  // it without any of those features having to know this exists.
+  if (typeof ResizeObserver === 'function') {
+    let pending = null;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(pending);
+      // Deferred past the current frame: measure() toggles a class that
+      // changes layout, which would otherwise re-enter the observer.
+      pending = setTimeout(() => { measure(); pinned(); }, 200);
+    });
+    bars.forEach((el) => { const f = el.closest('form'); if (f) ro.observe(f); });
+  }
+}
 
 const DENSITY_KEY = 'saxane.density';
 
@@ -873,15 +964,56 @@ function lockPageScroll(on) {
  * A dialog over a blurred page. Opened by any [data-modal-open="<id>"]
  * control; closed by the backdrop, [data-modal-close], or Escape.
  */
+/**
+ * Point a dialog's transform-origin at whatever was clicked to summon it, so
+ * it grows out of that control instead of appearing in the middle of the
+ * screen with no visible cause. Shared with the confirm dialog, which is
+ * opened the same way from row menus and buttons all over the app.
+ *
+ * Call it while the dialog is mounted but before the entry transition starts:
+ * the box being measured has to be the one about to move.
+ */
+function setModalOrigin(dialog, from) {
+  if (!dialog) return;
+  // No source means the keyboard, a redirect, or a rejected form reopening the
+  // dialog — nothing on screen for it to grow from, so clear any origin left
+  // by a previous opening and let the CSS fallback (the centre) apply.
+  if (!from) { dialog.style.removeProperty('--modal-origin-x');
+               dialog.style.removeProperty('--modal-origin-y'); return; }
+
+  // An element, or a rect already taken from one. The confirm dialog closes
+  // the row menu its trigger lives in before opening, so it measures first
+  // and hands the rect over.
+  const t = typeof from.getBoundingClientRect === 'function'
+    ? from.getBoundingClientRect() : from;
+  if (!t.width && !t.height) return;            // detached, or display:none
+  const d = dialog.getBoundingClientRect();
+  if (!d.width || !d.height) return;
+
+  // Percentages of the dialog's own box: transform-origin resolves against
+  // the element it is set on, not the viewport.
+  // Clamped just outside that box — a trigger far down a long page would
+  // otherwise throw the origin so far off that the dialog swings in from the
+  // side rather than growing.
+  const pin = (n) => Math.max(-50, Math.min(150, n)).toFixed(1) + '%';
+  dialog.style.setProperty('--modal-origin-x',
+    pin(((t.left + t.width / 2) - d.left) / d.width * 100));
+  dialog.style.setProperty('--modal-origin-y',
+    pin(((t.top + t.height / 2) - d.top) / d.height * 100));
+}
+
 function initModal(modal) {
   const dialog = modal.querySelector('.modal__dialog');
   if (!dialog) return;
   let lastFocused = null;
 
-  const open = () => {
+  const open = (trigger) => {
     if (!modal.hidden) return;
     lastFocused = document.activeElement;
     modal.hidden = false;
+    // Measured while the dialog is mounted but before .is-open starts the
+    // transition, so the box being measured is the one about to move.
+    setModalOrigin(dialog, trigger);
     lockPageScroll(true);
     // A frame later, so the entry transition has a state to move from.
     requestAnimationFrame(() => {
@@ -910,7 +1042,7 @@ function initModal(modal) {
   };
 
   document.querySelectorAll('[data-modal-open="' + modal.id + '"]').forEach(trigger => {
-    trigger.addEventListener('click', (e) => { e.preventDefault(); open(); });
+    trigger.addEventListener('click', (e) => { e.preventDefault(); open(trigger); });
   });
   modal.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', close));
 
