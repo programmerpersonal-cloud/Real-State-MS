@@ -93,24 +93,19 @@
   --cell-head-y: 7px;
 }
 
-/* ── Form controls on touch ───────────────────────────────────────
-   iOS zooms the viewport when a focused input is under 16px, which
-   throws the whole layout sideways mid-typing and does not undo
-   itself. 14.4px is right for a dense desktop form and wrong the
-   moment a finger is involved, so the size is raised where the
-   pointer is coarse rather than everywhere.
+/* ── Density on touch ─────────────────────────────────────────────
+   Pointer-driven, not width-driven: a touchscreen laptop needs a
+   roomier row at 1400px and a mouse-driven small window does not.
 
-   The same query lifts controls to the 44px touch minimum. Both are
-   pointer-driven, not width-driven: a touchscreen laptop needs this
-   at 1400px and a mouse-driven small window does not. */
+   Only the tokens live here. The control sizing that used to sit in
+   this block moved to responsive.css, because this sheet loads second
+   and every sheet after it was quietly winning: the 16px input floor
+   lost to .toolbar__field .form-control at (0,2,0), which is how
+   selects were still shipping at 13px and still zooming iOS on focus.
+   A floor has to be declared where it can actually hold. */
 @media (pointer: coarse) {
   :root {
     --fs-sm: 1rem;
     --cell-y: 14px;
   }
-  input, select, textarea, .form-control {
-    font-size: 16px;
-    min-height: 44px;
-  }
-  textarea, textarea.form-control { min-height: 88px; }
 }

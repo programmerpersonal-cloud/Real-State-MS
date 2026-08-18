@@ -70,7 +70,6 @@
         </a>
     </p>
 </div>
-<script src="<?= JS_URL ?>/main.js"></script>
-<script src="<?= JS_URL ?>/components.js"></script>
+<?php require VIEWS_PATH . '/components/scripts.php'; ?>
 </body>
 </html>

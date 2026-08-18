@@ -107,6 +107,66 @@
   .table{--cell-max:150px}
 }
 
+/* ─── Touch ─────────────────────────────────────────────────
+   Everything a finger needs, declared in the sheet that loads last,
+   because these are floors rather than preferences and a floor that
+   can be overridden is not one.
+
+   That is not hypothetical: this block used to live in tokens-app.css,
+   which loads second, and the 16px input rule lost to
+   `.toolbar__field .form-control` at (0,2,0) — so every filter select
+   shipped at 13px and every tap on one zoomed iOS Safari into the page
+   and left it there.
+
+   Pointer-driven, not width-driven: a touchscreen laptop needs this at
+   1400px and a mouse-driven small window does not.
+   ─────────────────────────────────────────────────────────── */
+@media (pointer:coarse){
+  /* Anything sized from the control scale comes up together, which is
+     most of the application's buttons and inputs. */
+  :root{--control-h:44px;--control-h-sm:44px;--control-h-lg:48px}
+
+  /* 16px is the exact threshold below which iOS Safari zooms the page
+     on focus — and it does not zoom back out, so the rest of the form
+     is filled in sideways. !important because a later, more specific
+     rule winning here silently brings the zoom back; there is no
+     design reason to ever go under this. */
+  input,select,textarea,.form-control{font-size:16px!important;min-height:44px}
+  textarea,textarea.form-control{min-height:88px}
+  .header__search-input{font-size:16px!important;height:44px}
+
+  /* Controls carrying their own literal sizes, lifted to the minimum. */
+  .header__icon-btn,.header__visit,.header__toggle,
+  .row-menu__trigger,.density-toggle__btn{min-width:44px;min-height:44px}
+  .sidebar__link,.sidebar__label--toggle,.th-sort__link,
+  .toolbar__filter-trigger,.tabs__item{min-height:44px}
+  /* Pills and segments carry fixed heights (32 and 34) that read well under
+     a cursor and are a miss under a thumb. Height, not min-height: both are
+     inline-flex with a set height, which min-height cannot lift. */
+  .segmented__btn,.status-tabs__item{height:44px}
+  .settings-nav__item,.geo__map{min-height:44px}
+  /* A feed row's title is the row's action, not prose, so it gets a real
+     target rather than the inline-link exemption. */
+  .feed__title a{display:inline-block;min-height:44px;line-height:44px}
+
+  /* Footer and inline links sit in running text, so growing the box would
+     open gaps in the line. They get the target underneath instead. */
+  .app__footer a,.notice__link{position:relative;display:inline-block}
+  .app__footer a::after,.notice__link::after{
+    content:'';position:absolute;top:50%;left:0;right:0;
+    transform:translateY(-50%);height:44px;
+  }
+
+  /* An icon in a bar with no room to grow keeps the size it looks and
+     gets the target underneath it instead. The pseudo-element is inside
+     the link, so the whole area activates the link it belongs to. */
+  .header__crumb-home{position:relative}
+  .header__crumb-home::after{
+    content:'';position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);width:44px;height:44px;
+  }
+}
+
 /* ─── Reduced motion ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}

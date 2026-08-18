@@ -131,7 +131,6 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
         </div>
     </div>
 </div>
-<script src="<?= JS_URL ?>/main.js"></script>
-<script src="<?= JS_URL ?>/components.js"></script>
+<?php require VIEWS_PATH . '/components/scripts.php'; ?>
 </body>
 </html>

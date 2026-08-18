@@ -369,16 +369,34 @@ function initFilterPopover(details) {
   const summary = details.querySelector('summary');
   if (!summary) return;
 
+  const panel = details.querySelector('.toolbar__popover');
+
   const edge = () => {
     // Measured on open: the trigger's position depends on how much room the
     // search field took, which depends on the viewport.
     const r = summary.getBoundingClientRect();
-    details.classList.toggle('toolbar__filters--end', r.left + 420 > window.innerWidth - 16);
+    // The panel's own width, not a number copied out of the stylesheet. It is
+    // min(420px, 100vw - 32px), so a copied 420 is wrong on exactly the narrow
+    // windows where getting this right matters most.
+    const w = panel && panel.offsetWidth ? panel.offsetWidth : 420;
+    details.classList.toggle('toolbar__filters--end', r.left + w > window.innerWidth - 16);
   };
 
   details.addEventListener('toggle', () => {
     if (details.open) edge();
   });
+
+  // A popover the server rendered open — which is what happens whenever a
+  // filter is applied — never fires 'toggle', so it was never measured and
+  // sat ~180px off the right of the screen at every desktop width.
+  //
+  // Deferred a frame rather than run here: at DOMContentLoaded the toolbar has
+  // not settled, the search field has not taken its share of the row, and the
+  // trigger is still far enough left that the panel looks like it fits.
+  if (details.open) requestAnimationFrame(edge);
+
+  // The window can be resized under an open panel, which moves the trigger.
+  window.addEventListener('resize', () => { if (details.open) edge(); });
 
   document.addEventListener('click', (e) => {
     if (details.open && !details.contains(e.target)) details.open = false;
