@@ -266,19 +266,6 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .status--muted  {background:var(--surface-3); color:var(--text-muted);border-color:var(--border-strong)}
 
 /* ─── Badges (no dot — keep for legacy) ────────────────── */
-.badge{
-  display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--radius-pill);
-  font-size:.72rem;font-weight:600;letter-spacing:.1px;text-transform:capitalize;
-  border:1px solid transparent;
-}
-.badge--success{background:var(--success-bg);color:var(--success);border-color:rgba(22,163,74,.18)}
-.badge--warning{background:var(--warning-bg);color:var(--warning);border-color:rgba(217,119,6,.18)}
-.badge--danger{background:var(--danger-bg);color:var(--danger);border-color:rgba(220,38,38,.18)}
-.badge--info{background:var(--info-bg);color:var(--info);border-color:rgba(37,99,235,.18)}
-.badge--primary{background:var(--primary-light);color:var(--primary-ink);border-color:var(--primary-border)}
-.badge--purple{background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.18)}
-.badge--orange{background:var(--orange-bg);color:var(--orange);border-color:rgba(234,88,12,.18)}
-.badge--muted{background:var(--surface-3);color:var(--text-muted);border-color:var(--border-strong)}
 
 /* ─── Alerts ────────────────────────────────────────────── */
 .alert{
@@ -327,21 +314,6 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .pagination__ellipsis{padding:0 6px;color:var(--text-subtle);font-weight:600}
 
 /* ─── Filter bar ────────────────────────────────────────── */
-.filter-bar{
-  display:flex;flex-wrap:wrap;gap:10px;padding:14px 16px;
-  background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);
-  margin-bottom:16px;align-items:center;
-}
-.filter-bar .form-group{margin:0;flex:1;min-width:160px}
-.filter-bar .form-control{padding:8px 12px;font-size:.84rem}
-.filter-chip{
-  display:inline-flex;align-items:center;gap:6px;padding:7px 12px;
-  background:var(--surface);border:1px solid var(--border-strong);
-  border-radius:var(--radius-sm);font-size:.82rem;color:var(--text);font-weight:500;
-  cursor:pointer;transition:all var(--transition);
-}
-.filter-chip:hover{border-color:var(--text-muted)}
-.filter-chip i{color:var(--text-muted);font-size:.85rem}
 
 /* ─── Form grids ────────────────────────────────────────── */
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
@@ -1546,3 +1518,125 @@ a.segmented__btn.is-active{color:var(--text)}
 @media (prefers-reduced-motion:reduce){
   .nav-progress{transition:opacity 160ms linear}
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   STEP 3 — DATA SURFACES
+   One card rhythm, one pill, one table. Refinement of components that
+   already work, applied in the shared layer so no page needs an
+   override of its own.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── One pill ───────────────────────────────────────────────────────
+   .badge and .status were two pills doing one job: different padding
+   (3px 9px vs 3px 10px 3px 8px), different type sizes (.72 vs .74rem),
+   and tone colours written as literal rgba that no longer matched the
+   status tokens — .badge--success was rgba(22,163,74) while --success
+   is #15803d. Sixteen call sites still use .badge, mostly on detail
+   pages that step 4 will rebuild; folding the two definitions together
+   makes those consistent today without editing any of them.
+
+   The dot is what separates them in use: uiStatus() emits one, a bare
+   .badge does not, and both are correct — a pill beside a label does
+   not always need a second marker. */
+.badge,
+.status{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 10px;border-radius:var(--radius-pill);
+  font-size:var(--fs-2xs);font-weight:600;line-height:1.55;
+  white-space:nowrap;border:1px solid transparent;
+}
+.status:has(.status__dot){padding-left:8px}
+.status__dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* One tone map for both. Every colour reads a token, so a status is the
+   same green in a table cell, a chart legend and a detail header. */
+.badge--success,.status--success{background:var(--success-bg);color:var(--success);border-color:color-mix(in srgb,var(--success) 20%,transparent)}
+.badge--warning,.status--warning{background:var(--warning-bg);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 20%,transparent)}
+.badge--danger, .status--danger {background:var(--danger-bg); color:var(--danger); border-color:color-mix(in srgb,var(--danger) 20%,transparent)}
+.badge--info,   .status--info   {background:var(--info-bg);   color:var(--info);   border-color:color-mix(in srgb,var(--info) 20%,transparent)}
+.badge--primary,.status--primary{background:var(--primary-light);color:var(--primary-ink);border-color:var(--primary-border)}
+.badge--purple, .status--purple {background:var(--purple-bg); color:var(--purple); border-color:color-mix(in srgb,var(--purple) 20%,transparent)}
+.badge--orange, .status--orange {background:var(--orange-bg); color:var(--orange); border-color:color-mix(in srgb,var(--orange) 20%,transparent)}
+.badge--muted,  .status--muted  {background:var(--surface-3); color:var(--text-muted);border-color:var(--border-strong)}
+
+/* ── One card rhythm ────────────────────────────────────────────────
+   Six card shapes had six paddings and two radii: .card at 12px radius
+   with 16/18 padding, .table-card and .prop-card at 8px, .mini-stat at
+   14/16, .stat-card at 13/15, .ledger__card on the spacing scale. They
+   are the same object at different sizes, so they now share one radius
+   and one inset, both from tokens. */
+.card,
+.table-card,
+.prop-card,
+.mini-stat,
+.ledger__card,
+.detail-header,
+.detail-stats--standalone{
+  border-radius:var(--card-radius);
+}
+.card__header{padding:var(--card-pad-y) var(--card-pad-x)}
+.card__body{padding:var(--card-pad-x)}
+.card__footer{padding:var(--card-pad-y) var(--card-pad-x)}
+.mini-stat{padding:var(--card-pad-y) var(--card-pad-x)}
+
+/* The card heading now reads from the scale rather than a literal .98rem,
+   which puts it a clear step below the 28px page title instead of within
+   a hair of it. */
+.card__title{font-size:var(--fs-title)}
+.card__subtitle{font-size:var(--fs-2xs);margin-top:3px}
+
+/* A card body that holds a table has no inset of its own — the table
+   draws its own cell padding, and doubling them was leaving a ragged
+   white margin inside the border on every register. */
+.card__body--flush,
+.table-card > .table-wrap{padding:0}
+
+/* ── Table ──────────────────────────────────────────────────────────
+   The table was already right: sticky header, hairline rules, tabular
+   figures, no zebra. What it lacked was a state for the keyboard and a
+   consistent answer for numeric columns. */
+
+/* A focused row. Tabbing through a register moved focus into cells with
+   no visible change at all — the only feedback was the link's own ring,
+   which on a wide row is easy to lose. The whole row now answers. */
+.table tbody tr:focus-within{background:var(--primary-tint)}
+.table tbody tr:focus-within td{border-color:var(--primary-border)}
+/* :has() lets the row carry the state; where it is unsupported the row
+   simply keeps the hover treatment, which is still legible. */
+.table tbody tr:has(:focus-visible) td:first-child{box-shadow:inset 3px 0 0 var(--primary)}
+
+/* Numeric and date columns align right and share one figure width, so a
+   column of money reads as a column rather than a ragged edge. Declared
+   once here rather than per-page. */
+.table .cell-num,.table th.cell-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.table .cell-date{font-variant-numeric:tabular-nums;white-space:nowrap}
+/* The actions column takes only the width its control needs, and is the
+   one column that never wraps. */
+.table .cell-actions{width:1%;white-space:nowrap;text-align:right}
+/* Long free text truncates rather than pushing the row wider than the
+   viewport — the alternative is a page that scrolls sideways because one
+   description was verbose. */
+.table .cell-clip{max-width:320px;overflow:hidden;text-overflow:ellipsis}
+
+/* The sticky header needs its own ground: the default is translucent
+   against the scrolled rows passing under it. */
+.table thead th{position:sticky;top:0;z-index:2;background:var(--surface-2)}
+
+/* ── Density ────────────────────────────────────────────────────────
+   The control lives in the topbar because it is a preference about the
+   whole application, not about one register — putting it in each table
+   header would have meant fifteen copies of one switch. */
+.density-toggle{display:inline-flex}
+.density-toggle .segmented__btn{width:32px;padding:0;justify-content:center}
+@media (max-width:900px){
+  /* Density is a desktop concern. On a phone the rows are already at the
+     touch minimum and there is nothing to trade. */
+  .density-toggle{display:none}
+}
+
+/* ── Card grid rhythm ───────────────────────────────────────────────
+   .stats and .grid-auto were on different gaps (11-12px vs --space-4),
+   so a KPI row and a card grid on the same page sat to different rules. */
+.stats{gap:var(--space-3)}
+.grid-auto{gap:var(--space-3)}
+.mini-stats{gap:var(--space-3);margin-bottom:var(--space-4)}

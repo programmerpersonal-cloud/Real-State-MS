@@ -128,6 +128,26 @@ $notifLook = [
             <span>Visit site</span>
         </a>
 
+        <?php /* Row density. One control for the whole application rather than
+                 one per register: it is a preference about how someone reads
+                 tables generally, and fifteen copies of the same switch would
+                 be fifteen places for it to disagree with itself. Hidden below
+                 900px, where rows are already at the touch minimum and there
+                 is nothing to trade. */ ?>
+        <div class="segmented density-toggle" data-density-toggle
+             role="group" aria-label="Table row density">
+            <button type="button" class="segmented__btn" data-density="comfortable"
+                    aria-pressed="true" title="Comfortable rows">
+                <i class="bi bi-list" aria-hidden="true"></i>
+                <span class="sr-only">Comfortable rows</span>
+            </button>
+            <button type="button" class="segmented__btn" data-density="compact"
+                    aria-pressed="false" title="Compact rows">
+                <i class="bi bi-list-ul" aria-hidden="true"></i>
+                <span class="sr-only">Compact rows</span>
+            </button>
+        </div>
+
         <?php /* Notifications. The newest unread arrive with the page from the
                  same query that produces the badge, so opening this costs
                  nothing extra — see notificationBell(). */ ?>

@@ -44,10 +44,16 @@ $notif = notificationBell();
 <script>
 (function () {
   try {
+    var d = document.documentElement;
     if (localStorage.getItem('saxane.rail') === 'collapsed') {
-      document.documentElement.classList.add('rail-collapsed');
+      d.classList.add('rail-collapsed');
     }
-  } catch (e) { /* private mode: the rail simply starts expanded */ }
+    // Same reason as the rail: a compact preference must not render at
+    // comfortable and then reflow every table on the page.
+    if (localStorage.getItem('saxane.density') === 'compact') {
+      d.setAttribute('data-density', 'compact');
+    }
+  } catch (e) { /* private mode: both simply start at their defaults */ }
 })();
 </script>
 <div class="app">

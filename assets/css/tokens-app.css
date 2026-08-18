@@ -60,21 +60,29 @@
      type scale just went up and the two have to be decided together;
      compact returns the old rhythm for anyone working a long register.
 
-     The control that flips this is not built yet — it belongs with the
-     table work in step 3. Declared here because density is a token
-     decision, and the table already reads these values.             */
+     Flipped from the topbar, which sets data-density on <html>. One
+     control for the whole application rather than one per register:
+     it is a preference about reading tables generally.              */
   --cell-x: 16px;
   --cell-y: 12px;
   --cell-head-y: 10px;
 
-  /* ── Control heights ───────────────────────────────────────────
-     One height for everything on a toolbar row, so a search field, a
-     filter button and an action button line up without any of them
-     being nudged. 40px is the desktop figure; the coarse-pointer block
-     below lifts the whole set to the 44px touch minimum. */
-  --control-h:    40px;
-  --control-h-sm: 34px;
-  --control-h-lg: 44px;
+  /* Control heights are declared in design-system.css, not here: .btn
+     ships in every bundle, so the token has to resolve in every bundle.
+     The coarse-pointer block below still lifts controls to the 44px
+     touch minimum for the console. */
+
+  /* ── Card rhythm ───────────────────────────────────────────────
+     Six card shapes had six paddings and two radii between them. One
+     inset and one radius here is what makes a KPI tile, a table card
+     and a detail panel read as the same object at different sizes. */
+  --card-radius: 10px;
+  --card-pad-x:  18px;
+  --card-pad-y:  13px;
+
+  /* A card heading. Reads a clear step below the 28px page title —
+     at the old literal .98rem the two were nearly the same size. */
+  --fs-title: 1.0625rem;   /* 17px */
 }
 
 /* Set on <html> or <body>. Until step 3 ships the toggle, this is

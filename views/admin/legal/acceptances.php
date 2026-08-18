@@ -39,30 +39,35 @@
 </div>
 <?php endif ?>
 
-<form method="get" class="filter-bar">
-    <input type="hidden" name="page" value="legal">
-    <input type="hidden" name="action" value="acceptances">
-    <?php if (!empty($filters['terms_version_id'])): ?>
-        <input type="hidden" name="id" value="<?= (int) $filters['terms_version_id'] ?>">
-    <?php endif ?>
-    <div class="form-group">
-        <label class="form-label">Search</label>
-        <input class="form-control" name="search" value="<?= sanitize($filters['search'] ?? '') ?>"
-               placeholder="Person, version, terms…">
-    </div>
-    <div class="form-group">
-        <label class="form-label">Terms type</label>
-        <select class="form-control" name="slug">
-            <option value="">All</option>
-            <?php foreach ($types as $t): ?>
-                <option value="<?= sanitize($t['slug']) ?>" <?= ($filters['slug'] ?? '') === $t['slug'] ? 'selected' : '' ?>>
-                    <?= sanitize($t['name']) ?>
-                </option>
-            <?php endforeach ?>
-        </select>
-    </div>
-    <button class="btn btn--primary"><i class="bi bi-funnel"></i> Filter</button>
-</form>
+<?php
+/* The last page still carrying a hand-built filter form. Moved onto the
+   shared toolbar so it gains the same compact bar, the same control heights
+   and the same popover behaviour as every other register — and so the legacy
+   .filter-bar rules can be deleted rather than kept alive for one caller.
+
+   `keep` carries the two parameters this view needs beyond ?page=: the action
+   that selects the acceptance log, and the version being filtered to. Both
+   were hidden inputs before and remain hidden inputs now, so the query string
+   this form produces is unchanged. */
+$toolbar = [
+    'page' => 'legal',
+    'keep' => array_filter([
+        'action' => 'acceptances',
+        'id'     => !empty($filters['terms_version_id']) ? (int) $filters['terms_version_id'] : '',
+    ]),
+    'search' => [
+        'name'        => 'search',
+        'value'       => $filters['search'] ?? '',
+        'label'       => 'Search acceptances',
+        'placeholder' => 'Search by person, version or terms…',
+    ],
+    'filters' => [
+        ['name' => 'slug', 'label' => 'Terms type', 'value' => $filters['slug'] ?? '',
+         'options' => array_column($types, 'name', 'slug'), 'all' => 'Any type'],
+    ],
+];
+?>
+<?php require VIEWS_PATH . '/components/ui/list_toolbar.php'; ?>
 
 <div class="card">
     <div class="card__header">

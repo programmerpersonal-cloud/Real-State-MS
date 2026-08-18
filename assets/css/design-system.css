@@ -170,6 +170,26 @@
   --cell-y: 13px;
   --cell-head-y: 11px;
 
+  /* Card rhythm and the card heading size. tokens-app.css sets the
+     figures the console actually uses; these exist so the shared
+     components.css ships no unresolved var() in the public bundle.
+     The marketing site renders none of .card, .badge, .table or the
+     stat tiles — it has its own components — so these are a
+     correctness measure rather than a visual one. */
+  --card-radius: 10px;
+  --card-pad-x: 18px;
+  --card-pad-y: 13px;
+  --fs-title: 1.0625rem;
+
+  /* Control heights. These live here, not in tokens-app.css, because .btn is
+     in components.css and components.css ships in all three bundles — the
+     marketing site has 64 buttons. Declared only for the console, the height
+     resolved to `auto` there while `padding:0 16px` still applied, which
+     collapsed every public button to its line box. */
+  --control-h:    40px;
+  --control-h-sm: 34px;
+  --control-h-lg: 44px;
+
   /* Vertical rhythm for marketing sections */
   --section-y: 80px;
   --section-y-sm: 56px;
