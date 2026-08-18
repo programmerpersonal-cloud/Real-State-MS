@@ -87,7 +87,14 @@ $railUnread = (int) ($notif['count'] ?? 0);
                     <div class="sidebar__label"><span><?= sanitize($sectionLabel) ?></span></div>
                 <?php endif ?>
 
+                <?php /* Two elements, not one, and the inner div is load-bearing:
+                         the collapse animates grid-template-rows from 1fr to 0fr,
+                         and that sizes only the FIRST row of the grid. With the
+                         links as direct children every row after the first was
+                         auto-sized and kept its height, so the group never
+                         actually collapsed. One wrapper means one row to size. */ ?>
                 <div class="sidebar__items" id="<?= $panelId ?>">
+                  <div class="sidebar__items-inner">
                     <?php foreach ($items as [$slug, $label, $icon]): ?>
                         <?php $isActive = $slug === $page; ?>
                         <a href="<?= APP_URL ?>/index.php?page=<?= sanitize($slug) ?>"
@@ -101,6 +108,7 @@ $railUnread = (int) ($notif['count'] ?? 0);
                             <?php endif ?>
                         </a>
                     <?php endforeach ?>
+                  </div>
                 </div>
             </div>
         <?php endforeach ?>

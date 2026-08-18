@@ -49,12 +49,12 @@ $targets = [
 <?php require VIEWS_PATH . '/components/ui/status_filter.php'; ?>
 
 <?php if ($unreadCount > 0): ?>
-    <div class="list-toolbar list-toolbar--plain">
-        <p class="list-toolbar__note">
+    <div class="toolbar toolbar--plain">
+        <p class="toolbar__note">
             <?= number_format($unreadCount) ?> unread
             <?= $unreadCount === 1 ? 'notification' : 'notifications' ?>.
         </p>
-        <div class="list-toolbar__actions">
+        <div class="toolbar__actions">
             <?php /* A state change, so a signed POST rather than a link — a
                      prefetcher must not be able to clear someone's inbox. */ ?>
             <form method="POST" action="<?= $listUrl ?>&amp;action=read-all">

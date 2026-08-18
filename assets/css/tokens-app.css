@@ -66,6 +66,15 @@
   --cell-x: 16px;
   --cell-y: 12px;
   --cell-head-y: 10px;
+
+  /* ── Control heights ───────────────────────────────────────────
+     One height for everything on a toolbar row, so a search field, a
+     filter button and an action button line up without any of them
+     being nudged. 40px is the desktop figure; the coarse-pointer block
+     below lifts the whole set to the 44px touch minimum. */
+  --control-h:    40px;
+  --control-h-sm: 34px;
+  --control-h-lg: 44px;
 }
 
 /* Set on <html> or <body>. Until step 3 ships the toggle, this is

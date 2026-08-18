@@ -121,7 +121,120 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavGroups();
   initRailToggle();
   initHeaderCondense();
+
+  // ─── Step 2.1 ──────────────────────────────────────────
+  document.querySelectorAll('[data-filter-popover]').forEach(initFilterPopover);
+  initNavProgress();
 });
+
+/**
+ * The toolbar's filter popover.
+ *
+ * Built on <details>, so with scripting off it is already a working
+ * disclosure: closed it is a button, open it is a panel, and the controls
+ * inside submit with the surrounding form either way. Everything here is the
+ * polish a native <details> does not do — closing on outside click and on
+ * Escape, and flipping the panel when the trigger sits near the right edge.
+ */
+function initFilterPopover(details) {
+  const summary = details.querySelector('summary');
+  if (!summary) return;
+
+  const edge = () => {
+    // Measured on open: the trigger's position depends on how much room the
+    // search field took, which depends on the viewport.
+    const r = summary.getBoundingClientRect();
+    details.classList.toggle('toolbar__filters--end', r.left + 420 > window.innerWidth - 16);
+  };
+
+  details.addEventListener('toggle', () => {
+    if (details.open) edge();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (details.open && !details.contains(e.target)) details.open = false;
+  });
+
+  details.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && details.open) {
+      e.preventDefault();
+      details.open = false;
+      summary.focus();
+    }
+  });
+}
+
+/**
+ * A progress bar across the top of the viewport while a page loads.
+ *
+ * This application renders on the server, so the only genuine wait is the one
+ * between committing to a navigation and the next document painting. Nothing
+ * reported that; a slow register just sat there looking ignored.
+ *
+ * It cannot stick. Leaving the page destroys the element outright, and the two
+ * ways a navigation can be abandoned — the browser cancelling it, or a
+ * download/`target=_blank` that was never a navigation at all — are covered by
+ * the pageshow handler (bfcache back) and a timeout that retires the bar if
+ * nothing has happened.
+ */
+function initNavProgress() {
+  const bar = document.createElement('div');
+  bar.className = 'nav-progress';
+  bar.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(bar);
+
+  let timer = null;
+  let failsafe = null;
+
+  const done = () => {
+    clearInterval(timer);
+    clearTimeout(failsafe);
+    timer = failsafe = null;
+    bar.style.width = '100%';
+    setTimeout(() => {
+      bar.classList.remove('is-active');
+      bar.style.width = '0';
+    }, 180);
+  };
+
+  const start = () => {
+    if (timer) return;
+    let width = 0;
+    bar.classList.add('is-active');
+    bar.style.width = '8%';
+    // Creeps towards 90% and waits there: the bar reports that the request is
+    // in flight, and only the new document can honestly say it finished.
+    timer = setInterval(() => {
+      width = Math.min(width + (90 - width) * 0.12, 90);
+      bar.style.width = width + '%';
+    }, 220);
+    failsafe = setTimeout(done, 12000);
+  };
+
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    if (a.target === '_blank' || a.hasAttribute('download')) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    // Same origin only: a link to the public site in a new tab is not this
+    // document's wait to report.
+    if (a.origin && a.origin !== window.location.origin) return;
+    start();
+  });
+
+  // A submit is the other committed navigation. The confirm dialog cancels
+  // and re-fires a submit, so this can fire twice — start() is idempotent.
+  document.addEventListener('submit', (e) => {
+    if (e.target && e.target.getAttribute('target') !== '_blank') start();
+  });
+
+  window.addEventListener('pagehide', done);
+  // Coming back through the bfcache restores the old DOM with the bar still
+  // mid-crawl; this is what clears it.
+  window.addEventListener('pageshow', done);
+}
 
 /* ═══════════════════════════════════════════════════════════
    SHELL
@@ -156,7 +269,7 @@ function writeClosedGroups(keys) {
  * stored entry is dropped so it stops fighting on the next visit too.
  */
 function initNavGroups() {
-  const sections = document.querySelectorAll('[data-nav-section]');
+  const sections = Array.from(document.querySelectorAll('[data-nav-section]'));
   if (!sections.length) return;
 
   let closed = readClosedGroups();
@@ -171,6 +284,8 @@ function initNavGroups() {
     if (closed.includes(key) && !holdsCurrent) {
       setGroup(section, toggle, false);
     } else if (holdsCurrent && closed.includes(key)) {
+      // The group holding the current page always opens, and the stale entry
+      // is dropped so it stops fighting on the next visit too.
       closed = closed.filter((k) => k !== key);
       writeClosedGroups(closed);
     }
@@ -183,22 +298,43 @@ function initNavGroups() {
       writeClosedGroups(closed);
     });
   });
+
+  syncGroupInert();
 }
 
 /**
  * Open or close one group.
  *
- * `inert` is what takes the hidden rows out of the tab order. Visually
- * collapsing a list while leaving its links focusable is how a keyboard user
- * ends up tabbing into something they cannot see.
+ * Group collapse and rail collapse are separate states and must not be
+ * confused: this one only ever touches the section it was given.
  */
 function setGroup(section, toggle, open) {
   section.classList.toggle('is-collapsed', !open);
   toggle.setAttribute('aria-expanded', String(open));
-  const panel = section.querySelector('.sidebar__items');
-  if (!panel) return;
-  if (open) panel.removeAttribute('inert');
-  else panel.setAttribute('inert', '');
+  syncGroupInert();
+}
+
+/**
+ * Reconcile `inert` with both states at once.
+ *
+ * `inert` is what takes hidden rows out of the tab order — collapsing a list
+ * visually while leaving its links focusable is how a keyboard user ends up
+ * tabbing into something they cannot see.
+ *
+ * But a collapsed *rail* re-opens every group, because there is no heading
+ * left to press. If a group's stored collapse also left `inert` on, those
+ * icons would be visible and unreachable. So inert is derived from both
+ * states here rather than set at the moment a group is toggled.
+ */
+function syncGroupInert() {
+  const railCollapsed = document.documentElement.classList.contains('rail-collapsed');
+  document.querySelectorAll('[data-nav-section]').forEach((section) => {
+    const panel = section.querySelector('.sidebar__items');
+    if (!panel) return;
+    const hidden = !railCollapsed && section.classList.contains('is-collapsed');
+    if (hidden) panel.setAttribute('inert', '');
+    else panel.removeAttribute('inert');
+  });
 }
 
 /**
@@ -227,6 +363,9 @@ function initRailToggle() {
       localStorage.setItem(RAIL_KEY, collapsed ? 'collapsed' : 'expanded');
     } catch (e) { /* private mode: the choice lasts for this page only */ }
     sync();
+    // The two states interact in exactly one place: a collapsed rail forces
+    // every group open, so the inert flags have to be recomputed here.
+    syncGroupInert();
   });
 }
 

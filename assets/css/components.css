@@ -833,30 +833,6 @@ body.is-modal-open{overflow:hidden}
 .person__meta{font-size:var(--fs-2xs);color:var(--text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 a.person:hover .person__name{color:var(--primary)}
 
-/* ════════════════════════════════════════════════════════════
-   LIST TOOLBAR — search, filters and page actions
-   One bar for every list, replacing both the old .filter-bar and the
-   bespoke inline-flex forms each module had grown.
-   ════════════════════════════════════════════════════════════ */
-.list-toolbar{
-  display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;
-  margin-bottom:var(--space-4);
-}
-/* The search field takes the slack, so filters and actions keep their
-   natural width and the row never leaves a ragged gap in the middle. */
-.list-toolbar__search{position:relative;flex:1 1 260px;min-width:200px}
-.list-toolbar__search .form-control{padding-left:36px;height:38px}
-.list-toolbar__search i{
-  position:absolute;left:12px;top:50%;transform:translateY(-50%);
-  color:var(--text-subtle);font-size:.9rem;pointer-events:none;
-}
-.list-toolbar__filters{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
-.list-toolbar__filters .form-control{height:38px;min-width:130px;font-size:var(--fs-xs)}
-.list-toolbar__actions{display:flex;align-items:center;gap:var(--space-2);margin-left:auto;flex-wrap:wrap}
-@media(max-width:768px){
-  .list-toolbar__actions{margin-left:0;width:100%}
-  .list-toolbar__actions .btn{flex:1;justify-content:center}
-}
 
 /* An applied filter, shown as a removable chip so what is narrowing the
    list is visible without reopening the filter controls. */
@@ -952,8 +928,8 @@ a.segmented__btn.is-active{color:var(--text)}
 }
 
 /* A toolbar carrying a note and an action rather than a search form. */
-.list-toolbar--plain{margin-bottom:var(--space-3)}
-.list-toolbar__note{font-size:var(--fs-xs);color:var(--text-muted);margin:0}
+.toolbar--plain{margin-bottom:var(--space-3)}
+.toolbar__note{font-size:var(--fs-xs);color:var(--text-muted);margin:0}
 
 /* ── Permission matrix ─────────────────────────────────────
    A grid of ticks is only readable if the row label stays put while the
@@ -1117,18 +1093,25 @@ a.segmented__btn.is-active{color:var(--text)}
 .row-menu__trigger:hover,.row-menu__trigger[aria-expanded="true"]{
   background:var(--surface-3);color:var(--text);border-color:var(--border);
 }
-/* Right-aligned: the menu lives in the last column, so opening leftward is
-   the only direction with room. */
+/* Fixed, not absolute, and this is the fix for the clipped row actions.
+   The menu sits inside two ancestors that clip: .table-wrap carries
+   overflow-x:auto so a wide table can scroll, and .table-card carries
+   overflow:hidden so its rounded corners cut the table. An absolutely
+   positioned menu is clipped by both — sideways in the first case, and at
+   the last row in the second — which is why the ⋮ menus were cut off.
+
+   Fixed positioning takes the menu out of that chain entirely. It costs a
+   JS-supplied coordinate, which initRowMenu() computes from the trigger's
+   bounding rect on open and keeps in step on scroll and resize. No ancestor
+   of a table sets transform, filter or perspective, so nothing re-captures
+   it into a containing block. */
 .row-menu__list{
-  position:absolute;right:0;top:calc(100% + 4px);z-index:60;min-width:186px;
+  position:fixed;top:0;left:0;z-index:200;min-width:196px;max-width:min(280px,calc(100vw - 24px));
   background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius);box-shadow:var(--shadow-lg);
   padding:5px;
 }
 .row-menu__list[hidden]{display:none}
-/* Opens upward when the row is near the foot of the page — set by JS, which
-   is the only thing that can know how much room is left below. */
-.row-menu__list.is-up{top:auto;bottom:calc(100% + 4px)}
 .row-menu__form{margin:0}
 .row-menu__item{
   display:flex;align-items:center;gap:9px;width:100%;
@@ -1380,3 +1363,186 @@ a.segmented__btn.is-active{color:var(--text)}
    `<div class="form-error" hidden>` still shows, because any explicit display
    overrides the user-agent's [hidden]{display:none}. */
 [hidden]{display:none!important}
+
+/* ════════════════════════════════════════════════════════════════════
+   STEP 2.1 — TOOLBAR, BUTTONS, LOADING
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Toolbar ────────────────────────────────────────────────────────
+   Three groups on one line: search takes the slack, filters collapse
+   into a single button, actions pin right. The previous bar laid every
+   <select> out inline, which spent a band of the page on controls that
+   mostly read "Any type". */
+.toolbar{
+  display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;
+  margin-bottom:var(--space-3);
+}
+.toolbar__search{position:relative;flex:1 1 280px;min-width:200px}
+.toolbar__search > i{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--text-subtle);font-size:.9rem;pointer-events:none;
+}
+.toolbar__search .form-control{padding-left:36px;height:var(--control-h)}
+.toolbar__inline-filter{height:var(--control-h);min-width:150px;flex:0 0 auto;font-size:var(--fs-xs)}
+.toolbar__apply{height:var(--control-h);width:var(--control-h);padding:0;justify-content:center}
+.toolbar__actions{display:flex;align-items:center;gap:var(--space-2);margin-left:auto;flex-shrink:0}
+
+/* The filter popover. <details> so it works without JS: closed it is a
+   button, open it is a panel, and either way the controls inside submit
+   with the form. */
+.toolbar__filters{position:relative;flex-shrink:0}
+.toolbar__filter-trigger{
+  display:inline-flex;align-items:center;gap:8px;height:var(--control-h);
+  padding:0 14px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--text);
+  font-size:var(--fs-xs);font-weight:600;cursor:pointer;user-select:none;
+  list-style:none;white-space:nowrap;
+  transition:border-color var(--transition),background var(--transition),box-shadow var(--transition);
+}
+/* Safari draws its own disclosure triangle on a summary; this removes it
+   without removing the element's semantics. */
+.toolbar__filter-trigger::-webkit-details-marker{display:none}
+.toolbar__filter-trigger::marker{content:""}
+.toolbar__filter-trigger:hover{border-color:var(--text-muted)}
+.toolbar__filter-trigger:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.toolbar__filters[open] .toolbar__filter-trigger{
+  border-color:var(--primary);box-shadow:var(--ring);
+}
+.toolbar__filter-chev{font-size:.62rem;color:var(--text-subtle);transition:transform var(--dur-base) var(--ease-standard)}
+.toolbar__filters[open] .toolbar__filter-chev{transform:rotate(180deg)}
+/* The applied count rides on the button, so the bar says what is narrowing
+   the list without spending a row on it. */
+.toolbar__filter-count{
+  min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pill);
+  background:var(--primary);color:#fff;
+  font-size:.65rem;font-weight:700;line-height:18px;text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+
+.toolbar__popover{
+  position:absolute;top:calc(100% + 6px);left:0;z-index:70;
+  width:min(420px,calc(100vw - 32px));
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow-lg);
+  padding:var(--space-4);
+}
+.toolbar__popover-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:var(--space-3);
+}
+.toolbar__field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.toolbar__field-label{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-muted);
+}
+.toolbar__field .form-control{height:var(--control-h);font-size:var(--fs-xs)}
+.toolbar__popover-foot{
+  display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);
+  margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--border);
+}
+/* Right-align the panel when the trigger sits near the right edge. */
+.toolbar__filters--end .toolbar__popover{left:auto;right:0}
+
+@media (max-width:768px){
+  .toolbar__search{flex:1 1 100%}
+  .toolbar__actions{margin-left:0;width:100%}
+  .toolbar__actions .btn{flex:1;justify-content:center}
+  .toolbar__popover{position:static;width:auto;box-shadow:none;border-color:var(--border);margin-top:6px}
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────
+   One height, one radius, one type ramp. The primary carries a subtle
+   brand shadow so it reads as the page's one dominant action; secondary
+   and ghost step down through border and ground rather than colour, so
+   a bar of three buttons still has an obvious first. */
+.btn{
+  height:var(--control-h);padding:0 16px;
+  font-size:var(--fs-xs);font-weight:600;letter-spacing:.01em;
+  border-radius:var(--radius-sm);
+  transition:background var(--transition),border-color var(--transition),
+             color var(--transition),box-shadow var(--transition),transform var(--dur-fast) var(--ease-standard);
+}
+.btn--sm{height:var(--control-h-sm);padding:0 12px;font-size:var(--fs-2xs);gap:6px}
+.btn--lg{height:var(--control-h-lg);padding:0 22px;font-size:var(--fs-sm)}
+.btn--icon{width:var(--control-h);height:var(--control-h);padding:0}
+.btn i{font-size:1em;line-height:1}
+
+.btn--primary{box-shadow:0 1px 2px rgba(0,117,192,.24),0 2px 8px -2px rgba(0,117,192,.3)}
+.btn--primary:hover{box-shadow:0 2px 4px rgba(0,117,192,.28),0 6px 16px -4px rgba(0,117,192,.38)}
+.btn--primary:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,117,192,.24)}
+
+/* Quieter than primary and clearly not it: a border and the page ground,
+   no fill and no shadow. */
+.btn--outline{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.btn--outline:hover{background:var(--surface-2);border-color:var(--text-muted);color:var(--text)}
+.btn--ghost{background:transparent;border-color:transparent;color:var(--text-muted)}
+.btn--ghost:hover{background:var(--surface-3);color:var(--text)}
+
+/* Danger is the semantic tone, not a louder button. It reads as serious
+   without shouting over the primary beside it. */
+.btn--danger:hover{box-shadow:0 2px 4px rgba(200,30,30,.22),0 6px 16px -4px rgba(200,30,30,.3)}
+.btn--danger:active{transform:translateY(1px)}
+
+.btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.btn--danger:focus-visible{outline-color:var(--danger)}
+.btn[disabled],.btn.is-disabled{opacity:.5;pointer-events:none;box-shadow:none}
+@media (pointer:coarse){
+  .btn{min-height:44px}
+  .btn--sm{min-height:40px}
+}
+
+/* Form action bars: the primary sits last on the right, which is where a
+   pointer already is after filling the form. */
+.form-actions{
+  display:flex;align-items:center;gap:var(--space-2);justify-content:flex-end;
+  margin-top:var(--space-6);padding-top:var(--space-4);border-top:1px solid var(--border);
+  flex-wrap:wrap;
+}
+@media (max-width:520px){
+  .form-actions{flex-direction:column-reverse;align-items:stretch}
+  .form-actions .btn{width:100%}
+}
+
+/* ── Button loading ─────────────────────────────────────────────────
+   The label stays in the flow at zero opacity rather than being replaced,
+   so the button keeps its exact width and the row does not reflow the
+   moment someone commits to it. */
+.btn.is-loading{position:relative;pointer-events:none;color:transparent!important}
+.btn.is-loading > *{opacity:0}
+.btn.is-loading::after{
+  content:"";position:absolute;top:50%;left:50%;
+  width:15px;height:15px;margin:-7.5px 0 0 -7.5px;
+  border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
+  color:#fff;
+  animation:btnSpin 640ms linear infinite;
+}
+.btn--outline.is-loading::after,
+.btn--ghost.is-loading::after{color:var(--primary)}
+@keyframes btnSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){
+  /* A spinner is a progress report, so it is not removed — only slowed to
+     something that does not strobe. */
+  .btn.is-loading::after{animation-duration:1.6s}
+  .btn:active{transform:none}
+}
+
+/* ── Navigation progress ────────────────────────────────────────────
+   A 2px bar across the top of the viewport from the moment a navigation
+   is committed until the next document paints. It answers "did that
+   register?" on a slow query, which is the only unanswered wait left in
+   a server-rendered application.
+
+   It cannot stick: leaving the page destroys it, and the only way it
+   stays on screen is if navigation was cancelled — which pagehide and
+   the safety timeout in the JS both cover. */
+.nav-progress{
+  position:fixed;top:0;left:0;height:2px;width:0;z-index:9999;
+  background:linear-gradient(90deg,var(--primary),#5ac8fa);
+  box-shadow:0 0 8px rgba(0,117,192,.5);
+  opacity:0;pointer-events:none;
+  transition:width 200ms var(--ease-standard),opacity 160ms var(--ease-standard);
+}
+.nav-progress.is-active{opacity:1}
+@media (prefers-reduced-motion:reduce){
+  .nav-progress{transition:opacity 160ms linear}
+}

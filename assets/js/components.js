@@ -175,8 +175,15 @@ function initTabs(group) {
 function closeRowMenus(except) {
   document.querySelectorAll('.row-menu__list:not([hidden])').forEach(list => {
     if (list === except) return;
+    // Call the menu's own closer where there is one, so the scroll and resize
+    // listeners it attached while open are detached again. Setting `hidden`
+    // from out here would hide the menu and leave those bound for the life of
+    // the page.
+    if (typeof list.closeRowMenu === 'function') {
+      list.closeRowMenu(false);
+      return;
+    }
     list.hidden = true;
-    list.classList.remove('is-up');
     const trigger = list.previousElementSibling;
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
   });
@@ -189,24 +196,68 @@ function initRowMenu(menu) {
 
   const items = () => Array.from(list.querySelectorAll('.row-menu__item'));
 
+  /**
+   * Place the menu against the trigger.
+   *
+   * The list is position:fixed so it escapes the table's two clipping
+   * ancestors (.table-wrap scrolls sideways, .table-card hides overflow for
+   * its rounded corners). Fixed means viewport coordinates, which only JS
+   * can know — so they are computed here from the trigger's rect and kept in
+   * step while the menu is open.
+   *
+   * Right-aligned to the trigger, because the actions column is the last one
+   * and there is no room to the right. Flipped up when the row is near the
+   * foot of the viewport, and clamped so neither edge can push it off screen.
+   */
+  const place = () => {
+    const t = trigger.getBoundingClientRect();
+    const w = list.offsetWidth;
+    const h = list.offsetHeight;
+    const gap = 4;
+    const pad = 8;
+
+    const below = window.innerHeight - t.bottom;
+    const up = below < h + 16 && t.top > h + 16;
+    let top = up ? t.top - h - gap : t.bottom + gap;
+    top = Math.max(pad, Math.min(top, window.innerHeight - h - pad));
+
+    let left = t.right - w;
+    left = Math.max(pad, Math.min(left, window.innerWidth - w - pad));
+
+    list.style.top = Math.round(top) + 'px';
+    list.style.left = Math.round(left) + 'px';
+  };
+
+  // Passive listeners so keeping the menu pinned never blocks a scroll.
+  // `capture` catches scrolls inside .table-wrap as well as the page.
+  let pinning = false;
+  const repin = () => {
+    if (pinning || list.hidden) return;
+    pinning = true;
+    requestAnimationFrame(() => { pinning = false; if (!list.hidden) place(); });
+  };
+
   const open = () => {
     closeRowMenus(list);
     list.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
-
-    // A menu on the last row of a long table would otherwise open into the
-    // page fold, where its final item cannot be reached. Measured once it is
-    // visible, because a hidden element has no height to measure.
-    const room = window.innerHeight - trigger.getBoundingClientRect().bottom;
-    list.classList.toggle('is-up', room < list.offsetHeight + 16);
+    // Measured only once visible: a hidden element has no size to measure.
+    place();
+    window.addEventListener('scroll', repin, { passive: true, capture: true });
+    window.addEventListener('resize', repin, { passive: true });
   };
 
   const close = (focusTrigger) => {
     list.hidden = true;
-    list.classList.remove('is-up');
     trigger.setAttribute('aria-expanded', 'false');
+    window.removeEventListener('scroll', repin, { capture: true });
+    window.removeEventListener('resize', repin);
     if (focusTrigger) trigger.focus();
   };
+
+  // Exposed so closeRowMenus() can shut this one down properly — including
+  // detaching the listeners open() attached — rather than just hiding it.
+  list.closeRowMenu = close;
 
   trigger.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -509,15 +560,33 @@ function initFormValidation(form) {
     if (!bad.length) {
       // Valid: show the submit working, so a slow save does not read as a
       // dead button and get pressed a second time.
-      const submit = form.querySelector('[type="submit"]');
+      //
+      // e.submitter, not the first submit button in the form. A form with two
+      // submits — "Save draft" and "Save & publish" on the terms editor —
+      // would otherwise spin the wrong one.
+      const submit = e.submitter && e.submitter.type === 'submit'
+        ? e.submitter
+        : form.querySelector('[type="submit"]');
+
       if (submit) {
         submit.classList.add('is-loading');
-        submit.disabled = true;
+        // Deliberately NOT `submit.disabled = true`. A disabled submit button
+        // is excluded from the form's data, so disabling it here would drop
+        // its name and value from the request that is about to be sent —
+        // which on the terms editor turned "Save & publish" into a plain
+        // save. .is-loading already sets pointer-events:none, and the flag
+        // below is what actually stops a second submission.
+        if (form.dataset.submitting === '1') {
+          e.preventDefault();
+          return;
+        }
+        form.dataset.submitting = '1';
+
         // Restored if the browser stays on this page — a rejected upload or a
         // back-navigation would otherwise leave a permanently dead button.
         setTimeout(() => {
           submit.classList.remove('is-loading');
-          submit.disabled = false;
+          delete form.dataset.submitting;
         }, 12000);
       }
       return;

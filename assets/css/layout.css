@@ -133,10 +133,16 @@
   display:grid;grid-template-rows:1fr;
   transition:grid-template-rows var(--dur-base) var(--ease-standard);
 }
-.sidebar__items > *{min-height:0}
+/* The single inner child is what makes 1fr→0fr work. grid-template-rows sizes
+   the first row only; with the links as direct children the rows after the
+   first were auto-sized, kept their height, and the group never collapsed —
+   it only stopped being painted. min-height:0 lets that one row shrink below
+   its content, and overflow:hidden clips the rows on the way down. */
+.sidebar__items-inner{min-height:0;overflow:hidden}
 .sidebar__section.is-collapsed .sidebar__items{grid-template-rows:0fr}
-/* Hidden rows must leave the tab order, not merely stop being painted. */
-.sidebar__section.is-collapsed .sidebar__items{overflow:hidden;visibility:hidden}
+/* No visibility:hidden. It was masking the bug above — the content vanished
+   while the space stayed — and it cannot be transitioned, so it also made the
+   close snap. Hidden rows leave the tab order via `inert`, set in JS. */
 
 /* One row shape for every item: a fixed icon column, a fixed gap, and a
    fixed min-height, so labels start on the same x and rows keep the same
@@ -550,9 +556,12 @@
 }
 .rail-collapsed .sidebar__label-chev{display:none}
 .rail-collapsed .sidebar__section:first-child .sidebar__label{display:none}
-/* Groups are always open when collapsed: there is no heading left to
-   press, so a remembered collapse would hide rows with no way back. */
-.rail-collapsed .sidebar__items{grid-template-rows:1fr !important;visibility:visible !important;overflow:visible !important}
+/* Groups are always open when the rail is collapsed: there is no heading left
+   to press, so a remembered group-collapse would hide icons with no way back.
+   The two states are independent — this overrides the group state for as long
+   as the rail is narrow and restores it exactly when the rail expands. */
+.rail-collapsed .sidebar__items{grid-template-rows:1fr !important}
+.rail-collapsed .sidebar__items-inner{overflow:visible}
 
 .rail-collapsed .sidebar__link{justify-content:center;padding:6px;gap:0}
 .rail-collapsed .sidebar__link-text{
