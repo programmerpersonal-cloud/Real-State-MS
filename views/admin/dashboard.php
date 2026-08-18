@@ -305,7 +305,7 @@ $splitRow   = $canSeeRevenue && $showStatus;
             </div>
             <a href="<?= APP_URL ?>/index.php?page=audit-logs" class="btn btn--ghost btn--sm">View all <i class="bi bi-arrow-right"></i></a>
         </div>
-        <div class="card__body" style="padding:0">
+        <div class="card__body card__body--flush">
             <?php if (empty($recentActivity)): ?>
                 <div class="empty-state">
                     <div class="empty-state__icon"><i class="bi bi-clock-history"></i></div>

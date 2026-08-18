@@ -13,7 +13,7 @@ $showAccount = true;   // shows the "you will be asked next" note
 
             <?php require __DIR__ . '/_form_fields.php'; ?>
 
-            <div style="display:flex;gap:12px;margin-top:28px">
+            <div class="action-row">
                 <button type="submit" class="btn btn--primary btn--lg"><i class="bi bi-check-lg"></i> Create Customer</button>
                 <a href="<?= APP_URL ?>/index.php?page=customers" class="btn btn--outline btn--lg">Cancel</a>
             </div>

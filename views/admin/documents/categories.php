@@ -12,17 +12,17 @@ $last = count($categories) - 1;
 <div class="card">
     <div class="card__header">
         <h3 class="card__title"><?= count($categories) ?> Categor<?= count($categories) === 1 ? 'y' : 'ies' ?></h3>
-        <span class="text-muted" style="font-size:.8rem">
+        <span class="person__meta">
             The order here is the order staff see when filing a document.
         </span>
     </div>
-    <div class="card__body" style="padding:0">
+    <div class="card__body card__body--flush">
         <?php if (empty($categories)): ?>
             <div class="empty-state">
                 <div class="empty-state__icon"><i class="bi bi-tags"></i></div>
                 <div class="empty-state__title">No categories yet</div>
                 <div class="empty-state__desc">Add the document types your team files against a property.</div>
-                <button type="button" class="btn btn--primary btn--sm" data-modal-open="categoryModal" style="margin-top:14px">
+                <button type="button" class="btn btn--primary btn--sm mt-2" data-modal-open="categoryModal" >
                     <i class="bi bi-plus-lg"></i> Add Category
                 </button>
             </div>
@@ -31,7 +31,7 @@ $last = count($categories) - 1;
             <table class="table">
                 <thead>
                     <tr>
-                        <th style="width:70px">Order</th>
+                        <th class="cell-tight">Order</th>
                         <th>Category</th>
                         <th>Default visibility</th>
                         <th>Expiry</th>
@@ -42,10 +42,10 @@ $last = count($categories) - 1;
                 </thead>
                 <tbody>
                 <?php foreach ($categories as $i => $c): ?>
-                    <tr<?= (int) $c['is_active'] === 0 ? ' style="opacity:.6"' : '' ?>>
+                    <tr<?= (int) $c['is_active'] === 0 ? ' class="is-muted-row"' : '' ?>>
                         <td>
                             <div class="btn-group">
-                                <form method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=move" style="display:inline">
+                                <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=move">
                                     <?= csrfField() ?>
                                     <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
                                     <input type="hidden" name="direction" value="up">
@@ -53,7 +53,7 @@ $last = count($categories) - 1;
                                         <i class="bi bi-chevron-up"></i>
                                     </button>
                                 </form>
-                                <form method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=move" style="display:inline">
+                                <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=move">
                                     <?= csrfField() ?>
                                     <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
                                     <input type="hidden" name="direction" value="down">
@@ -64,16 +64,16 @@ $last = count($categories) - 1;
                             </div>
                         </td>
                         <td>
-                            <div style="display:flex;align-items:center;gap:10px">
-                                <i class="bi <?= sanitize($c['icon'] ?: 'bi-file-earmark') ?>" style="font-size:1.2rem;color:var(--text-subtle)"></i>
-                                <div>
+                            <span class="filecell">
+                                <i class="bi <?= sanitize($c['icon'] ?: 'bi-file-earmark') ?> filecell__icon" aria-hidden="true"></i>
+                                <span class="filecell__body">
                                     <strong><?= sanitize($c['name']) ?></strong>
                                     <?php if (!empty($c['description'])): ?>
-                                        <div class="text-muted" style="font-size:.75rem"><?= sanitize($c['description']) ?></div>
+                                        <div class="person__meta"><?= sanitize($c['description']) ?></div>
                                     <?php endif ?>
-                                    <div class="text-subtle" style="font-size:.68rem"><code><?= sanitize($c['slug']) ?></code></div>
-                                </div>
-                            </div>
+                                    <div class="person__meta"><code><?= sanitize($c['slug']) ?></code></div>
+                                </span>
+                            </span>
                         </td>
                         <td>
                             <i class="bi <?= $c['default_visibility'] === 'public' ? 'bi-globe' : ($c['default_visibility'] === 'staff' ? 'bi-people' : 'bi-lock') ?>"></i>
@@ -106,7 +106,7 @@ $last = count($categories) - 1;
                                    href="<?= APP_URL ?>/index.php?page=document-categories&amp;modal=edit&amp;id=<?= (int) $c['id'] ?>">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=toggle" style="display:inline">
+                                <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=toggle">
                                     <?= csrfField() ?>
                                     <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
                                     <button class="btn btn--outline btn--sm"
@@ -115,7 +115,7 @@ $last = count($categories) - 1;
                                     </button>
                                 </form>
                                 <?php if ((int) $c['doc_count'] === 0): ?>
-                                    <form method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=delete" style="display:inline">
+                                    <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=delete">
                                         <?= csrfField() ?>
                                         <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
                                         <button class="btn btn--danger btn--sm" title="Delete"

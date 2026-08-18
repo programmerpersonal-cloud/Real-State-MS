@@ -31,7 +31,7 @@ $canReply = can('inquiries.reply');
                     <div class="profile-meta__row"><span class="profile-meta__label">Received</span><span class="profile-meta__value"><?= formatDateTime($i['created_at']) ?></span></div>
                 </div>
                 <div class="section-title"><?= sanitize($i['subject'] ?: 'Message') ?></div>
-                <div style="font-size:.875rem;line-height:1.6"><?= nl2br(sanitize($i['message'])) ?></div>
+                <div class="prose"><?= nl2br(sanitize($i['message'])) ?></div>
             </div>
         </div>
 

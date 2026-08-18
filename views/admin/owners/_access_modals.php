@@ -34,11 +34,11 @@ $suggestedUsername = $adopting
         </header>
 
         <div class="modal__body">
-            <p style="font-size:.95rem;color:var(--text-body);line-height:1.6">
+            <p class="prose">
                 Should this owner be able to <strong>sign in</strong> to the portal —
                 to see their properties, income and statements?
             </p>
-            <ul class="promise-list" style="margin-top:14px">
+            <ul class="promise-list mt-2" >
                 <li>
                     <i class="bi bi-check-lg"></i>
                     <span><strong>Yes</strong> — an account is created with the role <strong>Owner</strong>, using the email below.</span>

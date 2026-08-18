@@ -4,7 +4,7 @@
  */
 $s = $sale;
 ?>
-<div class="card" style="max-width:700px;margin:0 auto">
+<div class="card measure-md" >
     <div class="card__header">
         <h3 class="card__title">Sale <?= sanitize($s['sale_code']) ?></h3>
         <span class="badge <?= getStatusBadgeClass($s['status']) ?>"><?= ucfirst($s['status']) ?></span>
@@ -27,7 +27,7 @@ $s = $sale;
         </div>
         <?php if ($s['notes']): ?>
             <div class="section-title">Notes</div>
-            <div style="font-size:.875rem;line-height:1.6"><?= nl2br(sanitize($s['notes'])) ?></div>
+            <div class="prose"><?= nl2br(sanitize($s['notes'])) ?></div>
         <?php endif ?>
     </div>
 </div>

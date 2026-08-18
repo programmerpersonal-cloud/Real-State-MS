@@ -8,7 +8,7 @@
  * Expects: $acceptances, $filters, $types, $version, $page, $totalPages, $totalCount
  */
 ?>
-<div class="alert alert--info" style="margin-bottom:16px">
+<div class="alert alert--info mb-2" >
     <i class="bi bi-shield-lock"></i>
     <div>
         Every row records the exact version accepted, with a copy of that version's content hash taken at
@@ -73,7 +73,7 @@ $toolbar = [
     <div class="card__header">
         <h3 class="card__title"><?= $totalCount ?> Acceptance<?= $totalCount === 1 ? '' : 's' ?></h3>
     </div>
-    <div class="card__body" style="padding:0">
+    <div class="card__body card__body--flush">
         <?php if (empty($acceptances)): ?>
             <div class="empty-state">
                 <div class="empty-state__icon"><i class="bi bi-journal-check"></i></div>
@@ -103,7 +103,7 @@ $toolbar = [
                             <a href="<?= APP_URL ?>/index.php?page=legal&amp;action=version&amp;id=<?= (int) $a['terms_version_id'] ?>">
                                 <?= sanitize($a['terms_name']) ?>
                             </a>
-                            <div class="text-muted" style="font-size:.75rem">
+                            <div class="person__meta">
                                 <code><?= sanitize($a['version_code']) ?></code>
                                 <span class="badge <?= getStatusBadgeClass($a['version_status']) ?>" style="font-size:.6rem"><?= ucfirst($a['version_status']) ?></span>
                             </div>
@@ -111,7 +111,7 @@ $toolbar = [
                         <td>
                             <?= sanitize($a['customer_name'] ?? $a['accepted_name'] ?: '—') ?>
                             <?php if (!empty($a['user_name'])): ?>
-                                <div class="text-muted" style="font-size:.72rem">recorded by <?= sanitize($a['user_name']) ?></div>
+                                <div class="person__meta">recorded by <?= sanitize($a['user_name']) ?></div>
                             <?php endif ?>
                         </td>
                         <td>
@@ -120,7 +120,7 @@ $toolbar = [
                             <?php else: ?>
                                 <span class="text-subtle">—</span>
                             <?php endif ?>
-                            <div class="text-muted" style="font-size:.72rem"><?= sanitize($a['acceptance_method']) ?></div>
+                            <div class="person__meta"><?= sanitize($a['acceptance_method']) ?></div>
                         </td>
                         <td>
                             <?php if ($intact): ?>
@@ -136,7 +136,7 @@ $toolbar = [
                                 <?= sanitize(substr((string) $a['content_hash'], 0, 16)) ?>…
                             </div>
                         </td>
-                        <td class="text-muted" style="font-size:.75rem">
+                        <td class="person__meta">
                             <?= sanitize($a['ip_address'] ?: '—') ?>
                         </td>
                     </tr>

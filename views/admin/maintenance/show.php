@@ -31,11 +31,11 @@ $canUpdate = $canManage ?? false;
             </div>
 
             <div class="section-title">Description</div>
-            <div style="font-size:.875rem;line-height:1.6"><?= nl2br(sanitize($r['description'])) ?></div>
+            <div class="prose"><?= nl2br(sanitize($r['description'])) ?></div>
 
             <?php if ($r['completion_notes']): ?>
                 <div class="section-title">Completion Notes</div>
-                <div style="font-size:.875rem;line-height:1.6"><?= nl2br(sanitize($r['completion_notes'])) ?></div>
+                <div class="prose"><?= nl2br(sanitize($r['completion_notes'])) ?></div>
             <?php endif ?>
 
             <?php if (!empty($photos)): ?>

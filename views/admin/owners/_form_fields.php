@@ -91,7 +91,7 @@ $errClass = static fn(string $field): string => isset($errs[$field]) ? ' form-co
              question next, so the profile is safely stored before any account
              work begins — and the credentials step never blocks the owner
              from being recorded. */ ?>
-    <div class="form-hint" style="margin-top:14px">
+    <div class="form-hint mt-2" >
         <i class="bi bi-info-circle"></i>
         After saving you will be asked whether this owner should be able to sign in.
     </div>

@@ -49,11 +49,11 @@ $typeLabel = ucfirst($grantCustomer['customer_type'] ?? 'customer');
         </header>
 
         <div class="modal__body">
-            <p style="font-size:.95rem;color:var(--text-body);line-height:1.6">
+            <p class="prose">
                 Should this customer be able to <strong>sign in</strong> to the portal —
                 to see their lease, payments and requests?
             </p>
-            <ul class="promise-list" style="margin-top:14px">
+            <ul class="promise-list mt-2" >
                 <li>
                     <i class="bi bi-check-lg"></i>
                     <span><strong>Yes</strong> — one account is created with the role <strong>Customer</strong>, linked to this record.</span>

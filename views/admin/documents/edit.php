@@ -26,7 +26,7 @@ $actionButton = [
     </div>
 
     <div class="card__body">
-        <div class="alert alert--info" style="margin-bottom:18px">
+        <div class="alert alert--info mb-2">
             <i class="bi bi-info-circle"></i>
             <div>
                 The file itself cannot be swapped out — <code><?= sanitize($doc['file_name']) ?></code>

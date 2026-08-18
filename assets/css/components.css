@@ -435,6 +435,7 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 
 /* Long-form copy inside a card — a description, a note, stored terms. */
 .prose{color:var(--text-body);line-height:var(--lh-body);max-width:72ch;overflow-wrap:anywhere}
+.prose p+p{margin-top:.75em}
 
 /* ─── Profile / detail ──────────────────────────────────── */
 .profile-grid{display:grid;grid-template-columns:300px 1fr;gap:20px}
@@ -1640,3 +1641,112 @@ a.segmented__btn.is-active{color:var(--text)}
 .stats{gap:var(--space-3)}
 .grid-auto{gap:var(--space-3)}
 .mini-stats{gap:var(--space-3);margin-bottom:var(--space-4)}
+
+/* ════════════════════════════════════════════════════════════════════
+   STEP 4 — DETAIL PAGES
+   The shapes the show pages were each inventing for themselves.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* A file at detail size. The register's .filecell with room to breathe and
+   an action pinned to the right, so a document looks like the same object
+   in a table row and on its own page. */
+.filecell--lg{align-items:center;gap:var(--space-4)}
+.filecell--lg .filecell__icon{font-size:2.2rem}
+.filecell--lg .filecell__body{flex:1}
+.filecell--lg .btn{flex-shrink:0}
+
+/* The bar above a printable document. Not .form-actions: nothing here is
+   submitting anything, and it must disappear on paper. */
+.receipt-actions{
+  display:flex;justify-content:flex-end;gap:var(--space-2);
+  margin-bottom:var(--space-4);
+}
+
+/* ── Receipt ────────────────────────────────────────────────────────
+   Was twenty-one inline styles doing what these classes now do. The
+   figures column is tabular so the amounts line up as a column, which
+   is the whole reason a receipt is laid out as a table. */
+.receipt__meta-label{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:var(--fs-2xs)}
+.receipt__meta-code{font-family:var(--font-mono);font-size:var(--fs-xs);margin-top:2px}
+.receipt__meta-date{color:var(--text-muted);font-size:var(--fs-2xs);margin-top:2px}
+
+.receipt__party{margin-bottom:var(--space-5)}
+.receipt__party-label{
+  font-size:var(--fs-2xs);color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+}
+.receipt__party-name{font-size:1.05rem;font-weight:600;margin-top:4px;color:var(--text)}
+.receipt__party-meta{font-size:var(--fs-xs);color:var(--text-muted)}
+
+.receipt__amount{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* A running subtotal: separated from the lines above it but not the final
+   figure, which keeps its own heavier rule. */
+.receipt__row--sub td{font-weight:600}
+.receipt__notes{margin-top:var(--space-4);font-size:var(--fs-xs);color:var(--text-body)}
+
+.receipt__sign{
+  display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8);
+  margin-top:var(--space-10);font-size:var(--fs-2xs);color:var(--text-muted);
+}
+.receipt__sign-block--end{text-align:right}
+.receipt__sign-rule{border-top:1px solid var(--text);padding-top:6px}
+.receipt__sign-block--end .receipt__sign-rule{display:inline-block;min-width:180px}
+.receipt__sign-name{margin-top:4px;color:var(--text)}
+
+@media (max-width:560px){
+  .receipt{padding:var(--space-5)}
+  .receipt__head{flex-direction:column;gap:var(--space-3)}
+  .receipt__meta{text-align:left}
+  .receipt__sign{grid-template-columns:1fr;gap:var(--space-6)}
+  .receipt__sign-block--end{text-align:left}
+}
+
+/* ── Print ──────────────────────────────────────────────────────────
+   The existing block already hid the shell. These are the parts it did
+   not cover, and they are what separates a page that happens to print
+   from a document. */
+@media print{
+  /* The browser drops backgrounds and borders by default to save ink,
+     which takes the receipt's rules with them — and those rules are what
+     make it read as a receipt rather than a list. */
+  .receipt,.receipt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .receipt{padding:0}
+  .receipt__head{border-bottom-width:2px}
+  /* A signature panel split across two sheets is a signature nobody can
+     use, and an amount separated from its label is worse. */
+  .receipt__sign,.receipt__table tr{break-inside:avoid;page-break-inside:avoid}
+  .receipt__notes{break-inside:avoid}
+  /* The page's own margin, so the receipt does not sit against the edge
+     of the paper. */
+  @page{margin:16mm}
+  /* Anything interactive is meaningless on paper. */
+  .btn,.row-menu,.toolbar,.page-header__actions,.nav-progress,
+  .tabs,.pagination,.density-toggle{display:none!important}
+  /* Links print their target when the reader cannot click them — but only
+     real ones, not every in-page anchor. */
+  .receipt a[href^="http"]::after{content:" (" attr(href) ")";font-size:.85em;color:#555}
+}
+
+/* ── Step 4 utilities ───────────────────────────────────────────────
+   The handful of shapes the detail pages kept re-declaring inline. Each
+   one earned a class by appearing in three or more places; a one-off
+   stays inline rather than inventing a utility nobody else will use. */
+
+/* A form that is only a wrapper around one button, sitting in a row of
+   other buttons. `display:contents` rather than `inline`, so the button
+   participates in the parent's flex layout instead of the form becoming
+   a stray inline box that breaks the gap. */
+.inline-form{display:contents}
+
+/* A row of controls under a block of content. */
+.action-row{display:flex;gap:var(--space-3);flex-wrap:wrap;margin-top:var(--space-6)}
+.action-row--tight{margin-top:var(--space-3)}
+
+/* A record that is switched off — an inactive category, a disabled row.
+   Dimmed rather than hidden, because it is still a record. */
+.is-muted-row{opacity:.55}
+.is-muted-row:hover{opacity:1}
+
+/* A narrow single-column page: a short form, a preview. */
+.measure-sm{max-width:520px;margin-inline:auto}
+.measure-md{max-width:700px;margin-inline:auto}

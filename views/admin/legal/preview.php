@@ -6,7 +6,7 @@
  * Expects: $title, $body, $backUrl
  */
 ?>
-<div class="alert alert--info" style="margin-bottom:16px">
+<div class="alert alert--info mb-2" >
     <i class="bi bi-eye"></i>
     <div>
         Preview of unsaved text, rendered by the server with the same function the public page uses.

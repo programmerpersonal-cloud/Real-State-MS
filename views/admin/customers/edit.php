@@ -24,14 +24,14 @@ $showAccount = false;
             <?php if (!empty($fd['account_id'])): ?>
                 <?php /* Renaming here also renames the account, so the two lists keep
                          describing one person. Said plainly rather than done quietly. */ ?>
-                <div class="form-hint" style="margin-top:14px">
+                <div class="form-hint mt-2" >
                     <i class="bi bi-info-circle"></i>
                     This customer signs in as <strong><?= sanitize($fd['account_email']) ?></strong>.
                     Changes to the name and phone are applied to that account too.
                 </div>
             <?php endif ?>
 
-            <div style="display:flex;gap:12px;margin-top:28px">
+            <div class="action-row">
                 <button type="submit" class="btn btn--primary btn--lg"><i class="bi bi-check-lg"></i> Save Changes</button>
                 <a href="<?= APP_URL ?>/index.php?page=customers&action=show&id=<?= $fd['id'] ?>" class="btn btn--outline btn--lg">Cancel</a>
             </div>

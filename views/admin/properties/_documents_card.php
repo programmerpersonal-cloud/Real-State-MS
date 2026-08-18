@@ -57,7 +57,7 @@ foreach (['active' => 'Active', 'expiring' => 'Expiring', 'expired' => 'Expired'
     </div>
 
     <?php if (empty($documents)): ?>
-        <div class="card__body" style="padding:0">
+        <div class="card__body card__body--flush">
             <div class="empty-state">
                 <div class="empty-state__icon"><i class="bi bi-folder2-open"></i></div>
                 <div class="empty-state__title">No documents on file</div>
@@ -69,14 +69,14 @@ foreach (['active' => 'Active', 'expiring' => 'Expiring', 'expired' => 'Expired'
                     <?php endif ?>
                 </div>
                 <?php if ($canManage): ?>
-                    <button type="button" class="btn btn--primary btn--sm" data-modal-open="documentUploadModal" style="margin-top:14px">
+                    <button type="button" class="btn btn--primary btn--sm mt-2" data-modal-open="documentUploadModal" >
                         <i class="bi bi-upload"></i> Upload Document
                     </button>
                 <?php endif ?>
             </div>
         </div>
     <?php else: ?>
-        <div class="card__body" style="padding:0">
+        <div class="card__body card__body--flush">
             <?php if (count($tabs) > 1): ?>
             <div class="tabs" data-tabs style="padding:0 20px">
                 <?php $first = true; foreach ($tabs as $key => $tab): ?>
@@ -111,7 +111,7 @@ foreach (['active' => 'Active', 'expiring' => 'Expiring', 'expired' => 'Expired'
         </div>
 
         <div class="card__footer" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-            <span class="text-muted" style="font-size:.78rem">
+            <span class="person__meta">
                 <i class="bi bi-shield-lock"></i>
                 Files are stored outside the public folder and served only to authorised users.
             </span>

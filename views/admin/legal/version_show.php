@@ -115,7 +115,7 @@ $legalUrl = APP_URL . '/index.php?page=legal';
                     <a class="btn btn--primary btn--sm btn--block" href="<?= $legalUrl ?>&amp;action=edit&amp;id=<?= $vid ?>">
                         <i class="bi bi-pencil" aria-hidden="true"></i> Edit draft
                     </a>
-                    <form method="post" action="<?= $legalUrl ?>&amp;action=publish">
+                    <form class="inline-form" method="post" action="<?= $legalUrl ?>&amp;action=publish">
                         <?= csrfField() ?>
                         <input type="hidden" name="id" value="<?= $vid ?>">
                         <button class="btn btn--success btn--sm btn--block"
@@ -128,7 +128,7 @@ $legalUrl = APP_URL . '/index.php?page=legal';
                         </button>
                     </form>
                 <?php else: ?>
-                    <form method="post" action="<?= $legalUrl ?>&amp;action=revise">
+                    <form class="inline-form" method="post" action="<?= $legalUrl ?>&amp;action=revise">
                         <?= csrfField() ?>
                         <input type="hidden" name="id" value="<?= $vid ?>">
                         <button class="btn btn--primary btn--sm btn--block">
@@ -138,7 +138,7 @@ $legalUrl = APP_URL . '/index.php?page=legal';
                 <?php endif ?>
 
                 <?php if ($isLive): ?>
-                    <form method="post" action="<?= $legalUrl ?>&amp;action=withdraw">
+                    <form class="inline-form" method="post" action="<?= $legalUrl ?>&amp;action=withdraw">
                         <?= csrfField() ?>
                         <input type="hidden" name="id" value="<?= $vid ?>">
                         <button class="btn btn--outline btn--sm btn--block"
