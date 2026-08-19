@@ -55,14 +55,9 @@
      table beside it gains a column. */
   --rail-width-collapsed: 68px;
 
-  /* ── Density ───────────────────────────────────────────────────
-     One switch, two settings. Comfortable is the default because the
-     type scale just went up and the two have to be decided together;
-     compact returns the old rhythm for anyone working a long register.
-
-     Flipped from the topbar, which sets data-density on <html>. One
-     control for the whole application rather than one per register:
-     it is a preference about reading tables generally.              */
+  /* ── Row rhythm ────────────────────────────────────────────────
+     One setting. There was a compact alternative behind a topbar
+     switch; the switch is gone, so this is simply what a row is.   */
   --cell-x: 16px;
   --cell-y: 12px;
   --cell-head-y: 10px;
@@ -83,14 +78,6 @@
   /* A card heading. Reads a clear step below the 28px page title —
      at the old literal .98rem the two were nearly the same size. */
   --fs-title: 1.0625rem;   /* 17px */
-}
-
-/* Set on <html> or <body>. Until step 3 ships the toggle, this is
-   reachable only by hand — which is enough to verify it resolves. */
-[data-density="compact"] {
-  --cell-x: 12px;
-  --cell-y: 7px;
-  --cell-head-y: 7px;
 }
 
 /* ── Density on touch ─────────────────────────────────────────────

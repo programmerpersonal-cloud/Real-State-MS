@@ -33,7 +33,6 @@ $defaultEmail = $fd['email'] ?? ($isStaff ? '' : ($currentUser['email'] ?? ''));
         <form method="post" data-validate>
             <?= csrfField() ?>
 
-            <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
 
             <div class="form-group">
                 <label class="form-label" for="inq-property">Property</label>

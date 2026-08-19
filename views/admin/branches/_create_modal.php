@@ -31,7 +31,6 @@ $b   = $fd ?? [];
             <input type="hidden" name="return_to" value="modal">
 
             <div class="modal__body">
-                <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
                 <?php require __DIR__ . '/_form_fields.php'; ?>
             </div>
 

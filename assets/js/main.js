@@ -126,9 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-filter-popover]').forEach(initFilterPopover);
   initNavProgress();
 
-  // ─── Step 3 ────────────────────────────────────────────
-  initDensityToggle();
-
   // ─── Step 5 ────────────────────────────────────────────
   initStickyActions();
 
@@ -323,42 +320,6 @@ function initStickyActions() {
     });
     bars.forEach((el) => { const f = el.closest('form'); if (f) ro.observe(f); });
   }
-}
-
-const DENSITY_KEY = 'saxane.density';
-
-/**
- * Row density, applied to the whole application.
- *
- * The attribute goes on <html> and the CSS reads it from there, so one switch
- * changes every table on every page rather than the one being looked at. It is
- * written before first paint by the same inline script that restores the rail,
- * so a compact preference never renders comfortable and then reflows.
- */
-function initDensityToggle() {
-  const group = document.querySelector('[data-density-toggle]');
-  if (!group) return;
-
-  const root = document.documentElement;
-  const buttons = Array.from(group.querySelectorAll('[data-density]'));
-
-  const apply = (mode, persist) => {
-    if (mode === 'compact') root.setAttribute('data-density', 'compact');
-    else root.removeAttribute('data-density');
-
-    buttons.forEach((b) => {
-      b.setAttribute('aria-pressed', String(b.dataset.density === mode));
-    });
-
-    if (persist) {
-      try {
-        localStorage.setItem(DENSITY_KEY, mode);
-      } catch (e) { /* private mode: the choice lasts for this page only */ }
-    }
-  };
-
-  apply(root.getAttribute('data-density') === 'compact' ? 'compact' : 'comfortable', false);
-  buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.density, true)));
 }
 
 /**

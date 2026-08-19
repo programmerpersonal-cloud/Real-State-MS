@@ -48,11 +48,6 @@ $notif = notificationBell();
     if (localStorage.getItem('saxane.rail') === 'collapsed') {
       d.classList.add('rail-collapsed');
     }
-    // Same reason as the rail: a compact preference must not render at
-    // comfortable and then reflow every table on the page.
-    if (localStorage.getItem('saxane.density') === 'compact') {
-      d.setAttribute('data-density', 'compact');
-    }
   } catch (e) { /* private mode: both simply start at their defaults */ }
 })();
 </script>

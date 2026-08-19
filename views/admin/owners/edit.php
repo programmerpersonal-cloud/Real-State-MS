@@ -15,7 +15,6 @@ $showAccount = false;
         <form method="POST" data-validate>
             <?= csrfField() ?>
 
-            <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
 
             <?php require __DIR__ . '/_form_fields.php'; ?>
 

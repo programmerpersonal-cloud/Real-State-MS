@@ -36,7 +36,6 @@ $showUrl = APP_URL . '/index.php?page=properties&action=show&id=' . (int) $fd['i
             <?php /* Server-side rejections first, above the fields they refer to.
                      The client-side twin is built by components.js when a submit
                      is stopped in the browser. */ ?>
-            <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
 
             <?php require __DIR__ . '/_form_fields.php'; ?>
 

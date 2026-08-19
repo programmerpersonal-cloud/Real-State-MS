@@ -92,33 +92,3 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
               <?= $aria('notes') ?>><?= sanitize($fd['notes'] ?? '') ?></textarea>
     <?= $err('notes') ?>
 </div>
-
-<?php
-/* Booking terms. Rendered only when a version is published and acceptance is
-   switched on, so an install that has not written its terms yet still takes
-   bookings. Living in this shared partial means it appears in both the full
-   page and the quick-add popup automatically. */
-$bookingTerms = termsRequiredForBooking();
-?>
-<?php if ($bookingTerms): ?>
-<div class="form-group">
-    <h4 class="form-section">Booking terms</h4>
-    <label class="check">
-        <input type="checkbox" name="terms_accepted" value="1" required
-               <?= !empty($fd['terms_accepted']) ? 'checked' : '' ?><?= $aria('terms_accepted') ?>>
-        <span>
-            The customer has read and accepted the
-            <a href="<?= APP_URL ?>/index.php?page=legal&amp;action=version&amp;id=<?= (int) $bookingTerms['id'] ?>"
-               target="_blank" rel="noopener"><?= sanitize($bookingTerms['title']) ?></a>
-            (<?= sanitize($bookingTerms['version_code']) ?>).
-        </span>
-    </label>
-    <?= $err('terms_accepted') ?>
-    <input type="hidden" name="terms_version_id" value="<?= (int) $bookingTerms['id'] ?>">
-    <div class="form-hint">
-        <i class="bi bi-shield-check" aria-hidden="true"></i>
-        Effective <?= formatDate($bookingTerms['effective_from']) ?>.
-        The exact version accepted is recorded against this reservation and is never altered by later revisions.
-    </div>
-</div>
-<?php endif ?>

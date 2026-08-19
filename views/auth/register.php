@@ -37,7 +37,6 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
             <form method="POST" action="<?= APP_URL ?>/index.php?page=register" id="register-form" data-validate>
                 <?= csrfField() ?>
 
-                <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
 
                 <div class="form-group">
                     <label class="form-label" for="full_name">Full name</label>

@@ -27,7 +27,6 @@ $uid  = 'tf';
         </div>
 
         <div class="card__body">
-            <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
             <?php require __DIR__ . '/_form_fields.php'; ?>
 
             <?php /* .form-actions already draws its own rule and top spacing, so

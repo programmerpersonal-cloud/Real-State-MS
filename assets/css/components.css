@@ -1157,24 +1157,6 @@ a.segmented__btn.is-active{color:var(--text)}
 .confirm__footer{justify-content:flex-end}
 
 /* ════════════════════════════════════════════════════════════
-   ERROR SUMMARY — what a rejected form says first
-   ════════════════════════════════════════════════════════════ */
-.error-summary{
-  border:1px solid rgba(200,30,30,.28);background:var(--danger-bg);
-  border-radius:var(--radius);padding:var(--space-4) var(--space-5);
-  margin-bottom:var(--space-5);
-}
-.error-summary:focus-visible{outline:2px solid var(--danger);outline-offset:2px}
-.error-summary__title{
-  display:flex;align-items:center;gap:8px;
-  font-size:var(--fs-sm);font-weight:700;color:var(--danger);
-}
-.error-summary__list{margin:var(--space-2) 0 0;padding-left:26px}
-.error-summary__list li{font-size:var(--fs-xs);color:var(--danger);margin-top:3px}
-.error-summary__list a{color:inherit;text-decoration:underline}
-.error-summary__list a:hover{color:var(--danger)}
-
-/* ════════════════════════════════════════════════════════════
    LOADING STATES
    ════════════════════════════════════════════════════════════ */
 /* A button mid-submit. The label is kept and dimmed rather than swapped for
@@ -1570,18 +1552,6 @@ a.segmented__btn.is-active{color:var(--text)}
    against the scrolled rows passing under it. */
 .table thead th{position:sticky;top:0;z-index:2;background:var(--surface-2)}
 
-/* ── Density ────────────────────────────────────────────────────────
-   The control lives in the topbar because it is a preference about the
-   whole application, not about one register — putting it in each table
-   header would have meant fifteen copies of one switch. */
-.density-toggle{display:inline-flex}
-.density-toggle .segmented__btn{width:32px;padding:0;justify-content:center}
-@media (max-width:900px){
-  /* Density is a desktop concern. On a phone the rows are already at the
-     touch minimum and there is nothing to trade. */
-  .density-toggle{display:none}
-}
-
 /* ── Card grid rhythm ───────────────────────────────────────────────
    .stats and .grid-auto were on different gaps (11-12px vs --space-4),
    so a KPI row and a card grid on the same page sat to different rules. */
@@ -1693,7 +1663,7 @@ a.segmented__btn.is-active{color:var(--text)}
   @page{margin:16mm}
   /* Anything interactive is meaningless on paper. */
   .btn,.row-menu,.toolbar,.page-header__actions,.nav-progress,
-  .tabs,.pagination,.density-toggle{display:none!important}
+  .tabs,.pagination{display:none!important}
   /* Links print their target when the reader cannot click them — but only
      real ones, not every in-page anchor. */
   .receipt a[href^="http"]::after{content:" (" attr(href) ")";font-size:.85em;color:#555}

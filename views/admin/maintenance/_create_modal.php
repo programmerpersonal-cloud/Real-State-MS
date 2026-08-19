@@ -32,7 +32,6 @@ $uid = 'mm';
             <input type="hidden" name="return_to" value="<?= modalReturnTo($modalHost ?? null) ?>">
 
             <div class="modal__body">
-                <?php require VIEWS_PATH . '/components/ui/error_summary.php'; ?>
                 <?php require __DIR__ . '/_form_fields.php'; ?>
             </div>
 

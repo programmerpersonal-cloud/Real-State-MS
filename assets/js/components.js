@@ -769,9 +769,6 @@ function initFormValidation(form) {
       bad.push([cpw, msg]);
     }
 
-    const stale = form.querySelector('.error-summary[data-client-summary]');
-    if (stale) stale.remove();
-
     if (!bad.length) {
       // Valid: show the submit working, so a slow save does not read as a
       // dead button and get pressed a second time.
@@ -808,44 +805,12 @@ function initFormValidation(form) {
 
     e.preventDefault();
 
-    if (bad.length === 1) {
-      // One problem needs no summary — the field itself says everything.
-      bad[0][0].focus();
-      return;
-    }
-
-    // More than one: a summary at the top, each line linking to its field, and
-    // focus moved there, so a screen reader hears the whole list rather than
-    // one message with no hint that others exist.
-    const summary = document.createElement('div');
-    summary.className = 'error-summary';
-    summary.setAttribute('data-client-summary', '');
-    summary.setAttribute('role', 'alert');
-    summary.tabIndex = -1;
-    summary.innerHTML =
-      '<div class="error-summary__title">' +
-        '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>' +
-        'There are ' + bad.length + ' problems with this form' +
-      '</div><ul class="error-summary__list"></ul>';
-
-    const list = summary.querySelector('.error-summary__list');
-    bad.forEach(pair => {
-      const field = pair[0];
-      const li = document.createElement('li');
-      const a = document.createElement('a');
-      a.href = '#';
-      a.textContent = pair[1];
-      a.addEventListener('click', (ev) => { ev.preventDefault(); field.focus(); });
-      li.appendChild(a);
-      list.appendChild(li);
-    });
-
-    // Inside the dialog body when this is a popup, so the summary lands on the
-    // surface that actually scrolls rather than behind it.
-    const host = form.querySelector('.modal__body') || form;
-    host.prepend(summary);
-    summary.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    summary.focus();
+    // Focus goes to the first field that has a problem, whatever the count.
+    // Each message sits under its own input; a list of the same messages at
+    // the top of the form repeated them and pushed the fields it was talking
+    // about further down the screen.
+    bad[0][0].focus();
+    bad[0][0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
 }
 
