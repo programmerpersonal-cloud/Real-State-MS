@@ -95,7 +95,7 @@ if ($hostsAction('property')) {
                     <?php if (!empty($d['property_title'])): ?>
                         <span class="text-muted">· <?= sanitize($d['property_title']) ?></span>
                     <?php endif ?>
-                    <span class="badge <?= $st['badge'] ?>"><?= sanitize(documentExpiryNote($d)) ?></span>
+                    <?= uiStatus($st['key'], documentExpiryNote($d)) ?>
                 </li>
             <?php endforeach ?>
         </ul>
@@ -231,7 +231,7 @@ $splitRow   = $canSeeRevenue && $showStatus;
     <div class="card">
         <div class="card__header">
             <div>
-                <h3 class="card__title">Revenue</h3>
+                <h2 class="card__title">Revenue</h2>
                 <div class="card__subtitle">Payments received, last 6 months</div>
             </div>
             <div class="chart-figure"><?= formatCurrency($revenueTotal) ?></div>
@@ -260,7 +260,7 @@ $splitRow   = $canSeeRevenue && $showStatus;
     <div class="card">
         <div class="card__header">
             <div>
-                <h3 class="card__title">Properties by Status</h3>
+                <h2 class="card__title">Properties by Status</h2>
                 <div class="card__subtitle">Live listings, archived excluded</div>
             </div>
             <a href="<?= APP_URL ?>/index.php?page=properties" class="btn btn--ghost btn--sm">
@@ -300,7 +300,7 @@ $splitRow   = $canSeeRevenue && $showStatus;
     <div class="card">
         <div class="card__header">
             <div>
-                <h3 class="card__title">Recent Activity</h3>
+                <h2 class="card__title">Recent Activity</h2>
                 <div class="card__subtitle">Latest changes across the system</div>
             </div>
             <a href="<?= APP_URL ?>/index.php?page=audit-logs" class="btn btn--ghost btn--sm">View all <i class="bi bi-arrow-right"></i></a>
@@ -344,7 +344,7 @@ $splitRow   = $canSeeRevenue && $showStatus;
     <div class="card">
         <div class="card__header">
             <div>
-                <h3 class="card__title">Quick Actions</h3>
+                <h2 class="card__title">Quick Actions</h2>
                 <div class="card__subtitle">Create a record without leaving this page</div>
             </div>
             <?php if (can('reports.view')): ?>

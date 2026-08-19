@@ -28,7 +28,7 @@ $bad = static fn(string $f): string => uiInvalidClass($errs, $f);
 $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f, $hint);
 ?>
 
-<h4 class="form-section">Basic information</h4>
+<h3 class="form-section">Basic information</h3>
 
 <div class="form-group">
     <label class="form-label" for="<?= $uid ?>-title">Title <span class="req" aria-hidden="true">*</span></label>
@@ -58,11 +58,11 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     </div>
 </div>
 
-<h4 class="form-section">Location</h4>
+<h3 class="form-section">Location</h3>
 
 <?php require __DIR__ . '/_location_fields.php'; ?>
 
-<h4 class="form-section">Size &amp; layout</h4>
+<h3 class="form-section">Size &amp; layout</h3>
 
 <div class="form-row form-row--4">
     <div class="form-group">
@@ -103,7 +103,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     </label>
 </div>
 
-<h4 class="form-section">Financial</h4>
+<h3 class="form-section">Financial</h3>
 
 <div class="form-row form-row--3">
     <div class="form-group">
@@ -131,7 +131,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
            placeholder="e.g. Water, Electricity" value="<?= sanitize($fd['utilities_included'] ?? '') ?>">
 </div>
 
-<h4 class="form-section">Ownership &amp; assignment</h4>
+<h3 class="form-section">Ownership &amp; assignment</h3>
 
 <?php if ($showStatus): ?>
     <div class="form-group">
@@ -175,7 +175,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     </div>
 </div>
 
-<h4 class="form-section">Media</h4>
+<h3 class="form-section">Media</h3>
 
 <?php /* The zone is the label, so clicking anywhere in it opens the picker and
          the real file input can stay hidden. initUploadZone() writes what was
@@ -192,7 +192,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     </label>
 </div>
 
-<h4 class="form-section">Additional information</h4>
+<h3 class="form-section">Additional information</h3>
 
 <div class="form-group">
     <label class="form-label" for="<?= $uid ?>-description">Description</label>

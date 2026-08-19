@@ -10,7 +10,7 @@ $uid = 'oe';
 $showAccount = false;
 ?>
 <div class="card">
-    <div class="card__header"><h3 class="card__title">Edit: <?= sanitize($fd['full_name']) ?></h3></div>
+    <div class="card__header"><h2 class="card__title">Edit: <?= sanitize($fd['full_name']) ?></h2></div>
     <div class="card__body">
         <form method="POST" data-validate>
             <?= csrfField() ?>

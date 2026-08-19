@@ -85,7 +85,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     </div>
 </div>
 
-<h4 class="form-section">Work</h4>
+<h3 class="form-section">Work</h3>
 
 <div class="form-row">
     <div class="form-group">
@@ -100,7 +100,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     </div>
 </div>
 
-<h4 class="form-section">Emergency contact &amp; guarantor</h4>
+<h3 class="form-section">Emergency contact &amp; guarantor</h3>
 
 <div class="form-row">
     <div class="form-group">

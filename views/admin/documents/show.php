@@ -38,7 +38,7 @@ if ($canManage) {
     <div class="detail-cols__main">
         <div class="card mb-3">
             <div class="card__header">
-                <h3 class="card__title"><?= sanitize($doc['title']) ?></h3>
+                <h2 class="card__title"><?= sanitize($doc['title']) ?></h2>
                 <?= uiStatus($state['key'], $state['label']) ?>
             </div>
             <div class="card__body">
@@ -74,7 +74,7 @@ if ($canManage) {
         </div>
 
         <div class="card">
-            <div class="card__header"><h3 class="card__title">File</h3></div>
+            <div class="card__header"><h2 class="card__title">File</h2></div>
             <div class="card__body">
                 <?php /* The same filecell the document register uses, so a file
                          looks like the same object in the list and on its own
@@ -107,7 +107,7 @@ if ($canManage) {
 
     <aside class="detail-cols__side">
         <div class="card mb-3">
-            <div class="card__header"><h3 class="card__title">Details</h3></div>
+            <div class="card__header"><h2 class="card__title">Details</h2></div>
             <div class="card__body">
                 <dl class="datalist">
                     <div class="datalist__row"><dt>Code</dt>
@@ -148,7 +148,7 @@ if ($canManage) {
 
         <?php if ($propId > 0): ?>
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Attached to</h3></div>
+                <div class="card__header"><h2 class="card__title">Attached to</h2></div>
                 <div class="card__body">
                     <a class="btn btn--outline btn--sm btn--block"
                        href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= $propId ?>">
@@ -160,7 +160,7 @@ if ($canManage) {
 
         <?php if ($canManage): ?>
             <div class="card">
-                <div class="card__header"><h3 class="card__title">Manage</h3></div>
+                <div class="card__header"><h2 class="card__title">Manage</h2></div>
                 <div class="card__body stack">
                     <?php /* The browser's own confirm() cannot name the document it
                              is about to remove, so both destructive actions hand

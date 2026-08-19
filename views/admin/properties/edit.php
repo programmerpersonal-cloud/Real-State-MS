@@ -25,7 +25,7 @@ $showUrl = APP_URL . '/index.php?page=properties&action=show&id=' . (int) $fd['i
 
 <div class="card">
     <div class="card__header">
-        <h3 class="card__title">Edit <?= sanitize($fd['title']) ?></h3>
+        <h2 class="card__title">Edit <?= sanitize($fd['title']) ?></h2>
         <span class="table__id"><?= sanitize($fd['property_code']) ?></span>
     </div>
 
@@ -41,7 +41,7 @@ $showUrl = APP_URL . '/index.php?page=properties&action=show&id=' . (int) $fd['i
             <?php require __DIR__ . '/_form_fields.php'; ?>
 
             <?php if (!empty($images)): ?>
-                <h4 class="form-section">Images on file</h4>
+                <h3 class="form-section">Images on file</h3>
                 <div class="gallery">
                     <?php foreach ($images as $img): ?>
                         <div class="gallery__item">

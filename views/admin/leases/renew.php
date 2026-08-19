@@ -5,7 +5,7 @@
 $l = $lease;
 ?>
 <div class="card measure-sm" >
-    <div class="card__header"><h3 class="card__title">Renew Lease <?= sanitize($l['lease_code']) ?></h3></div>
+    <div class="card__header"><h2 class="card__title">Renew Lease <?= sanitize($l['lease_code']) ?></h2></div>
     <div class="card__body">
         <p class="text-muted mb-2">Extending lease for <strong><?= sanitize($l['customer_name']) ?></strong> at <strong><?= sanitize($l['property_title']) ?></strong>.</p>
         <form method="post">

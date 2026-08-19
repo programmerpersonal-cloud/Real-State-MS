@@ -6,7 +6,7 @@ $uid = 'oc';
 $showAccount = true;   // shows the "you will be asked next" note
 ?>
 <div class="card">
-    <div class="card__header"><h3 class="card__title">Owner Information</h3></div>
+    <div class="card__header"><h2 class="card__title">Owner Information</h2></div>
     <div class="card__body">
         <form method="POST" data-validate>
             <?= csrfField() ?>

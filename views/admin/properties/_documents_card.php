@@ -31,9 +31,9 @@ foreach (['active' => 'Active', 'expiring' => 'Expiring', 'expired' => 'Expired'
 <div class="card mb-3">
     <div class="card__header">
         <div>
-            <h3 class="card__title">
+            <h2 class="card__title">
                 <i class="bi bi-folder2-open"></i> Documents
-            </h3>
+            </h2>
             <?php if ($stats['expired'] > 0 || $stats['expiring'] > 0): ?>
                 <p class="card__subtitle">
                     <?php if ($stats['expired'] > 0): ?>

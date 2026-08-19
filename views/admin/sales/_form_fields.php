@@ -32,7 +32,7 @@ $openable = ['pending' => 'Pending', 'completed' => 'Completed'];
      data-tax-rate="<?= json_encode(taxRate()) ?>"
      data-currency="<?= sanitize(currencySymbol()) ?>">
 
-    <h4 class="form-section">Parties</h4>
+    <h3 class="form-section">Parties</h3>
 
     <div class="form-grid--2">
         <div class="form-group">
@@ -65,7 +65,7 @@ $openable = ['pending' => 'Pending', 'completed' => 'Completed'];
         </div>
     </div>
 
-    <h4 class="form-section">Money</h4>
+    <h3 class="form-section">Money</h3>
 
     <div class="form-grid--3">
         <div class="form-group">
@@ -99,7 +99,7 @@ $openable = ['pending' => 'Pending', 'completed' => 'Completed'];
         <span class="form-callout__note">sale amount plus tax</span>
     </div>
 
-    <h4 class="form-section">Terms</h4>
+    <h3 class="form-section">Terms</h3>
 
     <div class="form-grid--3">
         <div class="form-group">

@@ -58,7 +58,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     <?= $err('body') ?>
 </div>
 
-<h4 class="form-section">Optional links</h4>
+<h3 class="form-section">Optional links</h3>
 
 <div class="form-grid--3">
     <div class="form-group">

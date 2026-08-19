@@ -301,6 +301,18 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-sm);color:var(--tex
    safe to use on a skip link as well as on a label. Every bundle gets it:
    an icon-only control needs a name on the admin side just as much as on
    the marketing site. */
+/* Skip link: the first tab stop on every page, invisible until it has focus.
+   It lived in public.css, which meant the one on the sign-in page rendered
+   unstyled and permanently visible — and the application shell, the place
+   with a long rail to tab past, had none at all. */
+.skip-link{
+  position:absolute;left:-9999px;top:0;z-index:9999;
+  background:var(--primary);color:#fff;
+  padding:12px 20px;border-radius:0 0 var(--radius) 0;
+  font-size:var(--fs-sm);font-weight:600;
+}
+.skip-link:focus{left:0;color:#fff}
+
 .sr-only{
   position:absolute!important;width:1px;height:1px;
   padding:0;margin:-1px;overflow:hidden;

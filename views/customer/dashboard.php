@@ -107,7 +107,7 @@ $owedAmount   = (float) $owing['amount'];
 <?php endif ?>
 
 <div class="card mt-2">
-    <div class="card__header"><h3 class="card__title">Common tasks</h3></div>
+    <div class="card__header"><h2 class="card__title">Common tasks</h2></div>
     <div class="card__body">
         <?php /* Each tile is gated on the permission behind it, so a tenant whose
                  role loses a capability stops being offered the shortcut to it. */ ?>

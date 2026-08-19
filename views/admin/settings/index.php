@@ -54,7 +54,7 @@ foreach (SettingsController::CURRENCIES as $code => [$name, $symbol]) {
                             <div class="settings-panel__heading">
                                 <span class="settings-panel__icon"><i class="bi <?= sanitize($m['icon']) ?>"></i></span>
                                 <div>
-                                    <h3 class="card__title"><?= sanitize($m['label']) ?></h3>
+                                    <h2 class="card__title"><?= sanitize($m['label']) ?></h2>
                                     <?php if (!empty($m['desc'])): ?>
                                         <p class="card__subtitle"><?= sanitize($m['desc']) ?></p>
                                     <?php endif ?>

@@ -88,7 +88,7 @@ foreach ($categoryMeta as $cid => $meta) {
               placeholder="What this document is, and anything a colleague would need to know."><?= sanitize($fd['description'] ?? '') ?></textarea>
 </div>
 
-<h4 class="form-section">Reference &amp; dates</h4>
+<h3 class="form-section">Reference &amp; dates</h3>
 
 <div class="form-row form-row--3">
     <div class="form-group">
@@ -110,7 +110,7 @@ foreach ($categoryMeta as $cid => $meta) {
 </div>
 
 <?php if (!$isEdit): ?>
-<h4 class="form-section">File</h4>
+<h3 class="form-section">File</h3>
 
 <div class="form-group">
     <label class="upload-zone" for="<?= $uid ?>-file">

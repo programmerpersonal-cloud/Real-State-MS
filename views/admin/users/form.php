@@ -14,7 +14,7 @@ $uid    = 'uf';
 ?>
 <div class="card card--narrow">
     <div class="card__header">
-        <h3 class="card__title"><?= $isEdit ? 'Account details' : 'New account' ?></h3>
+        <h2 class="card__title"><?= $isEdit ? 'Account details' : 'New account' ?></h2>
         <span class="text-subtle">
             <?= $isEdit ? 'Changes take effect at their next request' : 'They can sign in as soon as this is saved' ?>
         </span>

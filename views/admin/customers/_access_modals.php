@@ -118,7 +118,7 @@ $typeLabel = ucfirst($grantCustomer['customer_type'] ?? 'customer');
                         </div>
                     <?php endif ?>
 
-                    <h4 class="form-section">Login identity</h4>
+                    <h3 class="form-section">Login identity</h3>
 
                     <div class="form-row">
                         <div class="form-group">
@@ -134,7 +134,7 @@ $typeLabel = ucfirst($grantCustomer['customer_type'] ?? 'customer');
                         </div>
                     </div>
 
-                    <h4 class="form-section">Password</h4>
+                    <h3 class="form-section">Password</h3>
 
                     <div class="form-row">
                         <div class="form-group">

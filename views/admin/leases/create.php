@@ -8,7 +8,7 @@ $uid  = 'lc';
 ?>
 <div class="card">
     <div class="card__header">
-        <h3 class="card__title">Lease agreement</h3>
+        <h2 class="card__title">Lease agreement</h2>
         <span class="text-subtle">Saving also writes the rent schedule and the deposit record</span>
     </div>
     <div class="card__body">

@@ -298,7 +298,7 @@
 .header__search-kbd{
   position:absolute;right:10px;top:50%;transform:translateY(-50%);
   font-family:var(--font);font-size:.66rem;font-weight:600;letter-spacing:.4px;
-  color:var(--text-subtle);background:var(--surface-3);
+  color:var(--text-muted);background:var(--surface-3);
   border:1px solid var(--border);border-radius:var(--radius-xs);
   padding:3px 7px;pointer-events:none;
 }

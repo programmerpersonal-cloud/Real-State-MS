@@ -122,7 +122,7 @@ $tabs = [
     <div class="detail-cols">
         <div class="detail-cols__main">
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Contact</h3></div>
+                <div class="card__header"><h2 class="card__title">Contact</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Phone</dt><dd><?= sanitize($o['phone'] ?: '—') ?></dd></div>
@@ -135,7 +135,7 @@ $tabs = [
             </div>
 
             <div class="card">
-                <div class="card__header"><h3 class="card__title">Payout details</h3></div>
+                <div class="card__header"><h2 class="card__title">Payout details</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Bank</dt><dd><?= sanitize($o['bank_name'] ?: '—') ?></dd></div>
@@ -155,7 +155,7 @@ $tabs = [
 
         <aside class="detail-cols__side">
             <div class="card">
-                <div class="card__header"><h3 class="card__title">Portal account</h3></div>
+                <div class="card__header"><h2 class="card__title">Portal account</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Access</dt>

@@ -56,13 +56,23 @@ $notif = notificationBell();
   } catch (e) { /* private mode: both simply start at their defaults */ }
 })();
 </script>
+<?php /* First tab stop on every page. Without it a keyboard user pays for the
+         whole rail before reaching the content, on every navigation. */ ?>
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<?php /* The announcement region is rendered here rather than created by the
+         first toast that needs it. A live region has to be in the document
+         before content is put into it, or the screen reader has nothing to
+         observe and the first message of the session is read by nobody. */ ?>
+<div id="toastRegion" class="toast-region" role="status" aria-live="polite"></div>
+
 <div class="app">
     <?php require VIEWS_PATH . '/components/sidebar.php'; ?>
 
     <div class="app__main">
         <?php require VIEWS_PATH . '/components/header.php'; ?>
 
-        <main class="app__content">
+        <main class="app__content" id="main" tabindex="-1">
             <?= renderFlash() ?>
 
             <?php if (!empty($pageTitle) || !empty($actionButton) || !empty($actionButtons)): ?>

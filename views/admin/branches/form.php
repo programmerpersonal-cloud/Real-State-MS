@@ -13,7 +13,7 @@ $uid  = 'bf';
 ?>
 <div class="card card--narrow">
     <div class="card__header">
-        <h3 class="card__title"><?= !empty($branch) ? 'Branch details' : 'New branch' ?></h3>
+        <h2 class="card__title"><?= !empty($branch) ? 'Branch details' : 'New branch' ?></h2>
     </div>
     <div class="card__body">
         <form method="post" data-validate>

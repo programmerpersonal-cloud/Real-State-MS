@@ -7,7 +7,7 @@ $uid = 'pc';
 
 <div class="card">
     <div class="card__header">
-        <h3 class="card__title">Property details</h3>
+        <h2 class="card__title">Property details</h2>
         <span class="text-subtle">New listings start as pending approval</span>
     </div>
     <div class="card__body">

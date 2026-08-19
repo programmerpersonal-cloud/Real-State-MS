@@ -19,38 +19,41 @@ $u = $user;
     </div>
 
     <div class="card">
-        <div class="card__header"><h3 class="card__title">Edit Profile</h3></div>
+        <div class="card__header"><h2 class="card__title">Edit Profile</h2></div>
         <div class="card__body">
             <form method="post" enctype="multipart/form-data">
                 <?= csrfField() ?>
                 <div class="form-grid--2">
                     <div class="form-group">
-                        <label class="form-label">Full Name</label>
-                        <input class="form-control" name="full_name" value="<?= sanitize($u['full_name']) ?>" required>
+                        <label class="form-label" for="pf-name">Full Name</label>
+                        <input class="form-control" id="pf-name" name="full_name"
+                               value="<?= sanitize($u['full_name']) ?>" autocomplete="name" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Email</label>
-                        <input class="form-control" type="email" name="email" value="<?= sanitize($u['email']) ?>" required>
+                        <label class="form-label" for="pf-email">Email</label>
+                        <input class="form-control" id="pf-email" type="email" name="email"
+                               value="<?= sanitize($u['email']) ?>" autocomplete="email" required>
                     </div>
+                    <?php $phoneField = ['name' => 'phone', 'id' => 'pf-phone', 'label' => 'Phone',
+                                        'value' => $u['phone'] ?? ''];
+                          require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
                     <div class="form-group">
-                        <label class="form-label">Phone</label>
-                        <input class="form-control" name="phone" value="<?= sanitize($u['phone']) ?>">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Avatar</label>
-                        <input class="form-control" type="file" name="avatar" accept="image/*">
+                        <label class="form-label" for="pf-avatar">Avatar</label>
+                        <input class="form-control" id="pf-avatar" type="file" name="avatar" accept="image/*">
                     </div>
                 </div>
 
                 <div class="section-title">Change Password</div>
                 <div class="form-grid--2">
                     <div class="form-group">
-                        <label class="form-label">New Password</label>
-                        <input class="form-control" type="password" name="new_password" placeholder="Leave blank to keep current">
+                        <label class="form-label" for="pf-new">New Password</label>
+                        <input class="form-control" id="pf-new" type="password" name="new_password"
+                               autocomplete="new-password" placeholder="Leave blank to keep current">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Confirm New Password</label>
-                        <input class="form-control" type="password" name="confirm_password">
+                        <label class="form-label" for="pf-confirm">Confirm New Password</label>
+                        <input class="form-control" id="pf-confirm" type="password" name="confirm_password"
+                               autocomplete="new-password">
                     </div>
                 </div>
 

@@ -136,7 +136,7 @@
 
         <aside class="detail-cols__side">
             <div class="card">
-                <div class="card__header"><h3 class="card__title">The terms</h3></div>
+                <div class="card__header"><h2 class="card__title">The terms</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Lease</dt><dd><?= sanitize($l['lease_code']) ?></dd></div>

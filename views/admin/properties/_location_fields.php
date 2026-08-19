@@ -24,7 +24,7 @@ $geoCoord = static function ($v): string {
 <div class="geo" data-geo>
     <div class="geo__head">
         <div>
-            <h4 class="geo__title"><i class="bi bi-geo-alt-fill"></i> Location</h4>
+            <h3 class="geo__title"><i class="bi bi-geo-alt-fill"></i> Location</h3>
             <p class="geo__hint">
                 Name the area, or let this device read its coordinates. You can also paste a
                 <code>latitude, longitude</code> pair (or a map link) into either coordinate box.

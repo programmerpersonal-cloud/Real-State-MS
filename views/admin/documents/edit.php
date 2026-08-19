@@ -21,8 +21,8 @@ $actionButton = [
 ?>
 <div class="card">
     <div class="card__header">
-        <h3 class="card__title"><?= sanitize($doc['title']) ?></h3>
-        <span class="badge <?= $state['badge'] ?>"><?= sanitize($state['label']) ?></span>
+        <h2 class="card__title"><?= sanitize($doc['title']) ?></h2>
+        <?= uiStatus($state['key'], $state['label']) ?>
     </div>
 
     <div class="card__body">

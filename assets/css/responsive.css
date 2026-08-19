@@ -94,11 +94,9 @@
    module offers is on screen, which is the point of having them. */
 @media (max-width:1280px){
   .table .col-lo{display:none}
-  .cell-fold--lo{display:block}
 }
 @media (max-width:1024px){
   .table .col-mid{display:none}
-  .cell-fold--mid{display:block}
   /* Less room, so the cap on a text column comes down with it — one long
      value should not be spending a fifth of a tablet's width. */
   .table{--cell-max:180px}
@@ -137,7 +135,7 @@
 
   /* Controls carrying their own literal sizes, lifted to the minimum. */
   .header__icon-btn,.header__visit,.header__toggle,
-  .row-menu__trigger,.density-toggle__btn{min-width:44px;min-height:44px}
+  .row-menu__trigger{min-width:44px;min-height:44px}
   .sidebar__link,.sidebar__label--toggle,.th-sort__link,
   .toolbar__filter-trigger,.tabs__item{min-height:44px}
   /* Pills and segments carry fixed heights (32 and 34) that read well under

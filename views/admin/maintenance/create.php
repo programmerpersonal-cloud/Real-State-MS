@@ -25,7 +25,7 @@ $uid  = 'mc';
         </div>
     <?php else: ?>
         <div class="card__header">
-            <h3 class="card__title">Report a fault</h3>
+            <h2 class="card__title">Report a fault</h2>
             <span class="text-subtle">The office is notified straight away</span>
         </div>
         <div class="card__body">

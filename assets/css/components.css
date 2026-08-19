@@ -278,7 +278,7 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .empty-state{text-align:center;padding:48px 20px}
 .empty-state__icon{
   width:56px;height:56px;border-radius:14px;margin:0 auto 14px;
-  background:var(--surface-3);color:var(--text-subtle);
+  background:var(--surface-3);color:var(--text-muted);
   display:flex;align-items:center;justify-content:center;font-size:1.6rem;
 }
 .empty-state__title{font-size:1rem;font-weight:600;margin-bottom:4px;color:var(--text)}
@@ -361,7 +361,7 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--border-strong)}
 .prop-card__cover{aspect-ratio:16/10;background:var(--surface-3);position:relative;overflow:hidden}
 .prop-card__cover img{width:100%;height:100%;object-fit:cover}
-.prop-card__cover .badge,.prop-card__cover .status{position:absolute;top:10px;left:10px}
+.prop-card__cover .status{position:absolute;top:10px;left:10px}
 .prop-card__body{padding:14px 16px}
 .prop-card__title{font-size:.96rem;font-weight:600;margin-bottom:4px;line-height:1.3;color:var(--text)}
 .prop-card__meta{font-size:.76rem;color:var(--text-muted);margin-bottom:10px;display:flex;align-items:center;gap:6px}
@@ -468,14 +468,6 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .tab-panel{display:none}
 .tab-panel.is-active{display:block}
 
-/* ─── Timeline ──────────────────────────────────────────── */
-.timeline{position:relative;padding-left:22px}
-.timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border)}
-.timeline__item{position:relative;padding-bottom:16px}
-.timeline__dot{position:absolute;left:-21px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
-.timeline__title{font-size:.86rem;font-weight:600;color:var(--text)}
-.timeline__meta{font-size:.74rem;color:var(--text-subtle);margin-top:2px}
-
 /* ─── Section title ─────────────────────────────────────── */
 .section-title{font-size:.76rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-weight:700;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
@@ -496,12 +488,6 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 /* ─── Button group ──────────────────────────────────────── */
 .btn-group{display:inline-flex;gap:6px}
 .btn-group .btn{padding:6px 10px;font-size:.74rem}
-
-/* ─── Mini KPI ──────────────────────────────────────────── */
-.mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
-.mini-stat{padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
-.mini-stat__label{font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
-.mini-stat__value{font-family:var(--font-display);font-size:1.35rem;font-weight:700;margin-top:4px;letter-spacing:-.02em;color:var(--text)}
 
 /* ─── Receipt / Print ───────────────────────────────────── */
 .receipt{max-width:680px;margin:0 auto;background:#fff;padding:36px;border-radius:var(--radius);border:1px solid var(--border)}
@@ -846,12 +832,6 @@ a.person:hover .person__name{color:var(--primary)}
 a.segmented__btn{text-decoration:none;color:var(--text-muted)}
 a.segmented__btn.is-active{color:var(--text)}
 
-/* A single headline figure inside a card body — a balance, a total. Not a
-   stat card: it has no icon and no strip to sit in. */
-.bignum{
-  font-size:1.7rem;font-weight:700;color:var(--text);
-  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;
-}
 /* A checksum or long token. It has to be able to break anywhere, because it
    has no word boundaries and would otherwise push the card wider than the
    column. */
@@ -994,7 +974,7 @@ a.segmented__btn.is-active{color:var(--text)}
 .status-tabs__count{
   display:inline-flex;align-items:center;justify-content:center;
   min-width:20px;height:19px;padding:0 6px;border-radius:var(--radius-pill);
-  background:var(--surface-3);color:var(--text-subtle);
+  background:var(--surface-3);color:var(--text-muted);
   font-size:var(--fs-2xs);font-weight:700;font-variant-numeric:tabular-nums;
 }
 .status-tabs__item.is-active .status-tabs__count{background:var(--surface);color:var(--primary-ink)}
@@ -1209,43 +1189,10 @@ a.segmented__btn.is-active{color:var(--text)}
   animation:spin 700ms linear infinite;
 }
 
-/* Skeleton primitives. Shared by the app lists and the public listing grid,
-   which is why they live here rather than in either page's stylesheet. */
-@keyframes shimmer{100%{background-position:-200% 0}}
-.skeleton{
-  background:linear-gradient(90deg,var(--surface-3) 25%,#e6edf1 50%,var(--surface-3) 75%);
-  background-size:200% 100%;
-  animation:shimmer 1.4s linear infinite;
-  border-radius:var(--radius-xs);
-}
-.skeleton-card{
-  border:1px solid var(--border);border-radius:var(--radius);
-  overflow:hidden;background:var(--surface);
-}
-.skeleton-card__media{aspect-ratio:4/3}
-.skeleton-card__body{padding:var(--space-4);display:flex;flex-direction:column;gap:10px}
-.skeleton-line{height:12px}
-.skeleton-line--lg{height:20px;width:45%}
-.skeleton-line--sm{width:65%}
-
-/* Table skeleton — the same row rhythm as the real table, so the page does
-   not resize when the data lands. */
-.skeleton-table{padding:var(--space-2) 0}
-.skeleton-row{
-  display:flex;align-items:center;gap:var(--space-4);
-  padding:13px 18px;border-bottom:1px solid var(--border);
-}
-.skeleton-row:last-child{border-bottom:none}
-.skeleton-row > .skeleton{height:12px;border-radius:var(--radius-xs);flex:1}
-.skeleton-row > .skeleton:nth-child(1){flex:0 0 34px;height:34px;border-radius:50%}
-.skeleton-row > .skeleton:nth-child(2){flex:2}
-.skeleton-row > .skeleton:nth-child(4){flex:0 0 76px}
-/* Reduced motion: the shimmer and the spinner stop advertising themselves,
-   but the spinner keeps turning slowly rather than freezing — a frozen
-   spinner reads as a hung request. */
+/* Reduced motion: the spinner keeps turning, slowly, rather than freezing —
+   a frozen spinner reads as a hung request rather than a quiet one. */
 @media(prefers-reduced-motion:reduce){
   .btn.is-loading::after{animation-duration:1.6s}
-  .skeleton{animation:none}
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1534,18 +1481,12 @@ a.segmented__btn.is-active{color:var(--text)}
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── One pill ───────────────────────────────────────────────────────
-   .badge and .status were two pills doing one job: different padding
-   (3px 9px vs 3px 10px 3px 8px), different type sizes (.72 vs .74rem),
-   and tone colours written as literal rgba that no longer matched the
-   status tokens — .badge--success was rgba(22,163,74) while --success
-   is #15803d. Sixteen call sites still use .badge, mostly on detail
-   pages that step 4 will rebuild; folding the two definitions together
-   makes those consistent today without editing any of them.
-
-   The dot is what separates them in use: uiStatus() emits one, a bare
-   .badge does not, and both are correct — a pill beside a label does
-   not always need a second marker. */
-.badge,
+   .badge and .status were two pills doing one job: different padding,
+   different type sizes, and tone colours written as literal rgba that no
+   longer matched the status tokens. Step 3 folded the definitions
+   together rather than edit the sixteen call sites; the last of those
+   went with the detail pages, so the alias is gone too and uiStatus() is
+   now the only way a status is drawn. */
 .status{
   display:inline-flex;align-items:center;gap:6px;
   padding:3px 10px;border-radius:var(--radius-pill);
@@ -1555,16 +1496,16 @@ a.segmented__btn.is-active{color:var(--text)}
 .status:has(.status__dot){padding-left:8px}
 .status__dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
 
-/* One tone map for both. Every colour reads a token, so a status is the
-   same green in a table cell, a chart legend and a detail header. */
-.badge--success,.status--success{background:var(--success-bg);color:var(--success);border-color:color-mix(in srgb,var(--success) 20%,transparent)}
-.badge--warning,.status--warning{background:var(--warning-bg);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 20%,transparent)}
-.badge--danger, .status--danger {background:var(--danger-bg); color:var(--danger); border-color:color-mix(in srgb,var(--danger) 20%,transparent)}
-.badge--info,   .status--info   {background:var(--info-bg);   color:var(--info);   border-color:color-mix(in srgb,var(--info) 20%,transparent)}
-.badge--primary,.status--primary{background:var(--primary-light);color:var(--primary-ink);border-color:var(--primary-border)}
-.badge--purple, .status--purple {background:var(--purple-bg); color:var(--purple); border-color:color-mix(in srgb,var(--purple) 20%,transparent)}
-.badge--orange, .status--orange {background:var(--orange-bg); color:var(--orange); border-color:color-mix(in srgb,var(--orange) 20%,transparent)}
-.badge--muted,  .status--muted  {background:var(--surface-3); color:var(--text-muted);border-color:var(--border-strong)}
+/* One tone map. Every colour reads a token, so a status is the same green
+   in a table cell, a chart legend and a detail header. */
+.status--success{background:var(--success-bg);color:var(--success);border-color:color-mix(in srgb,var(--success) 20%,transparent)}
+.status--warning{background:var(--warning-bg);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 20%,transparent)}
+.status--danger {background:var(--danger-bg); color:var(--danger); border-color:color-mix(in srgb,var(--danger) 20%,transparent)}
+.status--info   {background:var(--info-bg);   color:var(--info);   border-color:color-mix(in srgb,var(--info) 20%,transparent)}
+.status--primary{background:var(--primary-light);color:var(--primary-ink);border-color:var(--primary-border)}
+.status--purple {background:var(--purple-bg); color:var(--purple); border-color:color-mix(in srgb,var(--purple) 20%,transparent)}
+.status--orange {background:var(--orange-bg); color:var(--orange); border-color:color-mix(in srgb,var(--orange) 20%,transparent)}
+.status--muted  {background:var(--surface-3); color:var(--text-muted);border-color:var(--border-strong)}
 
 /* ── One card rhythm ────────────────────────────────────────────────
    Six card shapes had six paddings and two radii: .card at 12px radius
@@ -1685,7 +1626,7 @@ a.segmented__btn.is-active{color:var(--text)}
 .thread{list-style:none;display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0}
 .thread__msg{
   padding:var(--space-3) var(--space-4);
-  background:var(--body-bg);border-radius:var(--radius-sm);
+  background:var(--bg);border-radius:var(--radius-sm);
 }
 .thread__head{
   display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);
@@ -1918,7 +1859,7 @@ a.segmented__btn.is-active{color:var(--text)}
 .table .cell-num,
 .table .cell-date,
 .table .status,
-.table .badge{overflow-wrap:normal}
+.table .status{overflow-wrap:normal}
 
 /* The person cell fills the capped cell and ellipsises inside it, rather
    than setting the cell's width from its longest name. */
@@ -1936,18 +1877,7 @@ a.segmented__btn.is-active{color:var(--text)}
 
    Unclassed columns are essential and never hide at any width: who or
    what the row is, the money, the status, and the actions.
-
-   Nothing is discarded. A column that hides hands its value to a
-   .cell-fold line inside the identity cell, which appears at exactly the
-   width its own column disappears — so the row carries the same
-   information in less space rather than less information. */
-.cell-fold{
-  display:none;
-  font-size:var(--fs-2xs);color:var(--text-subtle);
-  line-height:1.4;margin-top:2px;
-}
-.cell-fold__label{font-weight:600;color:var(--text-muted)}
-
+ */
 /* The same two tiers, decided per table rather than per viewport.
 
    A viewport breakpoint can only guess at how much room a table has. It
@@ -1967,13 +1897,6 @@ a.segmented__btn.is-active{color:var(--text)}
 .table-card.is-cols-mid .table .col-lo,
 .table-card.is-cols-min .table .col-lo,
 .table-card.is-cols-min .table .col-mid{display:none}
-
-.table-card.is-cols-mid .cell-fold--lo,
-.table-card.is-cols-min .cell-fold--lo,
-.table-card.is-cols-min .cell-fold--mid{display:block}
-.table-card.is-cols-all .cell-fold--lo,
-.table-card.is-cols-all .cell-fold--mid,
-.table-card.is-cols-mid .cell-fold--mid{display:none}
 
 /* ── Scrolling, when it is genuinely needed ─────────────────────────
    Below the tablet breakpoint a seven-column table cannot be made to fit

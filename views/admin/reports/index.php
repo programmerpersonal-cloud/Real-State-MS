@@ -79,7 +79,7 @@ $rangeUrl = static function (string $key) use ($reportsUrl): string {
 <div class="grid-2 mt-2">
     <div class="card">
         <div class="card__header">
-            <h3 class="card__title">Revenue received</h3>
+            <h2 class="card__title">Revenue received</h2>
             <div class="segmented" role="group" aria-label="Change the revenue period">
                 <?php foreach ($ranges as $key => $label): ?>
                     <a class="segmented__btn<?= $range === $key ? ' is-active' : '' ?>"
@@ -103,7 +103,7 @@ $rangeUrl = static function (string $key) use ($reportsUrl): string {
     </div>
 
     <div class="card">
-        <div class="card__header"><h3 class="card__title">Where the portfolio stands</h3></div>
+        <div class="card__header"><h2 class="card__title">Where the portfolio stands</h2></div>
         <div class="card__body">
             <?php if (empty($statusTones)): ?>
                 <?= uiEmptyState([

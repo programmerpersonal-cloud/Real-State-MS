@@ -18,7 +18,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
 
 $schedules = $schedules ?? ['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'yearly' => 'Yearly'];
 ?>
-<h4 class="form-section">Parties</h4>
+<h3 class="form-section">Parties</h3>
 
 <div class="form-grid--2">
     <div class="form-group">
@@ -54,7 +54,7 @@ $schedules = $schedules ?? ['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 
     </div>
 </div>
 
-<h4 class="form-section">Term</h4>
+<h3 class="form-section">Term</h3>
 
 <div class="form-grid--3">
     <div class="form-group">
@@ -78,7 +78,7 @@ $schedules = $schedules ?? ['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 
     </div>
 </div>
 
-<h4 class="form-section">Money</h4>
+<h3 class="form-section">Money</h3>
 
 <div class="form-grid--3">
     <div class="form-group">

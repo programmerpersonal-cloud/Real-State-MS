@@ -11,7 +11,7 @@ $uid  = 'rc';
 ?>
 <div class="card card--narrow">
     <div class="card__header">
-        <h3 class="card__title">Reservation details</h3>
+        <h2 class="card__title">Reservation details</h2>
         <span class="text-subtle">Holds the property off the market</span>
     </div>
     <div class="card__body">

@@ -26,7 +26,7 @@ $defaultEmail = $fd['email'] ?? ($isStaff ? '' : ($currentUser['email'] ?? ''));
 ?>
 <div class="card card--narrow">
     <div class="card__header">
-        <h3 class="card__title"><?= $isStaff ? 'Log an enquiry' : 'Send an enquiry' ?></h3>
+        <h2 class="card__title"><?= $isStaff ? 'Log an enquiry' : 'Send an enquiry' ?></h2>
         <span class="text-subtle"><?= $isStaff ? 'Taken by phone or at the counter' : 'The office is notified straight away' ?></span>
     </div>
     <div class="card__body">

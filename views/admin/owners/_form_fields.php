@@ -54,7 +54,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     <textarea name="address" id="<?= $uid ?>-address" class="form-control" rows="2"><?= sanitize($fd['address'] ?? '') ?></textarea>
 </div>
 
-<h4 class="form-section">Payout</h4>
+<h3 class="form-section">Payout</h3>
 
 <div class="form-row form-row--3">
     <div class="form-group">

@@ -155,7 +155,7 @@ $pageEyebrow       = 'Lease ' . $l['lease_code'];
 
     <aside class="detail-cols__side">
         <div class="card mb-3">
-            <div class="card__header"><h3 class="card__title">The tenancy</h3></div>
+            <div class="card__header"><h2 class="card__title">The tenancy</h2></div>
             <div class="card__body">
                 <dl class="datalist">
                     <div class="datalist__row"><dt>From</dt><dd class="num"><?= formatDate($l['start_date']) ?></dd></div>
@@ -182,7 +182,7 @@ $pageEyebrow       = 'Lease ' . $l['lease_code'];
 
         <?php if ($l['terms']): ?>
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Terms</h3></div>
+                <div class="card__header"><h2 class="card__title">Terms</h2></div>
                 <div class="card__body">
                     <div class="prose"><?= nl2br(sanitize($l['terms'])) ?></div>
                 </div>
@@ -191,7 +191,7 @@ $pageEyebrow       = 'Lease ' . $l['lease_code'];
 
         <?php if ($l['termination_reason']): ?>
             <div class="card">
-                <div class="card__header"><h3 class="card__title">Why it ended</h3></div>
+                <div class="card__header"><h2 class="card__title">Why it ended</h2></div>
                 <div class="card__body">
                     <div class="prose text-danger"><?= nl2br(sanitize($l['termination_reason'])) ?></div>
                 </div>

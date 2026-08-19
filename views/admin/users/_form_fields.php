@@ -18,7 +18,7 @@ $err  = static fn(string $f): string => uiFieldError($errs, $f);
 $bad  = static fn(string $f): string => uiInvalidClass($errs, $f);
 $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f, $hint);
 ?>
-<h4 class="form-section">The person</h4>
+<h3 class="form-section">The person</h3>
 
 <div class="form-grid--2">
     <div class="form-group">
@@ -31,7 +31,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
           require VIEWS_PATH . '/components/ui/phone_field.php'; ?>
 </div>
 
-<h4 class="form-section">How they sign in</h4>
+<h3 class="form-section">How they sign in</h3>
 
 <div class="form-grid--2">
     <div class="form-group">
@@ -65,7 +65,7 @@ $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f
     </div>
 </div>
 
-<h4 class="form-section">What they may do</h4>
+<h3 class="form-section">What they may do</h3>
 
 <div class="form-grid--2">
     <div class="form-group">

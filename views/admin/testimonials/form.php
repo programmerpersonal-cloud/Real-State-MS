@@ -19,7 +19,7 @@ $uid  = 'tf';
 
     <div class="card card--narrow">
         <div class="card__header">
-            <h3 class="card__title"><?= $id ? 'Edit review' : 'Add a review' ?></h3>
+            <h2 class="card__title"><?= $id ? 'Edit review' : 'Add a review' ?></h2>
             <p class="card__subtitle">
                 Record what the customer actually said. Publishing invented reviews alongside
                 star-rating markup risks a search penalty and misleads buyers.

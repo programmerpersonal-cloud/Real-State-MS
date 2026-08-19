@@ -165,7 +165,7 @@ $tabs = array_values(array_filter([
         <div class="detail-cols__main">
             <?php if (count($images) > 1): ?>
                 <div class="card mb-3">
-                    <div class="card__header"><h3 class="card__title">Gallery</h3>
+                    <div class="card__header"><h2 class="card__title">Gallery</h2>
                         <span class="text-subtle"><?= count($images) ?> photos</span>
                     </div>
                     <div class="card__body">
@@ -183,7 +183,7 @@ $tabs = array_values(array_filter([
             <?php endif ?>
 
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Description</h3></div>
+                <div class="card__header"><h2 class="card__title">Description</h2></div>
                 <div class="card__body">
                     <?php if (trim((string) $p['description']) !== ''): ?>
                         <p class="prose"><?= nl2br(sanitize($p['description'])) ?></p>
@@ -195,7 +195,7 @@ $tabs = array_values(array_filter([
 
             <div class="card mb-3">
                 <div class="card__header">
-                    <h3 class="card__title">Location</h3>
+                    <h2 class="card__title">Location</h2>
                     <?php if ($fullAddress !== ''): ?>
                         <span class="text-subtle"><?= sanitize($fullAddress) ?></span>
                     <?php endif ?>
@@ -208,7 +208,7 @@ $tabs = array_values(array_filter([
 
         <aside class="detail-cols__side">
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Specification</h3></div>
+                <div class="card__header"><h2 class="card__title">Specification</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Code</dt><dd><strong><?= sanitize($p['property_code']) ?></strong></dd></div>
@@ -242,7 +242,7 @@ $tabs = array_values(array_filter([
             </div>
 
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Pricing</h3></div>
+                <div class="card__header"><h2 class="card__title">Pricing</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <?php if (!empty($p['price'])): ?>
@@ -264,7 +264,7 @@ $tabs = array_values(array_filter([
             <?php if ($canSeeTenancy): ?>
                 <div class="card mb-3">
                     <div class="card__header">
-                        <h3 class="card__title">Current tenancy</h3>
+                        <h2 class="card__title">Current tenancy</h2>
                         <?php if (!empty($activeLease)): ?><?= uiStatus('active') ?><?php endif ?>
                     </div>
                     <div class="card__body">
@@ -293,7 +293,7 @@ $tabs = array_values(array_filter([
             <?php endif ?>
 
             <div class="card">
-                <div class="card__header"><h3 class="card__title">Assigned</h3></div>
+                <div class="card__header"><h2 class="card__title">Assigned</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Owner</dt><dd><?= sanitize($p['owner_name'] ?? '—') ?></dd></div>
@@ -452,7 +452,7 @@ $tabs = array_values(array_filter([
 <!-- ── Activity ─────────────────────────────────────────────────── -->
 <div class="tab-panel" data-panel="activity">
     <div class="card">
-        <div class="card__header"><h3 class="card__title">Property history</h3></div>
+        <div class="card__header"><h2 class="card__title">Property history</h2></div>
         <div class="card__body">
             <?php if (empty($history)): ?>
                 <?= uiEmptyState([

@@ -14,8 +14,8 @@ $canReply = can('inquiries.reply');
     <div>
         <div class="card mb-3">
             <div class="card__header">
-                <h3 class="card__title">Inquiry from <?= sanitize($i['name'] ?? $i['customer_name'] ?? '—') ?></h3>
-                <span class="badge <?= getStatusBadgeClass($i['status']) ?>"><?= ucfirst($i['status']) ?></span>
+                <h2 class="card__title">Inquiry from <?= sanitize($i['name'] ?? $i['customer_name'] ?? '—') ?></h2>
+                <?= uiStatus($i['status']) ?>
             </div>
             <div class="card__body">
                 <div class="profile-meta">
@@ -38,7 +38,7 @@ $canReply = can('inquiries.reply');
         <!-- Conversation thread -->
         <?php if (!empty($messages)): ?>
         <div class="card">
-            <div class="card__header"><h3 class="card__title">Conversation</h3></div>
+            <div class="card__header"><h2 class="card__title">Conversation</h2></div>
             <div class="card__body">
                 <ol class="thread">
                     <?php foreach ($messages as $m): ?>
@@ -61,7 +61,7 @@ $canReply = can('inquiries.reply');
     <?php if ($canReply): ?>
     <div>
         <div class="card">
-            <div class="card__header"><h3 class="card__title">Reply</h3></div>
+            <div class="card__header"><h2 class="card__title">Reply</h2></div>
             <div class="card__body">
                 <form method="post" action="<?= APP_URL ?>/index.php?page=inquiries&action=reply&id=<?= $i['id'] ?>">
                     <?= csrfField() ?>

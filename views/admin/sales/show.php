@@ -6,8 +6,8 @@ $s = $sale;
 ?>
 <div class="card measure-md" >
     <div class="card__header">
-        <h3 class="card__title">Sale <?= sanitize($s['sale_code']) ?></h3>
-        <span class="badge <?= getStatusBadgeClass($s['status']) ?>"><?= ucfirst($s['status']) ?></span>
+        <h2 class="card__title">Sale <?= sanitize($s['sale_code']) ?></h2>
+        <?= uiStatus($s['status']) ?>
     </div>
     <div class="card__body">
         <div class="profile-meta">

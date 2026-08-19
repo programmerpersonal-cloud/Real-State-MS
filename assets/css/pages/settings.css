@@ -31,7 +31,7 @@
 .settings-nav__item.is-active i{color:var(--primary)}
 .settings-nav__label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .settings-nav__count{
-  font-size:var(--fs-2xs);font-weight:600;color:var(--text-subtle);
+  font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);
   background:var(--surface-3);border-radius:var(--radius-pill);
   min-width:20px;padding:1px 6px;text-align:center;
 }
@@ -39,7 +39,7 @@
 .settings-nav__meta{
   margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
   display:flex;align-items:flex-start;gap:6px;
-  font-size:var(--fs-2xs);color:var(--text-subtle);line-height:1.5;
+  font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.5;
 }
 
 .settings-panel{display:none}

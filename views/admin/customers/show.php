@@ -123,7 +123,7 @@ $tabs = [
     <div class="detail-cols">
         <div class="detail-cols__main">
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Contact &amp; personal</h3></div>
+                <div class="card__header"><h2 class="card__title">Contact &amp; personal</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Phone</dt><dd><?= sanitize($c['phone'] ?: '—') ?></dd></div>
@@ -143,7 +143,7 @@ $tabs = [
 
             <?php if (!empty($c['notes'])): ?>
                 <div class="card">
-                    <div class="card__header"><h3 class="card__title">Notes</h3></div>
+                    <div class="card__header"><h2 class="card__title">Notes</h2></div>
                     <div class="card__body"><p class="prose"><?= nl2br(sanitize($c['notes'])) ?></p></div>
                 </div>
             <?php endif ?>
@@ -151,7 +151,7 @@ $tabs = [
 
         <aside class="detail-cols__side">
             <div class="card mb-3">
-                <div class="card__header"><h3 class="card__title">Classification</h3></div>
+                <div class="card__header"><h2 class="card__title">Classification</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Type</dt><dd><?= sanitize(uiLabel((string) $c['customer_type'])) ?></dd></div>
@@ -168,7 +168,7 @@ $tabs = [
             </div>
 
             <div class="card">
-                <div class="card__header"><h3 class="card__title">Portal account</h3></div>
+                <div class="card__header"><h2 class="card__title">Portal account</h2></div>
                 <div class="card__body">
                     <dl class="datalist">
                         <div class="datalist__row"><dt>Access</dt>

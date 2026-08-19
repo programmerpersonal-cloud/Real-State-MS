@@ -8,7 +8,7 @@ $uid  = 'sc';
 ?>
 <div class="card">
     <div class="card__header">
-        <h3 class="card__title">Sale details</h3>
+        <h2 class="card__title">Sale details</h2>
         <span class="text-subtle">Completing a sale marks the property sold</span>
     </div>
     <div class="card__body">
