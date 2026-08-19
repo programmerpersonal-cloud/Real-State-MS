@@ -17,12 +17,14 @@ $biF  = Join-Path $bi   'fonts'
 $cj   = Join-Path $root 'chartjs'
 $it   = Join-Path $root 'inter'
 $itF  = Join-Path $it   'fonts'
+$fi   = Join-Path $root 'flag-icons'
 
-New-Item -ItemType Directory -Force -Path $biF, $cj, $itF | Out-Null
+New-Item -ItemType Directory -Force -Path $biF, $cj, $itF, $fi | Out-Null
 
 # --- Pinned versions -------------------------------------------------------
 $biVersion = '1.11.3'
 $cjVersion = '4.4.1'
+$fiVersion = '7.5.0'
 $biBase    = "https://cdn.jsdelivr.net/npm/bootstrap-icons@$biVersion/font"
 
 $files = @(
@@ -31,6 +33,15 @@ $files = @(
     @{ Url = "$biBase/fonts/bootstrap-icons.woff";  Out = (Join-Path $biF 'bootstrap-icons.woff') },
     @{ Url = "https://cdn.jsdelivr.net/npm/chart.js@$cjVersion/dist/chart.umd.min.js"; Out = (Join-Path $cj 'chart.umd.min.js') }
 )
+
+# The country flags for the phone field. Only the countries phoneCountries()
+# offers are vendored - the full package is ~260 flags and the app shows 18.
+$fiBase   = "https://cdn.jsdelivr.net/npm/flag-icons@$fiVersion"
+$fiCodes  = @('so','ke','et','dj','ug','tz','ae','sa','qa','tr','eg','gb','us','ca','se','no','nl','de')
+foreach ($code in $fiCodes) {
+    $files += @{ Url = "$fiBase/flags/4x3/$code.svg"; Out = (Join-Path $fi "$code.svg") }
+}
+$files += @{ Url = "$fiBase/LICENSE"; Out = (Join-Path $fi 'LICENSE') }
 
 foreach ($f in $files) {
     Write-Host "Downloading $($f.Url) ..." -ForegroundColor Cyan

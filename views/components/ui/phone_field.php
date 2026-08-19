@@ -15,6 +15,12 @@
  * hides the select behind it; with scripting off the select is what you get,
  * and it works.
  *
+ * Each option carries the URL of its own flag, so the ISO-to-file mapping has
+ * one owner on the server rather than a second copy in JavaScript. The flags
+ * are vendored SVGs, not emoji: Windows ships no flag glyphs, so an emoji flag
+ * renders there as the two letters of the country code and the picker loses the
+ * one thing it is quickest to recognise.
+ *
  * The picker is deliberately narrow — flag and dial code only — because the
  * number is the field being filled in. A trigger wide enough to spell out
  * "Boqortooyada (+44)" takes that room from the input beside it.
@@ -71,6 +77,7 @@ $phInvalid = uiInvalidClass($phErrs, $phName);
                 <option value="<?= $iso ?>"
                         data-name="<?= sanitize($c['name']) ?>"
                         data-dial="<?= sanitize($c['dial']) ?>"
+                        data-flag="<?= sanitize(phoneFlagUrl($iso)) ?>"
                         data-lengths="<?= sanitize(implode(',', $c['lengths'])) ?>"
                         <?= $iso === $country ? 'selected' : '' ?>>
                     <?= sanitize($c['name']) ?> (+<?= sanitize($c['dial']) ?>)

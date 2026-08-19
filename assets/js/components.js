@@ -836,12 +836,15 @@ function initFormValidation(form) {
    knowledge of any of this.
    ═══════════════════════════════════════════════════════════════════ */
 
-/** The flag for an ISO country code, as regional indicator symbols. */
-function countryFlag(iso) {
-  if (!/^[A-Za-z]{2}$/.test(iso)) return '';
-  return String.fromCodePoint(
-    ...iso.toUpperCase().split('').map(c => 0x1f1e6 + c.charCodeAt(0) - 65)
-  );
+/* The flag is an <img> pointing at a vendored SVG, whose URL the server put
+   on the option as data-flag. It used to be an emoji built from the ISO code,
+   which reads well on a Mac and not at all on Windows — there are no flag
+   glyphs in the system fonts, so every flag came out as the two letters of
+   the country code. `alt` is empty because the country is already named in
+   text beside it; the flag is there to be recognised, not read out twice. */
+function flagImg(url, cls) {
+  if (!url) return '';
+  return '<img class="' + cls + '" src="' + url + '" alt="" loading="lazy" decoding="async" width="20" height="15">';
 }
 
 let phonePickerSeq = 0;
@@ -856,7 +859,7 @@ function initPhoneField(field) {
     iso: o.value,
     name: o.dataset.name || o.textContent.trim(),
     dial: o.dataset.dial || '',
-    flag: countryFlag(o.value),
+    flag: o.dataset.flag || '',
   }));
 
   const id = 'phonemenu-' + (++phonePickerSeq);
@@ -891,7 +894,7 @@ function initPhoneField(field) {
     const o = options.find(x => x.iso === select.value) || options[0];
     if (!o) return;
     trigger.innerHTML =
-      '<span class="phone-field__flag" aria-hidden="true">' + o.flag + '</span>' +
+      flagImg(o.flag, 'phone-field__flag') +
       '<span class="phone-field__dial">+' + o.dial + '</span>' +
       '<i class="bi bi-chevron-down phone-field__caret" aria-hidden="true"></i>';
     trigger.setAttribute('aria-label', 'Waddanka lambarka: ' + o.name + ' +' + o.dial);
@@ -916,7 +919,7 @@ function initPhoneField(field) {
       li.setAttribute('aria-selected', o.iso === select.value ? 'true' : 'false');
       li.dataset.iso = o.iso;
       li.innerHTML =
-        '<span class="phone-menu__flag" aria-hidden="true">' + o.flag + '</span>' +
+        flagImg(o.flag, 'phone-menu__flag') +
         '<span class="phone-menu__name"></span>' +
         '<span class="phone-menu__dial">+' + o.dial + '</span>';
       li.querySelector('.phone-menu__name').textContent = o.name;

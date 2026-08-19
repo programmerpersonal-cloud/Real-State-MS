@@ -2000,7 +2000,17 @@ a.segmented__btn.is-active{color:var(--text)}
   transition:background var(--transition),border-color var(--transition);
 }
 .phone-field__trigger:hover{background:var(--surface-3)}
-.phone-field__flag{font-size:1.05rem;line-height:1}
+/* The flags are 4:3 SVGs, so a fixed pair of dimensions keeps every one of
+   them the same size and stops the row from reflowing as the image lands.
+   The hairline is what separates a white flag from a white menu. */
+.phone-field__flag,
+.phone-menu__flag{
+  flex-shrink:0;width:20px;height:15px;
+  border-radius:2px;object-fit:cover;
+  /* Outline rather than an inset shadow: on a replaced element the image
+     paints over an inset shadow, so the hairline would never be seen. */
+  outline:1px solid rgb(0 0 0 / .1);outline-offset:-1px;
+}
 .phone-field__dial{font-variant-numeric:tabular-nums}
 .phone-field__caret{font-size:.7rem;color:var(--text-subtle)}
 
@@ -2046,7 +2056,6 @@ a.segmented__btn.is-active{color:var(--text)}
   padding:7px 9px;border-radius:var(--radius-xs);
   font-size:var(--fs-xs);color:var(--text-body);cursor:pointer;
 }
-.phone-menu__flag{font-size:1.05rem;line-height:1;flex-shrink:0}
 .phone-menu__name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .phone-menu__dial{
   color:var(--text-muted);font-variant-numeric:tabular-nums;flex-shrink:0;

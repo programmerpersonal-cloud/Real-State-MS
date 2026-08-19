@@ -151,6 +151,20 @@ function phoneCountries(): array
     ];
 }
 
+/**
+ * The flag for a country, as a URL to a vendored SVG.
+ *
+ * Emoji flags were the first attempt and they do not work: Windows ships no
+ * flag glyphs, so a regional-indicator pair renders as the two letters of the
+ * country code. The files are lipis/flag-icons (MIT), vendored under
+ * assets/vendor/flag-icons/ like every other third-party asset — nothing is
+ * fetched from a CDN at runtime.
+ */
+function phoneFlagUrl(string $iso): string
+{
+    return VENDOR_URL . '/flag-icons/' . strtolower($iso) . '.svg';
+}
+
 /** The country a phone field starts on when nothing says otherwise. */
 const PHONE_DEFAULT_COUNTRY = 'SO';
 
