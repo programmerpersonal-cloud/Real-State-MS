@@ -229,14 +229,14 @@ $tabs = [
             <div class="table-wrap">
                 <table class="table">
                     <thead><tr>
-                        <th>Property</th><th>Period</th>
+                        <th>Property</th><th class="col-lo">Period</th>
                         <th class="cell-num">Rent</th><th>Status</th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($rentalHistory as $r): ?>
                             <tr>
                                 <td class="cell-strong"><?= sanitize($r['property_title']) ?></td>
-                                <td class="cell-date"><?= formatDate($r['start_date']) ?> — <?= formatDate($r['end_date']) ?></td>
+                                <td class="cell-date col-lo"><?= formatDate($r['start_date']) ?> — <?= formatDate($r['end_date']) ?></td>
                                 <td class="cell-num"><?= formatCurrency((float) $r['rent_amount']) ?></td>
                                 <td><?= uiStatus($r['status']) ?></td>
                             </tr>
@@ -261,15 +261,15 @@ $tabs = [
             <div class="table-wrap">
                 <table class="table">
                     <thead><tr>
-                        <th>Code</th><th>Type</th><th>Property</th>
+                        <th>Code</th><th class="col-lo">Type</th><th class="col-mid">Property</th>
                         <th class="cell-num">Amount</th><th>Date</th><th>Status</th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($paymentHistory as $py): ?>
                             <tr>
                                 <td><span class="table__id"><?= sanitize($py['payment_code']) ?></span></td>
-                                <td><?= sanitize(uiLabel((string) $py['payment_type'])) ?></td>
-                                <td><?= sanitize($py['property_title'] ?? '—') ?></td>
+                                <td class="col-lo"><?= sanitize(uiLabel((string) $py['payment_type'])) ?></td>
+                                <td class="col-mid"><?= sanitize($py['property_title'] ?? '—') ?></td>
                                 <td class="cell-num"><strong><?= formatCurrency((float) $py['amount']) ?></strong></td>
                                 <td class="cell-date"><?= formatDate($py['payment_date']) ?></td>
                                 <td><?= uiStatus($py['status']) ?></td>

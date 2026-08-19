@@ -103,7 +103,7 @@
                                 <tr>
                                     <th class="cell-date">Due</th>
                                     <th class="cell-num">Amount</th>
-                                    <th class="cell-num">Penalty</th>
+                                    <th class="cell-num col-lo">Penalty</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
@@ -112,7 +112,7 @@
                                     <tr>
                                         <td class="cell-date"><?= formatDate($s['due_date']) ?></td>
                                         <td class="cell-num"><?= formatCurrency((float) $s['amount']) ?></td>
-                                        <td class="cell-num">
+                                        <td class="cell-num col-lo">
                                             <?php if ((float) ($s['penalty'] ?? 0) > 0): ?>
                                                 <span class="text-danger"><?= formatCurrency((float) $s['penalty']) ?></span>
                                             <?php else: ?>
@@ -168,22 +168,22 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Lease</th>
+                        <th class="col-lo">Lease</th>
                         <th>Property</th>
                         <th class="cell-date">Period</th>
-                        <th class="cell-num">Rent</th>
+                        <th class="cell-num col-mid">Rent</th>
                         <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($leases as $past): ?>
                         <tr>
-                            <td class="cell-tight"><span class="table__id"><?= sanitize($past['lease_code']) ?></span></td>
+                            <td class="cell-tight col-lo"><span class="table__id"><?= sanitize($past['lease_code']) ?></span></td>
                             <td><?= sanitize($past['property_title']) ?></td>
                             <td class="cell-date">
                                 <?= formatDate($past['start_date']) ?> – <?= formatDate($past['end_date']) ?>
                             </td>
-                            <td class="cell-num"><?= formatCurrency((float) $past['rent_amount']) ?></td>
+                            <td class="cell-num col-mid"><?= formatCurrency((float) $past['rent_amount']) ?></td>
                             <td><?= uiStatus($past['status']) ?></td>
                         </tr>
                     <?php endforeach ?>

@@ -41,8 +41,8 @@ $outstanding = array_sum(array_map(
                 <thead>
                     <tr>
                         <th>Receipt</th>
-                        <th>What for</th>
-                        <th>Property</th>
+                        <th class="col-lo">What for</th>
+                        <th class="col-mid">Property</th>
                         <th class="cell-num">Amount</th>
                         <th class="cell-date">Date</th>
                         <th>Status</th>
@@ -58,8 +58,8 @@ $outstanding = array_sum(array_map(
                                     <?= sanitize($p['payment_code']) ?>
                                 </a>
                             </td>
-                            <td><?= sanitize(uiLabel((string) $p['payment_type'])) ?></td>
-                            <td class="cell-clip"><?= sanitize($p['property_title'] ?: '—') ?></td>
+                            <td class="col-lo"><?= sanitize(uiLabel((string) $p['payment_type'])) ?></td>
+                            <td class="cell-clip col-mid"><?= sanitize($p['property_title'] ?: '—') ?></td>
                             <td class="cell-num"><strong><?= formatCurrency((float) $p['amount']) ?></strong></td>
                             <td class="cell-date"><?= formatDate($p['payment_date']) ?></td>
                             <td><?= uiStatus($p['status']) ?></td>

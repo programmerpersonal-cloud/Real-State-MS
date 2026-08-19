@@ -40,15 +40,19 @@ $canReply = can('inquiries.reply');
         <div class="card">
             <div class="card__header"><h3 class="card__title">Conversation</h3></div>
             <div class="card__body">
-                <?php foreach ($messages as $m): ?>
-                    <div style="padding:10px 14px;background:var(--body-bg);border-radius:var(--radius-sm);margin-bottom:10px">
-                        <div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-muted)">
-                            <strong style="color:var(--text)"><?= sanitize($m['sender_name']) ?></strong>
-                            <span><?= formatDateTime($m['created_at']) ?></span>
-                        </div>
-                        <div style="margin-top:6px;font-size:.875rem"><?= nl2br(sanitize($m['body'])) ?></div>
-                    </div>
-                <?php endforeach ?>
+                <ol class="thread">
+                    <?php foreach ($messages as $m): ?>
+                        <li class="thread__msg">
+                            <div class="thread__head">
+                                <span class="thread__who"><?= sanitize($m['sender_name']) ?></span>
+                                <time class="thread__when" datetime="<?= sanitize($m['created_at']) ?>">
+                                    <?= formatDateTime($m['created_at']) ?>
+                                </time>
+                            </div>
+                            <div class="thread__body"><?= nl2br(sanitize($m['body'])) ?></div>
+                        </li>
+                    <?php endforeach ?>
+                </ol>
             </div>
         </div>
         <?php endif ?>

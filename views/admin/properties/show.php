@@ -331,8 +331,8 @@ $tabs = array_values(array_filter([
             <div class="table-wrap">
                 <table class="table">
                     <thead><tr>
-                        <th>Code</th><th>Issue</th><th>Priority</th><th>Assigned</th>
-                        <th>Status</th><th>Reported</th><th class="cell-actions"><span class="sr-only">Actions</span></th>
+                        <th>Code</th><th>Issue</th><th>Priority</th><th class="col-lo">Assigned</th>
+                        <th>Status</th><th class="col-mid">Reported</th><th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($maintenance as $m): ?>
@@ -340,9 +340,9 @@ $tabs = array_values(array_filter([
                                 <td><span class="table__id"><?= sanitize($m['request_code']) ?></span></td>
                                 <td class="cell-clip"><?= sanitize(truncate((string) $m['description'], 60)) ?></td>
                                 <td><?= uiStatus($m['priority']) ?></td>
-                                <td><?= sanitize($m['assigned_name'] ?: '—') ?></td>
+                                <td class="col-lo"><?= sanitize($m['assigned_name'] ?: '—') ?></td>
                                 <td><?= uiStatus($m['status']) ?></td>
-                                <td class="cell-date"><?= formatDate($m['created_at']) ?></td>
+                                <td class="cell-date col-mid"><?= formatDate($m['created_at']) ?></td>
                                 <td class="cell-actions">
                                     <?= uiRowActions([[
                                         'label' => 'Open request', 'icon' => 'bi-eye', 'can' => 'maintenance.show',
@@ -377,8 +377,8 @@ $tabs = array_values(array_filter([
             <div class="table-wrap">
                 <table class="table">
                     <thead><tr>
-                        <th>Code</th><th>Customer</th><th>Reserved</th><th>Expires</th>
-                        <th class="cell-num">Deposit</th><th>Status</th>
+                        <th>Code</th><th>Customer</th><th class="col-lo">Reserved</th><th>Expires</th>
+                        <th class="cell-num col-mid">Deposit</th><th>Status</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr></thead>
                     <tbody>
@@ -386,9 +386,9 @@ $tabs = array_values(array_filter([
                             <tr>
                                 <td><span class="table__id"><?= sanitize($r['reservation_code']) ?></span></td>
                                 <td><?= sanitize($r['customer_name']) ?></td>
-                                <td class="cell-date"><?= formatDate($r['reservation_date']) ?></td>
+                                <td class="cell-date col-lo"><?= formatDate($r['reservation_date']) ?></td>
                                 <td class="cell-date"><?= formatDate($r['expiry_date'] ?? null) ?></td>
-                                <td class="cell-num"><?= !empty($r['deposit_amount']) ? formatCurrency((float) $r['deposit_amount']) : '—' ?></td>
+                                <td class="cell-num col-mid"><?= !empty($r['deposit_amount']) ? formatCurrency((float) $r['deposit_amount']) : '—' ?></td>
                                 <td><?= uiStatus($r['status']) ?></td>
                                 <td class="cell-actions">
                                     <?= uiRowActions([[
@@ -420,8 +420,8 @@ $tabs = array_values(array_filter([
             <div class="table-wrap">
                 <table class="table">
                     <thead><tr>
-                        <th>Code</th><th>Customer</th><th>Type</th>
-                        <th class="cell-num">Amount</th><th>Due</th><th>Status</th>
+                        <th>Code</th><th>Customer</th><th class="col-lo">Type</th>
+                        <th class="cell-num">Amount</th><th class="col-mid">Due</th><th>Status</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr></thead>
                     <tbody>
@@ -429,9 +429,9 @@ $tabs = array_values(array_filter([
                             <tr>
                                 <td><span class="table__id"><?= sanitize($pay['payment_code']) ?></span></td>
                                 <td><?= sanitize($pay['customer_name']) ?></td>
-                                <td><?= sanitize(uiLabel((string) $pay['payment_type'])) ?></td>
+                                <td class="col-lo"><?= sanitize(uiLabel((string) $pay['payment_type'])) ?></td>
                                 <td class="cell-num"><strong><?= formatCurrency((float) $pay['amount']) ?></strong></td>
-                                <td class="cell-date"><?= formatDate($pay['due_date'] ?? null) ?></td>
+                                <td class="cell-date col-mid"><?= formatDate($pay['due_date'] ?? null) ?></td>
                                 <td><?= uiStatus($pay['status']) ?></td>
                                 <td class="cell-actions">
                                     <?= uiRowActions([[

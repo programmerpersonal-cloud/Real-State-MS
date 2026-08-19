@@ -145,6 +145,10 @@
      inline-flex with a set height, which min-height cannot lift. */
   .segmented__btn,.status-tabs__item{height:44px}
   .settings-nav__item,.geo__map{min-height:44px}
+  /* Page numbers are the one control on a long list that a thumb reaches for
+     most, and 32 square is the smallest thing on any page. They sit in a row
+     with a gap, so growing them costs nothing but the row's own height. */
+  .pagination__link{min-width:44px;height:44px;padding:0 var(--space-3)}
   /* A feed row's title is the row's action, not prose, so it gets a real
      target rather than the inline-link exemption. */
   .feed__title a{display:inline-block;min-height:44px;line-height:44px}

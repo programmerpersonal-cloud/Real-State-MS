@@ -216,7 +216,7 @@ $tabs = [
             <div class="table-wrap">
                 <table class="table">
                     <thead><tr>
-                        <th>Code</th><th>Property</th><th>Type</th>
+                        <th class="col-lo">Code</th><th>Property</th><th class="col-mid">Type</th>
                         <th class="cell-num">Price</th><th>Status</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr></thead>
@@ -224,7 +224,7 @@ $tabs = [
                         <?php foreach ($properties as $p): ?>
                             <?php $price = propertyPrice($p); ?>
                             <tr>
-                                <td><span class="table__id"><?= sanitize($p['property_code']) ?></span></td>
+                                <td class="col-lo"><span class="table__id"><?= sanitize($p['property_code']) ?></span></td>
                                 <td>
                                     <a href="<?= APP_URL ?>/index.php?page=properties&amp;action=show&amp;id=<?= (int) $p['id'] ?>" class="cell-strong">
                                         <?= sanitize($p['title']) ?>
@@ -235,10 +235,10 @@ $tabs = [
                                         </div>
                                     <?php endif ?>
                                 </td>
-                                <td><?= sanitize(uiLabel((string) $p['category'])) ?></td>
+                                <td class="col-mid"><?= sanitize(uiLabel((string) $p['category'])) ?></td>
                                 <td class="cell-num">
                                     <?php if ($price['amount'] > 0): ?>
-                                        <?= formatCurrency($price['amount']) ?><?php if ($price['isRental']): ?><span class="text-subtle">/mo</span><?php endif ?>
+                                        <?= formatCurrency($price['amount']) ?><?php if ($price['isRental']): ?><span class="price-per">/mo</span><?php endif ?>
                                     <?php else: ?>
                                         <span class="text-subtle">—</span>
                                     <?php endif ?>

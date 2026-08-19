@@ -3,145 +3,170 @@
  * Document Categories — Index
  *
  * Reordering uses up/down buttons that POST rather than drag-and-drop: this
- * application has no AJAX layer, and buttons are honest about that.
+ * application has no AJAX layer, and buttons are honest about that. They stay
+ * visible in the row rather than folding into the action menu, because moving
+ * a category is the thing this page is opened to do and a two-click menu for
+ * a one-place nudge would be worse than the arrows.
+ *
+ * Everything else — edit, deactivate, delete — is the standard row menu, so
+ * this table reads the same as every other table in the product.
  *
  * Expects: $categories, $formData, $editing, $openModal, $visibilities
  */
 $last = count($categories) - 1;
+
+$moveUrl = APP_URL . '/index.php?page=document-categories&action=move';
 ?>
-<div class="card">
-    <div class="card__header">
-        <h3 class="card__title"><?= count($categories) ?> Categor<?= count($categories) === 1 ? 'y' : 'ies' ?></h3>
-        <span class="person__meta">
-            The order here is the order staff see when filing a document.
-        </span>
+<div class="table-card">
+    <div class="table-head">
+        <div class="table-head__title">
+            <?= count($categories) ?> categor<?= count($categories) === 1 ? 'y' : 'ies' ?>
+        </div>
+        <span class="table-head__note">The order here is the order staff see when filing a document</span>
     </div>
-    <div class="card__body card__body--flush">
-        <?php if (empty($categories)): ?>
-            <div class="empty-state">
-                <div class="empty-state__icon"><i class="bi bi-tags"></i></div>
-                <div class="empty-state__title">No categories yet</div>
-                <div class="empty-state__desc">Add the document types your team files against a property.</div>
-                <button type="button" class="btn btn--primary btn--sm mt-2" data-modal-open="categoryModal" >
-                    <i class="bi bi-plus-lg"></i> Add Category
-                </button>
-            </div>
-        <?php else: ?>
+
+    <?php if (empty($categories)): ?>
+        <?= uiEmptyState([
+            'icon'  => 'bi-tags',
+            'title' => 'No categories yet',
+            'desc'  => 'Add the document types your team files against a property — a lease, a title deed, '
+                     . 'an inspection report. Each one becomes a filing option and a filter.',
+            'actions' => [[
+                'label' => 'Add a category', 'icon' => 'bi-plus-lg',
+                'can'   => 'document-categories.save',
+                'url'   => APP_URL . '/index.php?page=document-categories&modal=create',
+            ]],
+        ]) ?>
+    <?php else: ?>
         <div class="table-wrap">
             <table class="table">
                 <thead>
                     <tr>
                         <th class="cell-tight">Order</th>
                         <th>Category</th>
-                        <th>Default visibility</th>
-                        <th>Expiry</th>
+                        <th class="col-mid">Default visibility</th>
+                        <th class="col-lo">Expiry</th>
                         <th>In use</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php foreach ($categories as $i => $c): ?>
-                    <tr<?= (int) $c['is_active'] === 0 ? ' class="is-muted-row"' : '' ?>>
-                        <td>
+                    <?php
+                    $id     = (int) $c['id'];
+                    $active = (int) $c['is_active'] === 1;
+                    $inUse  = (int) $c['doc_count'];
+                    ?>
+                    <tr<?= $active ? '' : ' class="is-muted-row"' ?>>
+                        <td class="cell-tight">
                             <div class="btn-group">
-                                <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=move">
+                                <form class="inline-form" method="post" action="<?= $moveUrl ?>">
                                     <?= csrfField() ?>
-                                    <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+                                    <input type="hidden" name="id" value="<?= $id ?>">
                                     <input type="hidden" name="direction" value="up">
-                                    <button class="btn btn--outline btn--sm" title="Move up" <?= $i === 0 ? 'disabled' : '' ?>>
-                                        <i class="bi bi-chevron-up"></i>
+                                    <button class="btn btn--outline btn--sm" <?= $i === 0 ? 'disabled' : '' ?>
+                                            aria-label="Move <?= sanitize($c['name']) ?> up">
+                                        <i class="bi bi-chevron-up" aria-hidden="true"></i>
                                     </button>
                                 </form>
-                                <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=move">
+                                <form class="inline-form" method="post" action="<?= $moveUrl ?>">
                                     <?= csrfField() ?>
-                                    <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+                                    <input type="hidden" name="id" value="<?= $id ?>">
                                     <input type="hidden" name="direction" value="down">
-                                    <button class="btn btn--outline btn--sm" title="Move down" <?= $i === $last ? 'disabled' : '' ?>>
-                                        <i class="bi bi-chevron-down"></i>
+                                    <button class="btn btn--outline btn--sm" <?= $i === $last ? 'disabled' : '' ?>
+                                            aria-label="Move <?= sanitize($c['name']) ?> down">
+                                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
                                     </button>
                                 </form>
                             </div>
                         </td>
+
                         <td>
                             <span class="filecell">
                                 <i class="bi <?= sanitize($c['icon'] ?: 'bi-file-earmark') ?> filecell__icon" aria-hidden="true"></i>
                                 <span class="filecell__body">
-                                    <strong><?= sanitize($c['name']) ?></strong>
+                                    <span class="cell-strong"><?= sanitize($c['name']) ?></span>
                                     <?php if (!empty($c['description'])): ?>
-                                        <div class="person__meta"><?= sanitize($c['description']) ?></div>
+                                        <span class="person__meta"><?= sanitize($c['description']) ?></span>
                                     <?php endif ?>
-                                    <div class="person__meta"><code><?= sanitize($c['slug']) ?></code></div>
+                                    <span class="person__meta"><code><?= sanitize($c['slug']) ?></code></span>
                                 </span>
                             </span>
                         </td>
-                        <td>
-                            <i class="bi <?= $c['default_visibility'] === 'public' ? 'bi-globe' : ($c['default_visibility'] === 'staff' ? 'bi-people' : 'bi-lock') ?>"></i>
+
+                        <td class="col-mid">
+                            <i class="bi <?= $c['default_visibility'] === 'public'
+                                ? 'bi-globe'
+                                : ($c['default_visibility'] === 'staff' ? 'bi-people' : 'bi-lock') ?>"
+                               aria-hidden="true"></i>
                             <?= sanitize($visibilities[$c['default_visibility']] ?? $c['default_visibility']) ?>
                         </td>
-                        <td>
+
+                        <td class="col-lo">
                             <?php if ((int) $c['requires_expiry'] === 1): ?>
-                                <span class="badge badge--info">Tracked</span>
+                                <i class="bi bi-calendar-check" aria-hidden="true"></i> Tracked
                             <?php else: ?>
                                 <span class="text-subtle">—</span>
                             <?php endif ?>
                         </td>
+
                         <td>
-                            <?php if ((int) $c['doc_count'] > 0): ?>
-                                <a href="<?= APP_URL ?>/index.php?page=documents&amp;category_id=<?= (int) $c['id'] ?>">
-                                    <?= (int) $c['doc_count'] ?> document<?= (int) $c['doc_count'] === 1 ? '' : 's' ?>
+                            <?php if ($inUse > 0): ?>
+                                <a href="<?= APP_URL ?>/index.php?page=documents&amp;category_id=<?= $id ?>">
+                                    <?= number_format($inUse) ?> document<?= $inUse === 1 ? '' : 's' ?>
                                 </a>
                             <?php else: ?>
                                 <span class="text-subtle">Unused</span>
                             <?php endif ?>
                         </td>
-                        <td>
-                            <span class="badge <?= (int) $c['is_active'] === 1 ? 'badge--success' : 'badge--muted' ?>">
-                                <?= (int) $c['is_active'] === 1 ? 'Active' : 'Inactive' ?>
-                            </span>
-                        </td>
-                        <td>
-                            <div class="btn-group">
-                                <a class="btn btn--outline btn--sm" title="Edit"
-                                   href="<?= APP_URL ?>/index.php?page=document-categories&amp;modal=edit&amp;id=<?= (int) $c['id'] ?>">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=toggle">
-                                    <?= csrfField() ?>
-                                    <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
-                                    <button class="btn btn--outline btn--sm"
-                                            title="<?= (int) $c['is_active'] === 1 ? 'Deactivate' : 'Reactivate' ?>">
-                                        <i class="bi <?= (int) $c['is_active'] === 1 ? 'bi-toggle-on' : 'bi-toggle-off' ?>"></i>
-                                    </button>
-                                </form>
-                                <?php if ((int) $c['doc_count'] === 0): ?>
-                                    <form class="inline-form" method="post" action="<?= APP_URL ?>/index.php?page=document-categories&amp;action=delete">
-                                        <?= csrfField() ?>
-                                        <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
-                                        <button class="btn btn--danger btn--sm" title="Delete"
-                                                data-confirm="Nothing is filed under it, so no document is affected. The category itself is removed."
-                                                data-confirm-title="Delete this category?"
-                                                data-confirm-action="Delete category"
-                                                data-confirm-record="<?= sanitize($c['name']) ?>"
-                                                data-confirm-tone="danger">
-                                            <i class="bi bi-trash" aria-hidden="true"></i>
-                                        </button>
-                                    </form>
-                                <?php else: ?>
-                                    <button class="btn btn--outline btn--sm" disabled
-                                            title="In use by <?= (int) $c['doc_count'] ?> document(s) — deactivate instead">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                <?php endif ?>
-                            </div>
+
+                        <td><?= uiStatus($active ? 'active' : 'inactive') ?></td>
+
+                        <td class="cell-actions">
+                            <?php
+                            $actions = [[
+                                'label' => 'Edit category', 'icon' => 'bi-pencil',
+                                'can'   => 'document-categories.save',
+                                'url'   => APP_URL . '/index.php?page=document-categories&modal=edit&id=' . $id,
+                            ], [
+                                'label'  => $active ? 'Deactivate' : 'Reactivate',
+                                'icon'   => $active ? 'bi-toggle-on' : 'bi-toggle-off',
+                                'can'    => 'document-categories.toggle',
+                                'method' => 'post',
+                                'url'    => APP_URL . '/index.php?page=document-categories&action=toggle',
+                                'fields' => ['id' => $id],
+                            ]];
+
+                            /* Deleting is only offered where it is possible: a category
+                               with documents filed under it is deactivated instead, and
+                               the menu says which of the two is on the table rather than
+                               showing a dead control. */
+                            if ($inUse === 0) {
+                                $actions[] = [
+                                    'label'  => 'Delete category', 'icon' => 'bi-trash', 'danger' => true,
+                                    'can'    => 'document-categories.delete',
+                                    'method' => 'post',
+                                    'url'    => APP_URL . '/index.php?page=document-categories&action=delete',
+                                    'fields' => ['id' => $id],
+                                    'confirm' => [
+                                        'title'  => 'Delete this category?',
+                                        'body'   => 'Nothing is filed under it, so no document is affected. The category itself is removed.',
+                                        'action' => 'Delete category',
+                                        'record' => $c['name'],
+                                        'tone'   => 'danger',
+                                    ],
+                                ];
+                            }
+                            ?>
+                            <?= uiRowActions($actions, 'Actions for ' . $c['name']) ?>
                         </td>
                     </tr>
                 <?php endforeach ?>
                 </tbody>
             </table>
         </div>
-        <?php endif ?>
-    </div>
+    <?php endif ?>
 </div>
 
 <?php require __DIR__ . '/_category_modal.php'; ?>

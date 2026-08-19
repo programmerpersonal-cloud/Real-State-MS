@@ -385,7 +385,10 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
   display:grid;place-items:center;height:100%;
   color:var(--text-subtle);font-size:1.8rem;
 }
-.prop-card__per{font-size:.78rem;font-weight:500;color:var(--text-muted)}
+.prop-card__per,
+/* The same suffix appears in table cells and on detail pages; it belongs
+   to a price, not to the card that happened to show one. */
+.price-per{font-size:.78rem;font-weight:500;color:var(--text-muted)}
 /* The at-a-glance line inside the body: tenant, open faults, paperwork. Not
    .prop-card__foot, which is the action strip and sits outside the body. */
 .prop-card__stats{
@@ -443,6 +446,9 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 
 /* ─── Tabs (with count badges) ──────────────────────────── */
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;padding:0 2px}
+/* Inside a flush card body the strip has to reinstate the padding the body
+   gave up, or the first tab sits against the card's edge. */
+.tabs--inset{padding-left:var(--card-pad-x,20px);padding-right:var(--card-pad-x,20px)}
 .tabs__item{
   display:inline-flex;align-items:center;gap:8px;
   padding:11px 4px;margin-right:18px;
@@ -554,6 +560,9 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 }
 .modal.is-open .modal__dialog{opacity:1;transform:none}
 .modal__dialog--lg{max-width:920px}
+/* A prompt rather than a form: narrow enough that the question and its
+   two answers read as one thing. */
+.modal__dialog--sm{max-width:520px}
 
 .modal__header{
   display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);
@@ -616,6 +625,11 @@ body.is-modal-open{overflow:hidden}
 /* ════════════════════════════════════════════════════════════
    GEO FIELD — location text, coordinates, device positioning
    ════════════════════════════════════════════════════════════ */
+/* Read-only by intent: the value is generated and offered for copying, so
+   it wears the surface of something displayed rather than typed. */
+.form-control--readonly{background:var(--surface-2);color:var(--text-muted);cursor:default}
+.form-control--readonly:focus{border-color:var(--border);box-shadow:none}
+
 .geo{
   border:1px solid var(--border);border-radius:var(--radius);
   background:var(--surface-2);padding:var(--space-4);margin-bottom:18px;
@@ -633,6 +647,7 @@ body.is-modal-open{overflow:hidden}
 .geo__grid{display:grid;grid-template-columns:1fr 1fr auto;gap:var(--space-3);align-items:end}
 .geo .form-group{margin-bottom:var(--space-4)}
 .geo__grid .form-group{margin-bottom:0}
+.geo__frame{border:0;display:block;width:100%;border-radius:var(--radius-sm)}
 .geo__map{
   display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;
   border:1px solid var(--border-strong);border-radius:var(--radius-sm);
@@ -1660,6 +1675,31 @@ a.segmented__btn.is-active{color:var(--text)}
 .receipt__meta-label{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:var(--fs-2xs)}
 .receipt__meta-code{font-family:var(--font-mono);font-size:var(--fs-xs);margin-top:2px}
 .receipt__meta-date{color:var(--text-muted);font-size:var(--fs-2xs);margin-top:2px}
+
+/* ── Conversation thread ────────────────────────────────────────────
+   An enquiry and its replies. An ordered list because the order is the
+   meaning: this is a correspondence, and a screen reader should be told
+   how many messages there are and which one it is on. The messages sit
+   on the page ground rather than the card's, so each one reads as a
+   separate utterance inside a single record. */
+.thread{list-style:none;display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0}
+.thread__msg{
+  padding:var(--space-3) var(--space-4);
+  background:var(--body-bg);border-radius:var(--radius-sm);
+}
+.thread__head{
+  display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);
+  font-size:var(--fs-xs);color:var(--text-muted);
+}
+.thread__who{font-weight:600;color:var(--text)}
+.thread__when{white-space:nowrap;font-variant-numeric:tabular-nums}
+.thread__body{margin-top:6px;font-size:var(--fs-sm);color:var(--text-body);overflow-wrap:anywhere}
+
+@media (max-width:480px){
+  /* Name over timestamp rather than a squeezed row: the name is what is
+     scanned, and it should not be truncated to keep a date on the line. */
+  .thread__head{flex-direction:column;align-items:flex-start;gap:2px}
+}
 
 .receipt__party{margin-bottom:var(--space-5)}
 .receipt__party-label{

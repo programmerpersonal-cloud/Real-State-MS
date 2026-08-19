@@ -37,12 +37,12 @@ foreach (['active' => 'Active', 'expiring' => 'Expiring', 'expired' => 'Expired'
             <?php if ($stats['expired'] > 0 || $stats['expiring'] > 0): ?>
                 <p class="card__subtitle">
                     <?php if ($stats['expired'] > 0): ?>
-                        <span style="color:var(--danger)">
+                        <span class="text-danger">
                             <?= $stats['expired'] ?> expired
                         </span><?= $stats['expiring'] > 0 ? ' · ' : '' ?>
                     <?php endif ?>
                     <?php if ($stats['expiring'] > 0): ?>
-                        <span style="color:var(--warning)">
+                        <span class="text-warning">
                             <?= $stats['expiring'] ?> expiring within <?= documentExpiryWarningDays() ?> days
                         </span>
                     <?php endif ?>
@@ -78,7 +78,7 @@ foreach (['active' => 'Active', 'expiring' => 'Expiring', 'expired' => 'Expired'
     <?php else: ?>
         <div class="card__body card__body--flush">
             <?php if (count($tabs) > 1): ?>
-            <div class="tabs" data-tabs style="padding:0 20px">
+            <div class="tabs tabs--inset" data-tabs>
                 <?php $first = true; foreach ($tabs as $key => $tab): ?>
                     <button type="button" class="tabs__item<?= $first ? ' is-active' : '' ?>" data-tab="doc-<?= $key ?>">
                         <?= sanitize($tab['label']) ?>
@@ -110,7 +110,7 @@ foreach (['active' => 'Active', 'expiring' => 'Expiring', 'expired' => 'Expired'
             <?php $first = false; endforeach ?>
         </div>
 
-        <div class="card__footer" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div class="card__footer">
             <span class="person__meta">
                 <i class="bi bi-shield-lock"></i>
                 Files are stored outside the public folder and served only to authorised users.

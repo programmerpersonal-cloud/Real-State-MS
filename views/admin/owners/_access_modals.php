@@ -23,8 +23,7 @@ $suggestedUsername = $adopting
 <div class="modal" id="ownerAccessAskModal" data-modal data-modal-autoopen hidden>
     <div class="modal__backdrop" data-modal-close></div>
 
-    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="ownerAccessAskTitle" tabindex="-1"
-         style="max-width:520px">
+    <div class="modal__dialog modal__dialog--sm" role="dialog" aria-modal="true" aria-labelledby="ownerAccessAskTitle" tabindex="-1">
         <header class="modal__header">
             <div>
                 <h3 class="modal__title" id="ownerAccessAskTitle"><i class="bi bi-check-circle-fill"></i> Owner Created</h3>
@@ -101,9 +100,8 @@ $suggestedUsername = $adopting
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="oa-username">Username</label>
-                            <input type="text" id="oa-username" class="form-control" readonly tabindex="-1"
-                                   value="<?= sanitize($suggestedUsername) ?>" data-username-preview
-                                   style="background:var(--surface-2);color:var(--text-muted)">
+                            <input type="text" id="oa-username" class="form-control form-control--readonly" readonly tabindex="-1"
+                                   value="<?= sanitize($suggestedUsername) ?>" data-username-preview>
                             <div class="form-hint">Generated automatically. The owner signs in with either.</div>
                         </div>
                     </div>

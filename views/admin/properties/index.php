@@ -240,7 +240,7 @@ $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): str
                     </div>
                     <div class="prop-card__price">
                         <?php if ($price['amount'] > 0): ?>
-                            <?= formatCurrency($price['amount']) ?><?php if ($price['isRental']): ?><span class="text-subtle" style="font-size:.78rem">/mo</span><?php endif ?>
+                            <?= formatCurrency($price['amount']) ?><?php if ($price['isRental']): ?><span class="price-per">/mo</span><?php endif ?>
                         <?php else: ?>
                             <span class="text-subtle">Price on request</span>
                         <?php endif ?>

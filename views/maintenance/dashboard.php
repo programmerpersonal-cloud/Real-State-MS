@@ -78,8 +78,8 @@ $jobs = $jobs->fetchAll();
                         <th>Priority</th>
                         <th>Job</th>
                         <th>Where</th>
-                        <th>What is wrong</th>
-                        <th>Status</th>
+                        <th class="col-lo">What is wrong</th>
+                        <th class="col-mid">Status</th>
                         <th class="cell-actions"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
@@ -101,13 +101,13 @@ $jobs = $jobs->fetchAll();
                                     </div>
                                 <?php endif ?>
                             </td>
-                            <td class="cell-clip">
+                            <td class="cell-clip col-lo">
                                 <?php if (!empty($j['issue_type'])): ?>
                                     <div class="cell-strong"><?= sanitize($j['issue_type']) ?></div>
                                 <?php endif ?>
                                 <div class="person__meta"><?= sanitize(truncate($j['description'], 70)) ?></div>
                             </td>
-                            <td><?= uiStatus($j['status']) ?></td>
+                            <td class="col-mid"><?= uiStatus($j['status']) ?></td>
                             <td class="cell-actions">
                                 <a class="btn btn--primary btn--sm"
                                    href="<?= APP_URL ?>/index.php?page=maintenance&amp;action=show&amp;id=<?= $id ?>">

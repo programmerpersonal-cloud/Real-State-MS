@@ -25,7 +25,7 @@ $mapTitle   = trim((string) ($property['title'] ?? 'this property'));
             <iframe src="<?= sanitize($mapLinks['embed']) ?>"
                     title="Map showing the location of <?= sanitize($mapTitle) ?>"
                     loading="lazy" referrerpolicy="no-referrer"
-                    style="border:0" width="600" height="340"></iframe>
+                    class="geo__frame" width="600" height="340"></iframe>
         </div>
 
         <div class="propmap__bar">
@@ -61,7 +61,7 @@ $mapTitle   = trim((string) ($property['title'] ?? 'this property'));
             <em>Use my location</em>, or type the latitude and longitude in.
         </span>
         <?php if (!empty($mapEditUrl)): ?>
-            <a href="<?= $mapEditUrl ?>" class="btn btn--outline btn--sm" style="margin-top:var(--space-2)">
+            <a href="<?= $mapEditUrl ?>" class="btn btn--outline btn--sm mt-1">
                 <i class="bi bi-geo-alt" aria-hidden="true"></i> Add coordinates
             </a>
         <?php endif; ?>
@@ -75,7 +75,7 @@ $mapTitle   = trim((string) ($property['title'] ?? 'this property'));
             This listing has not been pinned to the map yet. The agent can share
             the precise location and arrange a viewing.
         </span>
-        <a href="#inquiry" class="btn btn--outline btn--sm" style="margin-top:var(--space-2)">
+        <a href="#inquiry" class="btn btn--outline btn--sm mt-1">
             Ask about the location
         </a>
     </div>

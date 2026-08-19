@@ -51,7 +51,7 @@
                     <tr>
                         <th class="cell-date">Received</th>
                         <th>Property</th>
-                        <th>What for</th>
+                        <th class="col-lo">What for</th>
                         <th class="cell-num">Amount</th>
                     </tr>
                 </thead>
@@ -60,7 +60,7 @@
                         <tr>
                             <td class="cell-date"><?= formatDate($p['payment_date']) ?></td>
                             <td><span class="cell-strong"><?= sanitize($p['property_title']) ?></span></td>
-                            <td><?= sanitize(uiLabel((string) $p['payment_type'])) ?></td>
+                            <td class="col-lo"><?= sanitize(uiLabel((string) $p['payment_type'])) ?></td>
                             <td class="cell-num"><strong><?= formatCurrency((float) $p['amount']) ?></strong></td>
                         </tr>
                     <?php endforeach ?>
