@@ -52,9 +52,6 @@ $toolbar = [
     'actions' => [
         ['label' => 'Permissions', 'icon' => 'bi-shield-check', 'class' => 'btn--outline',
          'can' => 'users.view', 'url' => $listUrl . '&action=permissions'],
-        ['label' => 'Add User', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
-         'can' => 'users.create', 'url' => $listUrl . '&action=create',
-         'attrs' => ['data-modal-open' => 'userCreateModal']],
     ],
 ];
 

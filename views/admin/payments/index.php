@@ -51,12 +51,9 @@ $toolbar = [
         ['name' => 'payment_method', 'label' => 'Method', 'value' => $filters['payment_method'] ?? '',
          'options' => $methods, 'all' => 'Any method'],
     ],
-    'actions' => [
-        ['label' => 'Record Payment', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
-         'can' => 'payments.create',
-         'url' => $listUrl . '&action=create',
-         'attrs' => ['data-modal-open' => 'paymentCreateModal']],
-    ],
+    /* The create action lives in the page header, which every module has and
+       which sits directly above this strip. Offering it here as well put the
+       same button on screen twice. */
 ];
 
 $applied = array_filter([

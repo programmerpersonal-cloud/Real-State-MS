@@ -154,9 +154,21 @@ function addFieldError(array &$errors, string $field, string $message): void
  */
 function rejectForm(array $errors, array $data, string $failUrl): void
 {
-    setFlash('error', count($errors) === 1
-        ? $errors[0]
-        : 'Please correct the ' . count($errors) . ' problems highlighted below.');
+    /* A field error is already stated twice — once against the input and once
+       in the summary at the top of the form — so a third copy in a page-level
+       banner said nothing new and pushed the form itself down the screen.
+       What the banner is still for is the message with nowhere to sit: a rule
+       about the record as a whole rather than about one box, which would
+       otherwise be lost entirely. Those are the ones with no entry in the
+       field map. */
+    $attached = array_values($_SESSION['form_errors'] ?? []);
+    $orphans  = array_values(array_diff($errors, $attached));
+
+    if ($orphans) {
+        setFlash('error', count($orphans) === 1
+            ? $orphans[0]
+            : implode(' ', $orphans));
+    }
 
     unset($data['password'], $data['confirm_password'], $data['current_password']);
 

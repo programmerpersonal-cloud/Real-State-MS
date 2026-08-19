@@ -35,12 +35,9 @@ $toolbar = [
         'label'       => 'Search reservations',
         'placeholder' => 'Search by code, customer or property…',
     ],
-    'actions' => [
-        ['label' => 'New Reservation', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
-         'can' => 'reservations.create',
-         'url' => $listUrl . '&action=create',
-         'attrs' => ['data-modal-open' => 'reservationCreateModal']],
-    ],
+    /* The create action lives in the page header, which every module has and
+       which sits directly above this strip. Offering it here as well put the
+       same button on screen twice. */
 ];
 
 $searchTerm = trim((string) ($filters['search'] ?? ''));

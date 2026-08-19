@@ -45,10 +45,6 @@ $toolbar = [
     'actions' => [
         ['label' => 'Categories', 'icon' => 'bi-tags', 'class' => 'btn--outline',
          'url' => APP_URL . '/index.php?page=document-categories'],
-        ['label' => 'Upload', 'icon' => 'bi-upload', 'class' => 'btn--primary',
-         'can' => 'documents.create',
-         'url' => $listUrl . '&modal=upload',
-         'attrs' => ['data-modal-open' => 'documentUploadModal']],
     ],
 ];
 

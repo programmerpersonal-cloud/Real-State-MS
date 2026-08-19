@@ -37,12 +37,9 @@ $toolbar = [
         ['name' => 'priority', 'label' => 'Priority', 'value' => $filters['priority'] ?? '',
          'options' => $priorities, 'all' => 'Any priority'],
     ],
-    'actions' => !empty($canCreate) ? [
-        ['label' => 'New Request', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
-         'can' => 'maintenance.create',
-         'url' => $listUrl . '&action=create',
-         'attrs' => ['data-modal-open' => 'maintenanceCreateModal']],
-    ] : [],
+    /* The create action lives in the page header, which every module has and
+       which sits directly above this strip. Offering it here as well put the
+       same button on screen twice. */
 ];
 
 $applied = array_filter([

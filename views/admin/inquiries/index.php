@@ -34,10 +34,9 @@ $toolbar = [
         'label'       => 'Search enquiries',
         'placeholder' => 'Search by name, subject or message…',
     ],
-    'actions' => [
-        ['label' => 'New Inquiry', 'icon' => 'bi-plus-lg', 'class' => 'btn--primary',
-         'can' => 'inquiries.create', 'url' => $listUrl . '&action=create'],
-    ],
+    /* The create action lives in the page header, which every module has and
+       which sits directly above this strip. Offering it here as well put the
+       same button on screen twice. */
 ];
 
 $searchTerm = trim((string) ($filters['search'] ?? ''));

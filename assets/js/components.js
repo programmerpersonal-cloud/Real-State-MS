@@ -741,7 +741,7 @@ function initFormValidation(form) {
   // A phone is judged against its country, so changing the country re-judges
   // the number. Without this a field stays marked wrong after the very action
   // that made it right.
-  form.querySelectorAll('.phone-field__country').forEach(sel => {
+  form.querySelectorAll('.phone-field__select').forEach(sel => {
     sel.addEventListener('change', () => {
       const num = form.querySelector('[name="' + sel.name.replace(/_country$/, '') + '"]');
       if (!num) return;
@@ -848,3 +848,245 @@ function initFormValidation(form) {
     summary.focus();
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Phone country picker
+   ═══════════════════════════════════════════════════════════════════
+
+   The server renders a real <select>, which is what posts and what works
+   with scripting off. This turns it into the control the form actually
+   wants: a narrow trigger showing the flag and the dialling code, and a
+   searchable list that spells out the country while it is open.
+
+   The two halves of the old field competed for one row — a select wide
+   enough to read "Boqortooyada (+44)" left the number input with whatever
+   remained, which in a two-column form was not enough to see a nine-digit
+   number. Moving the country name into the open list gives the number that
+   width back and loses nothing: the name is there at the moment you are
+   choosing, which is the only moment it is needed.
+
+   The select stays in the DOM and stays authoritative. Every choice writes
+   to it and fires `change`, so the validation client — which already listens
+   for that to re-judge the number and swap the placeholder — needs no
+   knowledge of any of this.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** The flag for an ISO country code, as regional indicator symbols. */
+function countryFlag(iso) {
+  if (!/^[A-Za-z]{2}$/.test(iso)) return '';
+  return String.fromCodePoint(
+    ...iso.toUpperCase().split('').map(c => 0x1f1e6 + c.charCodeAt(0) - 65)
+  );
+}
+
+let phonePickerSeq = 0;
+
+function initPhoneField(field) {
+  const select = field.querySelector('.phone-field__select');
+  const number = field.querySelector('.phone-field__number');
+  if (!select || !number || field.dataset.phoneReady) return;
+  field.dataset.phoneReady = '1';
+
+  const options = Array.from(select.options).map(o => ({
+    iso: o.value,
+    name: o.dataset.name || o.textContent.trim(),
+    dial: o.dataset.dial || '',
+    flag: countryFlag(o.value),
+  }));
+
+  const id = 'phonemenu-' + (++phonePickerSeq);
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'phone-field__trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.setAttribute('aria-controls', id);
+
+  const menu = document.createElement('div');
+  menu.className = 'phone-menu';
+  menu.id = id;
+  menu.hidden = true;
+  menu.innerHTML =
+    '<div class="phone-menu__search">' +
+      '<i class="bi bi-search" aria-hidden="true"></i>' +
+      '<input type="text" class="phone-menu__input" autocomplete="off" spellcheck="false"' +
+      ' placeholder="Raadi waddan" aria-label="Raadi waddan">' +
+    '</div>' +
+    '<ul class="phone-menu__list" role="listbox" tabindex="-1"></ul>' +
+    '<p class="phone-menu__empty" hidden>Waddan la mid ah lama helin.</p>';
+
+  const search = menu.querySelector('.phone-menu__input');
+  const list = menu.querySelector('.phone-menu__list');
+  const empty = menu.querySelector('.phone-menu__empty');
+
+  // What the trigger has to say in very little room: the flag carries the
+  // country, the dial code carries what it means for the number beside it.
+  const paint = () => {
+    const o = options.find(x => x.iso === select.value) || options[0];
+    if (!o) return;
+    trigger.innerHTML =
+      '<span class="phone-field__flag" aria-hidden="true">' + o.flag + '</span>' +
+      '<span class="phone-field__dial">+' + o.dial + '</span>' +
+      '<i class="bi bi-chevron-down phone-field__caret" aria-hidden="true"></i>';
+    trigger.setAttribute('aria-label', 'Waddanka lambarka: ' + o.name + ' +' + o.dial);
+  };
+
+  const render = (q) => {
+    const needle = (q || '').trim().toLowerCase();
+    // Matched against the name, the ISO code and the dialling code, with or
+    // without its plus, because all three are things people type.
+    const hits = options.filter(o =>
+      needle === ''
+      || o.name.toLowerCase().indexOf(needle) > -1
+      || o.iso.toLowerCase().indexOf(needle) > -1
+      || ('+' + o.dial).indexOf(needle) > -1
+      || o.dial.indexOf(needle.replace(/^\+/, '')) > -1);
+
+    list.innerHTML = '';
+    hits.forEach((o) => {
+      const li = document.createElement('li');
+      li.className = 'phone-menu__item' + (o.iso === select.value ? ' is-active' : '');
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', o.iso === select.value ? 'true' : 'false');
+      li.dataset.iso = o.iso;
+      li.innerHTML =
+        '<span class="phone-menu__flag" aria-hidden="true">' + o.flag + '</span>' +
+        '<span class="phone-menu__name"></span>' +
+        '<span class="phone-menu__dial">+' + o.dial + '</span>';
+      li.querySelector('.phone-menu__name').textContent = o.name;
+      list.appendChild(li);
+    });
+    empty.hidden = hits.length > 0;
+    return hits.length;
+  };
+
+  /* Fixed, like the row menu, so the list escapes a modal body or a card
+     that clips its own overflow. Aligned to the field rather than to the
+     trigger, so it opens under the whole control. */
+  const place = () => {
+    const r = field.getBoundingClientRect();
+    const h = menu.offsetHeight;
+    const w = menu.offsetWidth;
+    const gap = 4;
+    const pad = 8;
+
+    const below = window.innerHeight - r.bottom;
+    const up = below < h + 16 && r.top > h + 16;
+    let top = up ? r.top - h - gap : r.bottom + gap;
+    top = Math.max(pad, Math.min(top, window.innerHeight - h - pad));
+
+    let left = Math.max(pad, Math.min(r.left, window.innerWidth - w - pad));
+
+    menu.style.top = Math.round(top) + 'px';
+    menu.style.left = Math.round(left) + 'px';
+  };
+
+  let pinning = false;
+  const repin = () => {
+    if (pinning || menu.hidden) return;
+    pinning = true;
+    requestAnimationFrame(() => { pinning = false; if (!menu.hidden) place(); });
+  };
+
+  const highlight = (li) => {
+    list.querySelectorAll('.phone-menu__item').forEach(x => x.classList.remove('is-cursor'));
+    if (!li) return;
+    li.classList.add('is-cursor');
+    li.scrollIntoView({ block: 'nearest' });
+  };
+
+  const open = () => {
+    closePhoneMenus(menu);
+    render('');
+    search.value = '';
+    menu.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    place();
+    highlight(list.querySelector('.is-active') || list.querySelector('.phone-menu__item'));
+    search.focus();
+    window.addEventListener('scroll', repin, { passive: true, capture: true });
+    window.addEventListener('resize', repin, { passive: true });
+  };
+
+  const close = (focusTrigger) => {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    window.removeEventListener('scroll', repin, { capture: true });
+    window.removeEventListener('resize', repin);
+    if (focusTrigger) trigger.focus();
+  };
+  menu.__closePhoneMenu = close;
+
+  const choose = (iso) => {
+    if (!iso) return;
+    select.value = iso;
+    // The validation client listens for this to re-judge the number against
+    // the new country and swap the example placeholder.
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    paint();
+    close(false);
+    number.focus();
+  };
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (menu.hidden) { open(); } else { close(true); }
+  });
+
+  search.addEventListener('input', () => {
+    render(search.value);
+    highlight(list.querySelector('.phone-menu__item'));
+  });
+
+  const move = (step) => {
+    const items = Array.from(list.querySelectorAll('.phone-menu__item'));
+    if (!items.length) return;
+    const at = items.findIndex(x => x.classList.contains('is-cursor'));
+    const from = at < 0 ? 0 : at;
+    highlight(items[Math.max(0, Math.min(items.length - 1, from + step))]);
+  };
+
+  menu.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+    else if (e.key === 'Home') { e.preventDefault(); highlight(list.querySelector('.phone-menu__item')); }
+    else if (e.key === 'End') {
+      e.preventDefault();
+      const items = list.querySelectorAll('.phone-menu__item');
+      highlight(items[items.length - 1]);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const cur = list.querySelector('.is-cursor') || list.querySelector('.phone-menu__item');
+      if (cur) choose(cur.dataset.iso);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close(true);
+    } else if (e.key === 'Tab') {
+      close(false);
+    }
+  });
+
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('.phone-menu__item');
+    if (li) choose(li.dataset.iso);
+  });
+  menu.addEventListener('click', (e) => e.stopPropagation());
+
+  // The select keeps working underneath — a change from anywhere repaints.
+  select.addEventListener('change', paint);
+
+  field.insertBefore(trigger, select);
+  document.body.appendChild(menu);
+  field.classList.add('phone-field--enhanced');
+  paint();
+}
+
+/** Shut every open country list except the one passed in. */
+function closePhoneMenus(except) {
+  document.querySelectorAll('.phone-menu').forEach((m) => {
+    if (m !== except && !m.hidden && m.__closePhoneMenu) m.__closePhoneMenu(false);
+  });
+}
+document.addEventListener('click', () => closePhoneMenus());

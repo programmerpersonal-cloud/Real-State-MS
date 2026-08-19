@@ -1983,32 +1983,115 @@ a.segmented__btn.is-active{color:var(--text)}
    The pair is validated against the selected country's own digit
    lengths rather than one hard-coded length, which is the whole reason
    the selector exists. */
-.phone-field{display:flex;align-items:stretch}
-.phone-field__country{
-  flex:0 0 auto;width:auto;max-width:11rem;
+.phone-field{display:flex;align-items:stretch;min-width:0}
+
+/* A phone needs more room than a text box: the picker takes a fixed slice
+   before the number gets any. In a two-up form grid at tablet widths that
+   left the number about eleven characters wide — not enough to read back a
+   nine-digit number you had just typed. It takes the whole row instead;
+   :has() is the same mechanism the stat cards and the status pill already
+   use to react to their own contents. */
+.form-grid--2 > .form-group:has(.phone-field),
+.form-grid--3 > .form-group:has(.phone-field){grid-column:1 / -1}
+
+/* The number is the field being filled in, so it takes the row and the
+   country takes only what it needs. The old control put a select wide
+   enough to spell out "Boqortooyada (+44)" in front of it and left the
+   number whatever remained, which in a two-column form was not enough to
+   see a nine-digit number. */
+.phone-field__number{
+  flex:1 1 auto;min-width:8ch;
+  border-top-left-radius:0;border-bottom-left-radius:0;
+}
+
+/* Unenhanced — no scripting — the select is the control, and it is capped
+   so it can still never take the row from the number. */
+.phone-field__select{
+  flex:0 0 auto;width:auto;max-width:9.5rem;min-width:0;
   border-top-right-radius:0;border-bottom-right-radius:0;
   border-right-color:transparent;
   background-color:var(--surface-2);
   font-size:var(--fs-xs);
 }
-.phone-field__number{
-  flex:1 1 auto;min-width:0;
-  border-top-left-radius:0;border-bottom-left-radius:0;
+/* Enhanced, the select still posts but the trigger is what is seen. */
+.phone-field--enhanced .phone-field__select{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
 }
+
+.phone-field__trigger{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
+  height:var(--control-h);padding:0 10px;
+  border:1px solid var(--border);border-right-color:transparent;
+  border-radius:var(--radius-sm) 0 0 var(--radius-sm);
+  background:var(--surface-2);color:var(--text);
+  font-family:inherit;font-size:var(--fs-xs);font-weight:600;
+  white-space:nowrap;cursor:pointer;
+  transition:background var(--transition),border-color var(--transition);
+}
+.phone-field__trigger:hover{background:var(--surface-3)}
+.phone-field__flag{font-size:1.05rem;line-height:1}
+.phone-field__dial{font-variant-numeric:tabular-nums}
+.phone-field__caret{font-size:.7rem;color:var(--text-subtle)}
+
 /* The seam only reads as one control while both halves agree on their
    border; whichever half has focus owns it. */
-.phone-field__country:focus,
+.phone-field__trigger:focus-visible,
+.phone-field__select:focus,
 .phone-field__number:focus{position:relative;z-index:1}
-.phone-field--error .phone-field__country{border-color:var(--danger)}
+.phone-field--error .phone-field__trigger,
+.phone-field--error .phone-field__select{border-color:var(--danger)}
+
+/* ── The country list ────────────────────────────────────────────────
+   Fixed, like the row menu, so it escapes a modal body and a card that
+   clips its own corners. Wide enough to spell the country out, which is
+   the whole reason the trigger does not have to. */
+.phone-menu{
+  position:fixed;top:0;left:0;z-index:400;
+  width:min(320px,calc(100vw - 24px));
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow-lg);
+  padding:6px;
+}
+.phone-menu[hidden]{display:none}
+.phone-menu__search{position:relative;margin-bottom:4px}
+.phone-menu__search i{
+  position:absolute;left:9px;top:50%;transform:translateY(-50%);
+  font-size:.8rem;color:var(--text-subtle);pointer-events:none;
+}
+.phone-menu__input{
+  width:100%;height:34px;padding:0 10px 0 28px;
+  border:1px solid var(--border);border-radius:var(--radius-xs);
+  background:var(--surface-2);color:var(--text);
+  font-family:inherit;font-size:var(--fs-xs);
+}
+.phone-menu__input:focus{border-color:var(--primary);background:var(--surface)}
+.phone-menu__list{
+  list-style:none;margin:0;padding:0;
+  max-height:min(46vh,290px);overflow-y:auto;
+  scrollbar-width:thin;
+}
+.phone-menu__item{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 9px;border-radius:var(--radius-xs);
+  font-size:var(--fs-xs);color:var(--text-body);cursor:pointer;
+}
+.phone-menu__flag{font-size:1.05rem;line-height:1;flex-shrink:0}
+.phone-menu__name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.phone-menu__dial{
+  color:var(--text-muted);font-variant-numeric:tabular-nums;flex-shrink:0;
+}
+.phone-menu__item:hover,
+.phone-menu__item.is-cursor{background:var(--surface-3);color:var(--text)}
+.phone-menu__item.is-active{color:var(--primary-ink);font-weight:600}
+.phone-menu__item.is-active .phone-menu__dial{color:var(--primary)}
+.phone-menu__empty{
+  margin:0;padding:14px 9px;text-align:center;
+  font-size:var(--fs-xs);color:var(--text-muted);
+}
 
 @media (max-width:420px){
-  /* Below this a dial code and a nine-digit number stop fitting on one
-     line, and squeezing them makes both unreadable. */
-  .phone-field{flex-direction:column}
-  .phone-field__country{
-    max-width:none;
-    border-radius:var(--radius-sm) var(--radius-sm) 0 0;
-    border-right-color:var(--border);border-bottom-color:transparent;
-  }
-  .phone-field__number{border-radius:0 0 var(--radius-sm) var(--radius-sm)}
+  /* The trigger is already narrow enough to keep the number readable at
+     this width, so the two stay on one line where they used to stack. */
+  .phone-menu{width:calc(100vw - 24px)}
 }

@@ -158,6 +158,16 @@ $popoverId  = 'toolbar-filters';
         <?php endif ?>
     <?php endif ?>
 
+<?php
+/* Only rendered when it holds something: an empty flex child still
+   takes its gap, which would leave a hole where a button used to be. */
+$hasViews = $views && !empty($views['options']);
+$hasActions = false;
+foreach ($actions as $a) {
+    if (empty($a['can']) || can((string) $a['can'])) { $hasActions = true; break; }
+}
+?>
+<?php if ($hasViews || $hasActions): ?>
     <div class="toolbar__actions">
         <?php if ($views && !empty($views['options'])): ?>
             <div class="segmented" data-view-switch="<?= sanitize($views['key'] ?? 'list') ?>"
@@ -186,4 +196,5 @@ $popoverId  = 'toolbar-filters';
             </a>
         <?php endforeach ?>
     </div>
+<?php endif ?>
 </form>

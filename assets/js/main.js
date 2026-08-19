@@ -134,6 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Step 6 ────────────────────────────────────────────
   document.querySelectorAll('.table-wrap').forEach(initTableScroll);
+
+  // ─── Phone country picker ──────────────────────────────
+  // Progressive: the <select> underneath is what posts, and is what a
+  // browser with scripting off is left holding.
+  document.querySelectorAll('[data-phone-field]').forEach(initPhoneField);
 });
 
 /**
