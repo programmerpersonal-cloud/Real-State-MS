@@ -133,29 +133,6 @@ class ReservationController
                 addFieldError($errors, 'deposit_amount', 'A deposit cannot be negative.');
             }
 
-            // Booking terms, when a version is published and acceptance is on.
-            $bookingTerms = termsRequiredForBooking();
-            if ($bookingTerms) {
-                $data['terms_accepted'] = !empty($_POST['terms_accepted']) ? 1 : 0;
-
-                if (!$data['terms_accepted']) {
-                    addFieldError($errors, 'terms_accepted',
-                        'The booking terms must be accepted before a reservation can be created.');
-                }
-
-                // A version published while this form sat open is a different
-                // agreement from the one on screen, so the stale submission is
-                // refused rather than recorded against the wrong wording. This
-                // one keeps its own flash: it is not the user's mistake, and
-                // the wording has to explain why an accepted box was rejected.
-                if ($data['terms_accepted'] && (int) ($_POST['terms_version_id'] ?? 0) !== (int) $bookingTerms['id']) {
-                    setFlash('warning', 'The booking terms were updated while this form was open. '
-                        . 'Please read the current version and accept it again.');
-                    $_SESSION['form_data'] = $data;
-                    redirect($failUrl);
-                }
-            }
-
             if ($errors) {
                 rejectForm($errors, $data, $failUrl);
             }
@@ -164,20 +141,6 @@ class ReservationController
             if ($id) {
                 logAudit('created_reservation', 'reservation', $id);
 
-                if ($bookingTerms) {
-                    require_once BASE_PATH . '/models/TermsAcceptance.php';
-                    (new TermsAcceptance())->record((int) $bookingTerms['id'], [
-                        'user_id'        => $_SESSION['user_id'] ?? null,
-                        'customer_id'    => (int) $data['customer_id'],
-                        'reference_type' => 'reservation',
-                        'reference_id'   => $id,
-                        'accepted_name'  => $this->customerName((int) $data['customer_id']),
-                        'method'         => 'checkbox',
-                    ]);
-                    logAudit('accepted_terms', 'terms_version', (int) $bookingTerms['id'], '', 'reservation:' . $id);
-                }
-
-                setFlash('success', 'Reservation created.');
                 redirect(APP_URL . '/index.php?page=reservations');
             }
             setFlash('error', 'Failed to reserve property.');
@@ -197,19 +160,6 @@ class ReservationController
                 ['label' => 'Create'],
             ],
         ]);
-    }
-
-    /**
-     * The customer's name at the moment of acceptance.
-     *
-     * Snapshotted into the acceptance record so the log still reads correctly
-     * if the customer is later renamed or removed.
-     */
-    private function customerName(int $customerId): string
-    {
-        $stmt = getDBConnection()->prepare("SELECT full_name FROM customers WHERE id = ?");
-        $stmt->execute([$customerId]);
-        return (string) ($stmt->fetchColumn() ?: '');
     }
 
     /**

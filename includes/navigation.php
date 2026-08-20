@@ -98,7 +98,6 @@ function appNavSections(): array
             ['branches',            'Branches',            'bi-diagram-3'],
             ['reports',             'Reports',             'bi-bar-chart-line'],
             ['document-categories', 'Document Categories', 'bi-tags'],
-            ['legal',               'Terms & Legal',       'bi-file-earmark-check'],
             ['audit-logs',          'Audit Logs',          'bi-journal-text'],
             ['settings',            'Settings',            'bi-gear'],
         ]],

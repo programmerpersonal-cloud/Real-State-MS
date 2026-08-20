@@ -29,7 +29,7 @@ function renderRobotsTxt(): void
         'notifications', 'settings', 'users', 'audit', 'reports', 'payments',
         'leases', 'sales', 'maintenance', 'inquiries', 'customers', 'owners',
         'branches', 'reservations',
-        'documents', 'document-categories', 'legal',
+        'documents', 'document-categories',
         // Post-conversion page: no standalone search value, and organic
         // entrances here would corrupt goal reporting.
         'thanks',

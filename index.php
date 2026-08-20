@@ -554,25 +554,6 @@ switch ($page) {
         dispatch('DocumentCategoryController', $method);
         break;
 
-    // ─── Terms & Conditions ────────────────────────────
-    case 'legal':
-        $method = match ($action) {
-            'version'      => 'version',
-            'create'       => 'create',
-            'edit'         => 'edit',
-            'preview'      => 'preview',
-            'publish'      => 'publish',
-            'withdraw'     => 'withdraw',
-            'revise'       => 'revise',
-            'delete-draft' => 'deleteDraft',
-            'acceptances'  => 'acceptances',
-            'save-type'    => 'saveType',
-            'toggle-type'  => 'toggleType',
-            default        => 'index',
-        };
-        dispatch('LegalController', $method);
-        break;
-
     // ─── Settings ──────────────────────────────────────
     case 'settings':
         $method = $_SERVER['REQUEST_METHOD'] === 'POST' ? 'update' : 'index';

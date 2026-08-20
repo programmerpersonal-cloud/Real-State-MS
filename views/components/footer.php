@@ -21,9 +21,7 @@ $isProd = $env === '' || strtolower($env) === 'production' || strtolower($env) =
     <div class="app__footer-slot app__footer-slot--center">
         <?php if (canAccessPage('inquiries')): ?>
             <a href="<?= APP_URL ?>/index.php?page=inquiries">Support</a>
-            <span class="app__footer-dot" aria-hidden="true">&middot;</span>
         <?php endif ?>
-        <a href="<?= APP_URL ?>/index.php?page=legal">Terms &amp; legal</a>
     </div>
 
     <div class="app__footer-slot app__footer-slot--end">
