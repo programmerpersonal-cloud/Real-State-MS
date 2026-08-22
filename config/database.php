@@ -7,11 +7,17 @@
  * All connections use utf8mb4 charset for full Unicode support.
  */
 
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'saxane_realestate');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_CHARSET', 'utf8mb4');
+require_once __DIR__ . '/../includes/env.php';
+
+// Credentials come from .env so they are never committed. The defaults are the
+// stock XAMPP development values, which keeps a fresh clone working locally
+// with no .env present; a real deployment must supply its own.
+define('DB_HOST',    env('DB_HOST', 'localhost'));
+define('DB_PORT',    env_int('DB_PORT', 3306));
+define('DB_NAME',    env('DB_NAME', 'saxane_realestate'));
+define('DB_USER',    env('DB_USER', 'root'));
+define('DB_PASS',    (string) env('DB_PASS', ''));
+define('DB_CHARSET', env('DB_CHARSET', 'utf8mb4'));
 
 /**
  * Get a PDO database connection instance.
@@ -26,8 +32,9 @@ function getDBConnection(): PDO
 
     if ($pdo === null) {
         $dsn = sprintf(
-            'mysql:host=%s;dbname=%s;charset=%s',
+            'mysql:host=%s;port=%d;dbname=%s;charset=%s',
             DB_HOST,
+            DB_PORT,
             DB_NAME,
             DB_CHARSET
         );
@@ -46,8 +53,20 @@ function getDBConnection(): PDO
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
-            // In production, log this and show a generic error page
             error_log('Database Connection Error: ' . $e->getMessage());
+
+            // With APP_DEBUG on, show the real reason: a mistyped DB_PASS in
+            // .env is the usual cause and the generic message below gives no
+            // clue which of host, name, user or password is wrong. Never shown
+            // when APP_DEBUG is off, because the text leaks the schema name.
+            if (defined('APP_DEBUG') && APP_DEBUG) {
+                die(
+                    '<h1>Database connection failed</h1>'
+                    . '<p>' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</p>'
+                    . '<p>Check DB_HOST, DB_NAME, DB_USER and DB_PASS in your <code>.env</code> file.</p>'
+                );
+            }
+
             die('System is temporarily unavailable. Please try again later.');
         }
     }

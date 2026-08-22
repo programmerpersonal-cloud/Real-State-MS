@@ -1,0 +1,32 @@
+# Saxane Real Estate Management System
+
+# ─── Secrets ───────────────────────────────────────────────────────────
+# The real environment file never enters the repository. .env.example is the
+# committed template and is explicitly re-included below.
+.env
+.env.*
+!.env.example
+
+# ─── Logs & runtime ────────────────────────────────────────────────────
+*.log
+error_log
+php_errorlog
+
+# ─── OS noise ──────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# ─── Editors ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+
+# ─── Dependencies ──────────────────────────────────────────────────────
+# Not used today (there is no composer.json), listed so a future `composer
+# require` does not commit a vendor tree by accident.
+/vendor/
+/node_modules/

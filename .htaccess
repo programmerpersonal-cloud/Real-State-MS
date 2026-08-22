@@ -19,6 +19,34 @@
     RewriteRule ^storage/ - [F,L]
 </IfModule>
 
+# Dotfiles are never served. .env is the one that matters: this project's root
+# is also the web root under htdocs, so without this rule the database password
+# is a single GET away — /.env has no handler and Apache would return it as
+# plain text. .git/, .gitignore and .htaccess itself are covered by the same
+# pattern. Written for both modern and legacy Apache because a host that lacks
+# mod_authz_core would otherwise silently ignore the deny.
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Belt and braces: name the environment files explicitly, so a server whose
+# configuration strips the leading-dot rule above still refuses them.
+<FilesMatch "^\.env">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
 # Never serve application source or data as plain text if a rewrite is missing.
 <FilesMatch "\.(sql|md|log)$">
     Require all denied

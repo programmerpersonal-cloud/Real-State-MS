@@ -4,15 +4,43 @@
  * Application Configuration
  */
 
+require_once __DIR__ . '/../includes/env.php';
+
+// ─── Environment ───────────────────────────────────────────────────────
+// APP_ENV names the deployment: 'local' while developing, 'production' on the
+// live host. APP_DEBUG governs whether real error text reaches the browser and
+// defaults to on only in local — so a .env copied to production without
+// thinking still fails closed.
+define('APP_ENV', env('APP_ENV', 'local'));
+define('APP_DEBUG', env_bool('APP_DEBUG', APP_ENV === 'local'));
+
+// Errors are logged either way. This only decides whether they are also
+// printed. Nothing is switched on here that PHP had off — the assignment runs
+// in one direction, silencing output in production and otherwise leaving the
+// server's own php.ini in charge.
+if (!APP_DEBUG) {
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+}
+ini_set('log_errors', '1');
+
 // ─── Application Identity ──────────────────────────────────────────────
 // APP_NAME is the fallback trading name only. Anything user-facing must call
 // companyName(), which reads Settings → Company Profile and falls back here.
-define('APP_NAME', 'Saxane');
+define('APP_NAME', env('APP_NAME', 'Saxane'));
 define('APP_TAGLINE', 'Real Estate Management System');
 define('APP_VERSION', '1.0.0');
 // Detected from the incoming request so the app works over localhost, a LAN IP
 // (phone testing), or a real domain without editing this file.
 define('APP_URL', (function () {
+    // An explicit APP_URL in .env wins. It is the only thing that produces
+    // correct absolute links from CLI (cron, sitemap generation) and behind a
+    // reverse proxy, where the request headers describe the proxy, not the site.
+    $configured = env('APP_URL');
+    if (is_string($configured) && $configured !== '') {
+        return rtrim($configured, '/');
+    }
+
     if (PHP_SAPI === 'cli') {
         return 'http://localhost/Real-State-MS/Real-State-MS';
     }
@@ -145,7 +173,7 @@ define('SOCIAL_IMAGE_H', 630);
 // Google Analytics 4. Left empty by default: the tag is only emitted when a
 // real measurement ID is set, so development traffic is never counted and
 // no third-party script loads on a site that has not opted in.
-define('GA_MEASUREMENT_ID', '');
+define('GA_MEASUREMENT_ID', env('GA_MEASUREMENT_ID', ''));
 
 // ─── User Roles ────────────────────────────────────────────────────────
 define('ROLE_ADMIN', 'admin');
