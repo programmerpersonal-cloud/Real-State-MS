@@ -15,6 +15,11 @@
  * versioned CSS. That is worse than either being stale on its own — the page
  * looks redesigned and behaves like it used to — and it cost a real debugging
  * session before it was spotted.
+ *
+ * Expects (optional): $extraScripts  extra files from assets/js, loaded after
+ * the pair above. A page that carries behaviour nothing else needs — the
+ * authentication screen's panel switch, for one — names it here rather than
+ * shipping it to every signed-in page, and it still gets the cache-buster.
  */
 $jsVersion = static function (string $script): string {
     $path = ASSETS_PATH . '/js/' . $script . '.js';
@@ -30,6 +35,6 @@ $jsVersion = static function (string $script): string {
 <script type="application/json" id="validationRules"><?=
     json_encode(validationClientRules(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
 ?></script>
-<?php foreach (['main', 'components'] as $script): ?>
+<?php foreach (array_merge(['main', 'components'], $extraScripts ?? []) as $script): ?>
 <script src="<?= JS_URL ?>/<?= $script ?>.js<?= $jsVersion($script) ?>"></script>
 <?php endforeach ?>

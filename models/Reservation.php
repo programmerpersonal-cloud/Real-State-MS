@@ -34,7 +34,8 @@ class Reservation
     public function findById(int $id): ?array
     {
         $stmt = $this->db->prepare("
-            SELECT r.*, c.full_name AS customer_name, p.title AS property_title, p.property_code
+            SELECT r.*, c.full_name AS customer_name, p.title AS property_title, p.property_code,
+                   p.owner_id AS property_owner_id, p.agent_id AS property_agent_id
             FROM reservations r
             JOIN customers c ON r.customer_id = c.id
             JOIN properties p ON r.property_id = p.id
@@ -139,7 +140,11 @@ class Reservation
      */
     private function buildWhere(array $filters): array
     {
-        $where = []; $params = [];
+        // The access scope leads and is never optional, so the list, its
+        // heading count and its status pills all describe the same holds.
+        [$scope, $params] = reservationViewScope('r', 'p');
+        $where = ['(' . $scope . ')'];
+
         if (!empty($filters['status'])) { $where[] = "r.status = :st"; $params[':st'] = $filters['status']; }
         // Bound and cast, for the property detail page's Reservations tab.
         if (!empty($filters['property_id'])) { $where[] = "r.property_id = :pid"; $params[':pid'] = (int) $filters['property_id']; }
@@ -149,7 +154,7 @@ class Reservation
             $params[':s'] = '%' . $filters['search'] . '%';
         }
 
-        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+        return ['WHERE ' . implode(' AND ', $where), $params];
     }
 
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
@@ -195,12 +200,26 @@ class Reservation
      * whole row of tabs in a single round trip, and its cost does not change
      * with the number of statuses the enum grows to.
      *
+     * Carries the same access scope as the list, so the pills count the holds
+     * the reader can actually open.
+     *
      * @return array<string, int>
      */
-    public function countsByStatus(): array
+    public function countsByStatus(array $filters = []): array
     {
-        $rows = $this->db->query("SELECT status, COUNT(*) AS n FROM reservations GROUP BY status")->fetchAll();
+        unset($filters['status']);
+        [$wc, $params] = $this->buildWhere($filters);
 
-        return array_column($rows, 'n', 'status');
+        $stmt = $this->db->prepare("
+            SELECT r.status, COUNT(*) AS n
+            FROM reservations r
+            JOIN customers c ON r.customer_id = c.id
+            JOIN properties p ON r.property_id = p.id
+            {$wc}
+            GROUP BY r.status
+        ");
+        $stmt->execute($params);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'n', 'status'));
     }
 }

@@ -76,11 +76,14 @@ class LeaseController
             // whole pill row in one GROUP BY; arrearsFor() answers the whole
             // page of rows in one WHERE … IN, rather than asking getArrears()
             // once per lease as a naive Arrears column would.
-            'statusCounts' => $this->model->countsByStatus(),
+            'statusCounts' => $this->model->countsByStatus($filters),
             'arrears' => $this->model->arrearsFor(array_column($leases, 'id')),
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Leases',
-            'pageSubtitle' => 'Tenancies, what they are worth, and what is outstanding on them.',
+            // Says whose tenancies these are. An agent shown four of the
+            // agency's four hundred should be able to read the reason rather
+            // than assume the page is broken.
+            'pageSubtitle' => recordScopeHint('tenancy'),
             'breadcrumbs' => [['label' => 'Leases']],
             'actionButton' => [
                 'label' => 'New Lease',
@@ -96,14 +99,40 @@ class LeaseController
      * Reachable from outside the controller so the quick-add popup offers the
      * same lists wherever it is hosted.
      *
+     * Both lists carry the signed-in user's record scope, so an agent is
+     * offered their own properties and their own clients rather than the whole
+     * register. This is a courtesy to the UI, not the boundary — create()
+     * re-checks the submitted ids before anything is written.
+     *
      * @return array{properties:array,customers:array}
      */
     public static function formLookups(): array
     {
         $db = getDBConnection();
+
+        [$propertyScope, $propertyParams] = propertyRecordScope('p');
+        $properties = $db->prepare("
+            SELECT p.id, p.title, p.property_code, p.rent_amount, p.deposit_amount, p.owner_id
+            FROM properties p
+            WHERE p.status = 'available' AND p.is_archived = 0
+              AND p.property_type IN ('rent','both')
+              AND ({$propertyScope})
+            ORDER BY p.created_at DESC
+        ");
+        $properties->execute($propertyParams);
+
+        [$customerScope, $customerParams] = customerViewScope('c');
+        $customers = $db->prepare("
+            SELECT c.id, c.full_name, c.phone
+            FROM customers c
+            WHERE c.is_blacklisted = 0 AND ({$customerScope})
+            ORDER BY c.full_name
+        ");
+        $customers->execute($customerParams);
+
         return [
-            'properties' => $db->query("SELECT id, title, property_code, rent_amount, deposit_amount, owner_id FROM properties WHERE status='available' AND is_archived=0 AND property_type IN ('rent','both') ORDER BY created_at DESC")->fetchAll(),
-            'customers'  => $db->query("SELECT id, full_name, phone FROM customers WHERE is_blacklisted=0 ORDER BY full_name")->fetchAll(),
+            'properties' => $properties->fetchAll(),
+            'customers'  => $customers->fetchAll(),
         ];
     }
 
@@ -160,6 +189,17 @@ class LeaseController
                 && $this->model->hasOverlap($data['property_id'], $data['start_date'], $data['end_date'])) {
                 addFieldError($errors, 'property_id', 'This property already has an active lease overlapping those dates.');
             }
+            // Level 3 on the write. The <select>s above are already scoped, so
+            // an id outside the user's reach arrived by hand-editing the form
+            // — refused with the same wording whether the record is someone
+            // else's or does not exist, so the response cannot be used to probe
+            // which ids are real.
+            if ($data['property_id'] && !canActOnProperty($data['property_id'])) {
+                addFieldError($errors, 'property_id', 'That property is not one you manage.');
+            }
+            if ($data['customer_id'] && !canActOnCustomer($data['customer_id'])) {
+                addFieldError($errors, 'customer_id', 'That customer is not one of yours.');
+            }
             if (!empty($_FILES['contract_file']['name'])) {
                 $path = uploadFile($_FILES['contract_file'], 'documents', ALLOWED_DOC_TYPES);
                 if ($path) {
@@ -204,12 +244,22 @@ class LeaseController
         authorize('leases.show');
         $id = (int)($_GET['id'] ?? 0);
         $lease = $this->model->findById($id);
-        if (!$lease) { setFlash('error', 'Lease not found.'); redirect(APP_URL . '/index.php?page=leases'); }
+
+        // Level 3. Holding leases.show opens the page; it does not open every
+        // tenancy on it. A lease that does not exist and one belonging to
+        // another desk are refused identically — distinguishing them would
+        // confirm that a given lease code is real, which is itself a
+        // disclosure. Nothing below runs if the row is not theirs.
+        authorizeRecord(canViewLease($lease), 'lease', $id);
+
         $schedule = $this->model->getPaymentSchedule($id);
         $arrears  = $this->model->getArrears($id);
 
         renderPage(VIEWS_PATH . '/admin/leases/show.php', [
             'lease' => $lease, 'schedule' => $schedule, 'arrears' => $arrears,
+            // The renew and terminate controls are drawn from the same answer
+            // the actions enforce, so a button offered is a button that works.
+            'canManage' => canManageLease($lease),
             'pageTitle' => 'Lease ' . $lease['lease_code'],
             'breadcrumbs' => [
                 ['label' => 'Leases', 'url' => APP_URL . '/index.php?page=leases'],
@@ -222,6 +272,13 @@ class LeaseController
     {
         authorize('leases.renew');
         $id = (int)($_GET['id'] ?? 0);
+
+        // Fetched and checked before the form is drawn as well as before the
+        // change is written: renewing a tenancy you may not read is the same
+        // breach as reading it, so it is refused the same way.
+        $lease = $this->model->findById($id);
+        authorizeRecord(canManageLease($lease), 'lease', $id);
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
             $newEnd = $_POST['end_date'];
@@ -231,7 +288,6 @@ class LeaseController
             setFlash('success', 'Lease renewed.');
             redirect(APP_URL . '/index.php?page=leases&action=show&id=' . $id);
         }
-        $lease = $this->model->findById($id);
         renderPage(VIEWS_PATH . '/admin/leases/renew.php', [
             'lease' => $lease,
             'pageTitle' => 'Renew Lease',
@@ -247,6 +303,12 @@ class LeaseController
     {
         authorize('leases.terminate');
         $id = (int)($_GET['id'] ?? 0);
+
+        // Ending someone else's tenancy is the most destructive thing this
+        // module can do, and it was reachable by posting an id.
+        $lease = $this->model->findById($id);
+        authorizeRecord(canManageLease($lease), 'lease', $id);
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
             $reason = sanitize($_POST['reason'] ?? '');

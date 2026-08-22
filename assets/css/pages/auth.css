@@ -1,72 +1,264 @@
 /* ================================================================
    MARKO REAL ESTATE - PAGE - AUTH
-   Sign-in and registration screens.
+   Sign-in and registration, as one screen.
+   ----------------------------------------------------------------
+   Both forms are rendered together inside a single card and the
+   blue panel slides between them. The two routes still exist and
+   still render server-side — /index.php?page=login opens on the
+   sign-in side, ?page=register on the other — so a validation
+   reject, a flash message, or a visitor with scripting off all land
+   on exactly the panel they were meant to.
+
+   Everything that moves is transform or opacity, with one
+   exception: the card's own height is animated so the sign-in side
+   is not padded out to the registration form's length. It is set
+   in pixels by auth.js for the duration of the swap and released
+   afterwards, so nothing here depends on a transitionend firing.
    ================================================================ */
 
-/* ─── Auth pages ────────────────────────────────────────── */
-/* Simple centered login card */
-.auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
-.auth-card{
-  width:100%;max-width:400px;background:var(--surface);
-  border:1px solid var(--border);border-radius:var(--radius);
-  padding:40px 36px;box-shadow:var(--shadow-lg);
-}
-.auth-card__logo{
-  width:48px;height:48px;border-radius:13px;margin:0 auto 14px;
-  background:linear-gradient(135deg,#2b9fe0 0%,var(--primary) 100%);
-  display:flex;align-items:center;justify-content:center;
-  font-weight:700;color:#fff;font-size:1.3rem;
-  box-shadow:0 8px 20px rgba(0,117,192,.35);
-}
-.auth-card__brand{text-align:center;font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-.2px;margin-bottom:26px}
-.auth-card__title{font-family:var(--font-display);font-size:1.6rem;font-weight:700;text-align:center;color:var(--text);letter-spacing:-.02em;margin-bottom:6px}
-.auth-card__subtitle{text-align:center;color:var(--text-muted);font-size:.9rem;margin-bottom:26px}
-
-.auth{min-height:100vh;display:flex;background:var(--bg)}
-.auth__brand{
-  flex:1;display:flex;flex-direction:column;justify-content:space-between;
-  padding:48px;color:#fff;position:relative;overflow:hidden;
+/* ─── Page ──────────────────────────────────────────────── */
+/* dvh rather than vh: on a phone the browser chrome is counted out
+   of dvh, so the card is centred in what is actually on screen
+   instead of partly behind the address bar. */
+.auth-page{
+  min-height:100dvh;display:flex;justify-content:center;
+  padding:clamp(14px,3.5vw,44px);
   background:
-    radial-gradient(1200px 600px at -10% -20%,rgba(0,117,192,.30) 0%,transparent 60%),
-    radial-gradient(900px 500px at 110% 110%,rgba(0,117,192,.16) 0%,transparent 60%),
-    linear-gradient(160deg,var(--ink) 0%,var(--ink-2) 55%,var(--ink-3) 100%);
+    radial-gradient(880px 620px at 10% 4%,rgba(0,117,192,.15) 0%,transparent 60%),
+    radial-gradient(720px 560px at 94% 98%,rgba(0,117,192,.11) 0%,transparent 58%),
+    linear-gradient(158deg,#eff5fb 0%,#e6effa 50%,#dde9f6 100%);
 }
-.auth__brand-top{position:relative;z-index:1;display:flex;align-items:center;gap:12px}
-.auth__brand-logo{
-  width:42px;height:42px;border-radius:11px;
+
+/* ─── The card ──────────────────────────────────────────── */
+.auth-shell{
+  /* The split. --auth-aside-w is the blue panel's share of the card;
+     the two shift figures are that same split expressed as a
+     percentage of each moving element's own width, because that is
+     what translateX() takes:
+       a form panel shifts by 42/58  → 72.4138%
+       the blue panel shifts by 58/42 → 138.0952%
+     Change --auth-aside-w and both have to be recomputed. */
+  --auth-aside-w:42%;
+  --auth-radius:26px;
+  --auth-cut:132px;         /* the scoop on the blue panel's inner edge */
+  --auth-slide:560ms;
+
+  /* margin:auto rather than align-items:center on the page. They centre
+     a card that fits identically, but once the registration form comes
+     back carrying five field errors the card is taller than the window —
+     and a centred flex item overflows its container at both ends, which
+     puts the top of the form somewhere no scrollbar can reach. */
+  position:relative;width:100%;max-width:1060px;margin:auto;
+  background:var(--surface);
+  border:1px solid rgba(255,255,255,.7);
+  border-radius:var(--auth-radius);
+  overflow:hidden;
+  box-shadow:
+    0 1px 2px rgba(16,34,44,.05),
+    0 34px 70px -26px rgba(16,34,44,.32);
+}
+.auth-shell[data-auth-mode="login"]{--auth-shift:72.4138%;--auth-aside-shift:0%}
+.auth-shell[data-auth-mode="register"]{--auth-shift:0%;--auth-aside-shift:138.0952%}
+
+.auth-shell__inner{position:relative;min-height:520px}
+
+/* Height is animated here and only here. auth.js writes an inline
+   pixel height across the swap and clears it again afterwards. */
+.auth-shell__forms{position:relative;width:100%;transition:height 460ms var(--ease-standard)}
+
+/* ─── A form side ───────────────────────────────────────── */
+.auth-panel{
+  position:relative;width:calc(100% - var(--auth-aside-w));
+  padding:clamp(26px,3vw,40px) clamp(24px,3.4vw,52px);
+  transform:translateX(var(--auth-shift));
+  transition:transform var(--auth-slide) var(--ease-enter),
+             opacity 260ms var(--ease-standard) 140ms;
+}
+/* The side that is not in use. Absolute so it stops contributing
+   height, inert from JS so it stops contributing tab stops. */
+.auth-panel.is-hidden{
+  position:absolute;top:0;left:0;
+  opacity:0;pointer-events:none;transition-delay:0s;
+}
+
+.auth-panel__brand{display:flex;align-items:center;gap:10px;margin-bottom:clamp(18px,2.4vw,30px)}
+.auth-panel__logo{
+  width:36px;height:36px;border-radius:10px;flex:none;
   background:linear-gradient(135deg,#2b9fe0 0%,var(--primary) 100%);
   display:flex;align-items:center;justify-content:center;
-  font-weight:700;color:#fff;font-size:1.15rem;
-  box-shadow:0 8px 20px rgba(0,117,192,.4);
+  color:#fff;font-size:1rem;
+  box-shadow:0 6px 16px rgba(0,117,192,.34);
 }
-.auth__brand-name{font-size:1.1rem;font-weight:700;letter-spacing:-.2px}
-.auth__brand-tag{font-size:.7rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-top:2px}
-.auth__brand-body{position:relative;z-index:1;max-width:460px;margin:auto 0}
-.auth__brand-title{font-family:var(--font-display);font-size:2.3rem;font-weight:700;letter-spacing:-.025em;margin-bottom:16px;line-height:1.15;color:#fff}
-.auth__brand-desc{font-size:1rem;color:rgba(255,255,255,.7);line-height:1.65;margin-bottom:28px}
-.auth__brand-features{list-style:none;display:flex;flex-direction:column;gap:12px}
-.auth__brand-features li{display:flex;align-items:center;gap:10px;font-size:.9rem;color:rgba(255,255,255,.85)}
-.auth__brand-features i{
-  width:24px;height:24px;border-radius:7px;
-  background:rgba(0,117,192,.24);color:#7cc7f2;
-  display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;
-}
-.auth__brand-footer{position:relative;z-index:1;font-size:.78rem;color:rgba(255,255,255,.4)}
+.auth-panel__name{font-size:.95rem;font-weight:700;color:var(--text);letter-spacing:-.2px}
 
-.auth__form-side{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;background:var(--surface)}
-.auth__form-container{width:100%;max-width:400px}
-.auth__form-eyebrow{font-size:.72rem;color:var(--primary);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px}
-.auth__form-title{font-family:var(--font-display);font-size:1.8rem;font-weight:700;margin-bottom:6px;letter-spacing:-.025em;color:var(--text)}
-.auth__form-subtitle{color:var(--text-muted);margin-bottom:28px;font-size:.92rem}
-.auth__form-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-size:.82rem}
-.auth__remember{display:flex;align-items:center;gap:7px;color:var(--text-muted);cursor:pointer}
-.auth__remember input{width:15px;height:15px;accent-color:var(--primary);cursor:pointer}
-.auth__footer-text{text-align:center;margin-top:22px;font-size:.86rem;color:var(--text-muted)}
-/* A second footer line following the first, so it sits with it rather than
-   opening the same gap again. */
-.auth__footer-text--tight{margin-top:10px}
-/* The row wraps on a narrow screen: "Remember me" and the password note
-   side by side is what forces horizontal scroll on a small phone. */
-@media(max-width:420px){
-  .auth__form-row{flex-direction:column;align-items:flex-start;gap:8px}
+.auth-panel__title{
+  font-family:var(--font-display);font-size:clamp(1.7rem,1.3rem + 1.1vw,2.15rem);
+  font-weight:700;letter-spacing:-.03em;line-height:1.15;color:var(--text);margin-bottom:6px;
+}
+.auth-panel__subtitle{color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:22px;line-height:1.55}
+
+/* Tighter than the application default. The registration form is
+   seven fields deep and the whole point of the card is that it fits
+   on a laptop without scrolling. */
+.auth-panel .form-group{margin-bottom:14px}
+.auth-panel .form-row{gap:12px}
+.auth-panel .form-hint{margin-top:5px}
+
+.auth-panel__row{
+  display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;
+  gap:8px 16px;margin:2px 0 18px;font-size:var(--fs-xs);
+}
+.auth-panel__remember{display:flex;align-items:center;gap:8px;color:var(--text-muted);cursor:pointer}
+.auth-panel__remember input{width:16px;height:16px;accent-color:var(--primary);cursor:pointer}
+.auth-panel__note{color:var(--text-subtle)}
+
+.auth-panel__submit{margin-top:4px}
+.auth-panel__foot{
+  margin-top:18px;padding-top:16px;border-top:1px solid var(--border);
+  display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;
+  gap:6px 14px;font-size:var(--fs-xs);color:var(--text-muted);
+}
+.auth-panel__foot a{color:var(--text-muted);font-weight:600}
+.auth-panel__foot a:hover{color:var(--primary)}
+
+/* The switch offered at the foot of the form itself. Hidden on any
+   width where the blue panel's own button is still on screen when the
+   form ends; shown on a phone, where the registration form is long
+   enough that the button has scrolled away by the time you reach the
+   bottom of it. Either way it is in the markup, because with scripting
+   off it is an ordinary link to the other page. */
+.auth-panel__switch{display:none}
+.auth-panel__switch .auth-switch{font-weight:700;color:var(--primary)}
+
+/* ─── The blue panel ────────────────────────────────────── */
+.auth-aside{
+  position:absolute;top:0;bottom:0;left:0;width:var(--auth-aside-w);
+  overflow:hidden;color:#fff;
+  background:
+    radial-gradient(520px 380px at 22% 12%,rgba(255,255,255,.20) 0%,transparent 62%),
+    linear-gradient(150deg,#2fa3e3 0%,var(--primary) 46%,var(--primary-dark) 100%);
+  border-radius:0 var(--auth-cut) var(--auth-cut) 0;
+  transform:translateX(var(--auth-aside-shift));
+  transition:transform var(--auth-slide) var(--ease-enter),
+             border-radius var(--auth-slide) var(--ease-enter);
+}
+.auth-shell[data-auth-mode="register"] .auth-aside{
+  border-radius:var(--auth-cut) 0 0 var(--auth-cut);
+}
+/* Two soft shapes. Decorative, drawn rather than loaded — and the
+   lower one is a gradient rather than a filled circle, because a flat
+   fill clipped by the card's edge reads as a rendering fault. */
+.auth-aside::before,.auth-aside::after{
+  content:'';position:absolute;border-radius:50%;pointer-events:none;
+}
+.auth-aside::before{width:340px;height:340px;top:-130px;right:-120px;border:1px solid rgba(255,255,255,.15)}
+.auth-aside::after{
+  width:360px;height:360px;bottom:-150px;left:-140px;
+  background:radial-gradient(circle,rgba(255,255,255,.13) 0%,rgba(255,255,255,0) 68%);
+}
+
+.auth-aside__face{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:clamp(24px,2.6vw,40px);text-align:center;
+  transition:opacity 240ms var(--ease-standard) 200ms,
+             transform 420ms var(--ease-enter) 200ms;
+}
+.auth-aside__face.is-hidden{opacity:0;transform:translateY(16px);pointer-events:none;transition-delay:0s}
+.auth-aside__title{
+  font-family:var(--font-display);font-size:clamp(1.5rem,1.2rem + .9vw,1.95rem);
+  font-weight:700;letter-spacing:-.03em;line-height:1.2;color:#fff;margin-bottom:10px;
+}
+.auth-aside__text{font-size:var(--fs-sm);color:rgba(255,255,255,.86);line-height:1.6;max-width:30ch;margin:0 auto 22px}
+.auth-aside__list{list-style:none;display:flex;flex-direction:column;gap:9px;margin:0 0 24px;text-align:left}
+.auth-aside__list li{display:flex;align-items:center;gap:9px;font-size:var(--fs-xs);color:rgba(255,255,255,.88)}
+.auth-aside__list i{
+  width:22px;height:22px;flex:none;border-radius:7px;
+  background:rgba(255,255,255,.18);display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;
+}
+
+/* The one control on the blue side. Outlined rather than filled, so
+   the form's own submit stays the single primary action on screen. */
+.auth-aside__btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--control-h);padding:0 30px;
+  border:1.5px solid rgba(255,255,255,.75);border-radius:var(--radius-pill);
+  background:transparent;color:#fff;
+  font-family:inherit;font-size:var(--fs-xs);font-weight:700;letter-spacing:.3px;
+  cursor:pointer;text-decoration:none;
+  transition:background var(--transition),border-color var(--transition),transform var(--transition-fast);
+}
+.auth-aside__btn:hover{background:rgba(255,255,255,.16);border-color:#fff;color:#fff}
+.auth-aside__btn:active{transform:translateY(1px)}
+.auth-aside__btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+
+/* ─── Tablet and below: one column ──────────────────────── */
+/* Past this width the split stops paying for itself — the form side
+   is too narrow for a two-up field row. The blue panel becomes a
+   header band and nothing translates any more. */
+@media(max-width:1024px){
+  .auth-shell{max-width:600px;--auth-cut:0px}
+  .auth-shell__inner{min-height:0;display:flex;flex-direction:column}
+  .auth-shell__forms{order:2}
+  .auth-panel{width:100%;transform:none;transition:opacity 240ms var(--ease-standard)}
+  .auth-aside{
+    order:1;position:relative;top:auto;bottom:auto;width:100%;
+    transform:none;border-radius:0;
+  }
+  .auth-shell[data-auth-mode="register"] .auth-aside{border-radius:0}
+  .auth-aside::before{width:220px;height:220px;top:-110px;right:-70px}
+  .auth-aside::after{display:none}
+  /* The band is only as tall as its content, so the two faces stop
+     being stacked on top of each other and take the flow instead. */
+  .auth-aside__face{position:relative;inset:auto;padding:26px 24px;transition-delay:0s}
+  .auth-aside__face.is-hidden{display:none}
+  .auth-aside__title{font-size:1.35rem;margin-bottom:6px}
+  .auth-aside__text{margin-bottom:16px;font-size:var(--fs-xs)}
+  .auth-aside__list{display:none}
+}
+
+/* ─── Phone and narrow tablet ───────────────────────────── */
+@media(max-width:768px){
+  .auth-panel__switch{display:block;text-align:center;margin-top:14px;font-size:var(--fs-xs);color:var(--text-muted)}
+}
+
+/* ─── Phone ─────────────────────────────────────────────── */
+@media(max-width:600px){
+  .auth-page{padding:0}
+  .auth-shell{max-width:none;border:0;border-radius:0;box-shadow:none}
+  .auth-shell__inner{min-height:100dvh}
+  .auth-shell__forms{flex:1}
+  .auth-aside__face{padding:22px 20px}
+  .auth-panel{padding:24px 20px 32px}
+  .auth-panel__title{font-size:1.5rem}
+  /* 16px is the threshold below which iOS Safari zooms the page when
+     a field takes focus, which then leaves it zoomed. */
+  .auth-panel .form-control{font-size:16px;min-height:44px}
+  .auth-aside__btn{width:100%}
+}
+
+/* ─── Short viewports ───────────────────────────────────── */
+/* A 1366×768 laptop. The blue panel no longer needs a 520px floor to
+   look deliberate, and giving it one only pushes the sign-in side into
+   a scroll it does not need. */
+@media(max-height:860px) and (min-width:1025px){
+  /* The blue panel no longer needs a 520px floor to look deliberate,
+     and the rhythm tightens by a step so the registration form — the
+     tallest thing this screen renders — clears a 768px laptop without
+     a scrollbar. Nothing is removed; the spacing between things is
+     what gives way. */
+  .auth-page{padding-block:14px}
+  .auth-shell__inner{min-height:460px}
+  .auth-panel{padding-top:26px;padding-bottom:26px}
+  .auth-panel__brand{margin-bottom:14px}
+  .auth-panel__subtitle{margin-bottom:16px}
+  .auth-panel .form-group{margin-bottom:11px}
+  .auth-panel__foot{margin-top:14px;padding-top:12px}
+}
+
+/* ─── Reduced motion ────────────────────────────────────── */
+/* The swap still happens, it just happens at once. auth.js reads the
+   same query and skips the height animation for the same reason. */
+@media(prefers-reduced-motion:reduce){
+  .auth-panel,.auth-aside,.auth-aside__face,.auth-shell__forms{transition:none}
 }

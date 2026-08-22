@@ -425,6 +425,11 @@ function initNavProgress() {
   };
 
   document.addEventListener('click', (e) => {
+    // Something nearer the link already cancelled it — the sign-in screen
+    // turns its own links into an in-page panel switch, for one. A bar that
+    // creeps for twelve seconds over a navigation that never started is
+    // worse than no bar at all.
+    if (e.defaultPrevented) return;
     const a = e.target.closest('a[href]');
     if (!a) return;
     const href = a.getAttribute('href');

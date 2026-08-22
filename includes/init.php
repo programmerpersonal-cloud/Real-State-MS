@@ -54,6 +54,11 @@ require_once __DIR__ . '/validation.php';
 require_once __DIR__ . '/documents.php';
 require_once __DIR__ . '/property_access.php';
 
+// Level 3 for the commercial tables — leases, payments, sales, reservations
+// and customer records. After property_access.php because it reuses
+// currentOwnerId()/currentCustomerId() and the same fail-closed conventions.
+require_once __DIR__ . '/record_access.php';
+
 // Security headers
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');

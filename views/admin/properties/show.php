@@ -18,7 +18,12 @@
  * Vars from PropertyController::show().
  */
 $p       = $property;
-$canEdit = can('properties.edit');
+/* Both halves of the answer: the role must own the action, and the listing
+   must be one this user maintains. edit(), approve() and archive() enforce the
+   second half themselves, so this only keeps the page from offering a control
+   that would refuse. */
+$canEdit = can('properties.edit') && canManageProperty($p);
+$canRunListing = canManageProperty($p);
 $coords  = propertyCoords($p);
 $price   = propertyPrice($p);
 
@@ -122,25 +127,25 @@ $tabs = array_values(array_filter([
                 <i class="bi bi-pencil" aria-hidden="true"></i> Edit
             </a>
         <?php endif ?>
-        <?= uiRowActions([
-            ['label' => 'Approve listing', 'icon' => 'bi-check2-circle', 'can' => 'properties.approve',
+        <?= uiRowActions(array_filter([
+            $canRunListing ? ['label' => 'Approve listing', 'icon' => 'bi-check2-circle', 'can' => 'properties.approve',
              'url'     => $base . '&action=approve&id=' . (int) $p['id'],
              'confirm' => [
                  'title' => 'Approve this listing?', 'tone' => 'info', 'action' => 'Approve',
                  'body'  => 'It becomes visible on the public site and can be reserved, let or sold.',
                  'record' => $p['property_code'] . ' · ' . $p['title'],
-             ]],
+             ]] : null,
             ['label' => 'View public listing', 'icon' => 'bi-box-arrow-up-right',
              'url' => APP_URL . '/index.php?page=listing&id=' . (int) $p['id']],
-            ['label' => 'Archive', 'icon' => 'bi-archive', 'can' => 'properties.archive', 'danger' => true,
+            $canRunListing ? ['label' => 'Archive', 'icon' => 'bi-archive', 'can' => 'properties.archive', 'danger' => true,
              'url'     => $base . '&action=archive&id=' . (int) $p['id'],
              'confirm' => [
                  'title'  => 'Archive this property?',
                  'body'   => 'It is removed from the register and from public listings. Leases, payments and documents already recorded against it are kept.',
                  'action' => 'Archive property',
                  'record' => $p['property_code'] . ' · ' . $p['title'],
-             ]],
-        ], 'More actions') ?>
+             ]] : null,
+        ]), 'More actions') ?>
     </div>
 </div>
 

@@ -67,7 +67,7 @@ class PaymentController
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
         // Already on the page before this redesign. It now drives the status
         // cards as well as the totals, so the filter costs no extra query.
-        $totals = $this->model->totalsByStatus();
+        $totals = $this->model->totalsByStatus($filters);
 
         // The quick-record popup lives on this page, so it needs the lease
         // list the full form uses and the entry kept back after a reject.
@@ -85,7 +85,8 @@ class PaymentController
             'formData' => $formData,
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Payments',
-            'pageSubtitle' => 'Every transaction recorded against a lease, a sale or a reservation.',
+            // Says whose ledger this is, in the reader's own terms.
+            'pageSubtitle' => recordScopeHint('transaction'),
             'breadcrumbs' => [['label' => 'Payments']],
             'actionButton' => [
                 'label' => 'Record Payment',
@@ -100,17 +101,74 @@ class PaymentController
      * Active leases, with the customer and property each one implies.
      * Reachable from outside the controller so the quick-record popup offers
      * the same list wherever it is hosted.
+     *
+     * Carries the lease access scope, so an agent records money against their
+     * own tenancies. The list is what the form offers; create() re-derives the
+     * customer and property from the chosen lease rather than trusting the
+     * hidden fields the browser filled in, so a tampered submission cannot
+     * post a payment onto someone else's account.
      */
     public static function activeLeases(): array
     {
-        return getDBConnection()->query("
-            SELECT l.id, l.lease_code, l.rent_amount, c.full_name AS customer_name, p.title AS property_title, p.id AS property_id, c.id AS customer_id
+        [$scope, $params] = leaseViewScope('l', 'p');
+
+        $stmt = getDBConnection()->prepare("
+            SELECT l.id, l.lease_code, l.rent_amount, c.full_name AS customer_name,
+                   p.title AS property_title, p.id AS property_id, c.id AS customer_id
             FROM leases l
             JOIN customers c ON l.customer_id = c.id
             JOIN properties p ON l.property_id = p.id
-            WHERE l.status='active'
+            WHERE l.status = 'active' AND ({$scope})
             ORDER BY l.created_at DESC
-        ")->fetchAll();
+        ");
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * The lease behind a submitted reference_id, or null when it is not one
+     * the signed-in user may record against.
+     *
+     * Selected through the same predicate the option list is built from, so
+     * the form and the write cannot disagree.
+     */
+    private function scopedLease(int $leaseId): ?array
+    {
+        if ($leaseId <= 0) {
+            return null;
+        }
+        [$scope, $params] = leaseViewScope('l', 'p');
+
+        $stmt = getDBConnection()->prepare("
+            SELECT l.id, l.customer_id, l.property_id
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            WHERE l.id = :ra_lid AND ({$scope})
+            LIMIT 1
+        ");
+        $stmt->execute($params + [':ra_lid' => $leaseId]);
+        return $stmt->fetch() ?: null;
+    }
+
+    /**
+     * Whether an instalment belongs to the lease the payment is being recorded
+     * against.
+     *
+     * Without this, `schedule_id` was written straight into the UPDATE that
+     * marks a schedule paid — so a posted id could settle an instalment on a
+     * tenancy the payer had nothing to do with. The lease has already been
+     * scope-checked by the caller, so matching on it is enough.
+     */
+    private function scheduleBelongsToLease(int $scheduleId, int $leaseId): bool
+    {
+        if ($scheduleId <= 0 || $leaseId <= 0) {
+            return false;
+        }
+        $stmt = getDBConnection()->prepare(
+            "SELECT 1 FROM payment_schedules WHERE id = ? AND lease_id = ? LIMIT 1"
+        );
+        $stmt->execute([$scheduleId, $leaseId]);
+        return (bool) $stmt->fetchColumn();
     }
 
     public function create(): void
@@ -122,16 +180,24 @@ class PaymentController
         $scheduleId = (int)($_GET['schedule'] ?? 0);
         $preset = null;
         if ($scheduleId) {
+            // Scoped: the instalment is reached through its lease, so an id
+            // pasted from another desk's tenancy matches nothing and the form
+            // opens blank rather than pre-filled with a stranger's name,
+            // property and rent.
+            [$scope, $scopeParams] = leaseViewScope('l', 'p');
             $stmt = $db->prepare("
                 SELECT ps.*, l.lease_code, l.customer_id, l.property_id, c.full_name AS customer_name, p.title AS property_title
                 FROM payment_schedules ps
                 JOIN leases l ON ps.lease_id = l.id
                 JOIN customers c ON l.customer_id = c.id
                 JOIN properties p ON l.property_id = p.id
-                WHERE ps.id = ?
+                WHERE ps.id = :ra_sid AND ({$scope})
             ");
-            $stmt->execute([$scheduleId]);
-            $preset = $stmt->fetch();
+            $stmt->execute($scopeParams + [':ra_sid' => $scheduleId]);
+            $preset = $stmt->fetch() ?: null;
+            if (!$preset) {
+                $scheduleId = 0;
+            }
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -155,6 +221,32 @@ class PaymentController
                 'status'         => $_POST['status'] ?? 'paid',
                 'schedule_id'    => (int)($_POST['schedule_id'] ?? 0),
             ];
+
+            // Who the payment is for is decided by the lease, not by the
+            // hidden fields the browser filled in from the chosen <option>.
+            // Those are convenience; re-reading them from a scoped lookup is
+            // what stops a hand-edited customer_id posting a receipt onto
+            // someone else's account, and it also refuses a lease belonging
+            // to a desk this user does not work.
+            $lease = $data['reference_type'] === 'lease'
+                ? $this->scopedLease($data['reference_id'])
+                : null;
+
+            if ($lease) {
+                $data['customer_id'] = (int) $lease['customer_id'];
+                $data['property_id'] = (int) $lease['property_id'] ?: null;
+            } elseif ($data['reference_id'] > 0) {
+                // A lease was named and it is not one of theirs. Say so in the
+                // same words a missing lease would get.
+                $data['reference_id'] = 0;
+                $data['customer_id']  = 0;
+            }
+
+            // An instalment can only be settled by a payment on its own lease.
+            if ($data['schedule_id'] > 0 && !$this->scheduleBelongsToLease($data['schedule_id'], (int) ($lease['id'] ?? 0))) {
+                $data['schedule_id'] = 0;
+            }
+
             // The same rules, each now keyed to the field it belongs to so the
             // message appears under the control rather than as one flash.
             unset($_SESSION['form_errors']);
@@ -228,7 +320,13 @@ class PaymentController
         authorize('payments.receipt');
         $id = (int)($_GET['id'] ?? 0);
         $payment = $this->model->findById($id);
-        if (!$payment) { setFlash('error', 'Payment not found.'); redirect(APP_URL . '/index.php?page=payments'); }
+
+        // Level 3, and the one this module most needed. `payments.receipt` is
+        // held by every tenant so they can print their own — which, with no
+        // record check, printed anyone's: name, property, amount and method,
+        // by walking `?id=` through the ledger. A receipt that does not exist
+        // and one belonging to somebody else are refused identically.
+        authorizeRecord(canViewPayment($payment), 'payment', $id);
 
         // Sale payments print a tax breakdown. The figures come from the sale
         // record, not from today's configured rate, so a reprint years later

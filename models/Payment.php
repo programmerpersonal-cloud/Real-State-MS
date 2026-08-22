@@ -32,11 +32,16 @@ class Payment
         $this->db = getDBConnection();
     }
 
+    /**
+     * One payment, with the property's owner_id and agent_id attached so
+     * canViewPayment() can decide a receipt without a second query.
+     */
     public function findById(int $id): ?array
     {
         $stmt = $this->db->prepare("
             SELECT py.*, c.full_name AS customer_name, c.phone AS customer_phone,
                    p.title AS property_title, p.property_code,
+                   p.owner_id AS property_owner_id, p.agent_id AS property_agent_id,
                    u.full_name AS received_by_name
             FROM payments py
             JOIN customers c ON py.customer_id = c.id
@@ -102,7 +107,11 @@ class Payment
      */
     private function buildWhere(array $filters): array
     {
-        $where = []; $params = [];
+        // The access scope leads and is never optional, so the ledger, its
+        // heading count and its status cards all describe the same rows.
+        [$scope, $params] = paymentViewScope('py', 'p');
+        $where = ['(' . $scope . ')'];
+
         if (!empty($filters['status'])) { $where[] = "py.status = :st"; $params[':st'] = $filters['status']; }
         if (!empty($filters['payment_type'])) { $where[] = "py.payment_type = :pt"; $params[':pt'] = $filters['payment_type']; }
         if (!empty($filters['payment_method'])) { $where[] = "py.payment_method = :pm"; $params[':pm'] = $filters['payment_method']; }
@@ -114,7 +123,7 @@ class Payment
             $params[':s'] = '%' . $filters['search'] . '%';
         }
 
-        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+        return ['WHERE ' . implode(' AND ', $where), $params];
     }
 
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
@@ -154,9 +163,30 @@ class Payment
         return (int) $stmt->fetchColumn();
     }
 
-    public function totalsByStatus(): array
+    /**
+     * Transaction count and value in each status, for the ledger cards.
+     *
+     * Scoped like every other read here. Unscoped, these four figures were the
+     * agency's entire turnover, printed above a list of three rows for the
+     * tenant who could see three.
+     *
+     * @return array<string, array{status:string, cnt:int, total:float}>
+     */
+    public function totalsByStatus(array $filters = []): array
     {
-        $stmt = $this->db->query("SELECT status, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total FROM payments GROUP BY status");
+        unset($filters['status']);
+        [$wc, $params] = $this->buildWhere($filters);
+
+        $stmt = $this->db->prepare("
+            SELECT py.status, COUNT(*) AS cnt, COALESCE(SUM(py.amount),0) AS total
+            FROM payments py
+            JOIN customers c ON py.customer_id = c.id
+            LEFT JOIN properties p ON py.property_id = p.id
+            {$wc}
+            GROUP BY py.status
+        ");
+        $stmt->execute($params);
+
         $out = [];
         foreach ($stmt->fetchAll() as $r) $out[$r['status']] = $r;
         return $out;

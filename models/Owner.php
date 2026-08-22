@@ -135,7 +135,8 @@ class Owner
 
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
     {
-        $where = []; $params = [];
+        [$scope, $params] = ownerViewScope('o');
+        $where = ['(' . $scope . ')'];
         if (!empty($filters['search'])) {
             $where[] = "(o.full_name LIKE :s OR o.phone LIKE :s OR o.email LIKE :s)";
             $params[':s'] = '%'.$filters['search'].'%';
@@ -146,7 +147,7 @@ class Owner
         } elseif (($filters['login'] ?? '') === 'disabled') {
             $where[] = "(o.user_id IS NULL OR u.is_active = 0)";
         }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        $wc = 'WHERE ' . implode(' AND ', $where);
         $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
         $stmt = $this->db->prepare(self::WITH_ACCOUNT . " {$wc} ORDER BY {$orderBy} LIMIT :l OFFSET :o");
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
@@ -158,8 +159,10 @@ class Owner
 
     public function count(array $filters = []): int
     {
-        // Mirrors getAll()'s filters, so the count and the page can never disagree.
-        $where = []; $params = [];
+        // Mirrors getAll()'s filters — and its access scope — so the count and
+        // the page can never disagree.
+        [$scope, $params] = ownerViewScope('o');
+        $where = ['(' . $scope . ')'];
         if (!empty($filters['search'])) {
             $where[] = "(o.full_name LIKE :s OR o.phone LIKE :s OR o.email LIKE :s)";
             $params[':s'] = '%'.$filters['search'].'%';
@@ -169,7 +172,7 @@ class Owner
         } elseif (($filters['login'] ?? '') === 'disabled') {
             $where[] = "(o.user_id IS NULL OR u.is_active = 0)";
         }
-        $wc = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        $wc = 'WHERE ' . implode(' AND ', $where);
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM owners o LEFT JOIN users u ON o.user_id = u.id {$wc}");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();

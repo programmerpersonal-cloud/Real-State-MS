@@ -124,9 +124,9 @@ function worksOnProperty(?array $property): bool
  *
  * `properties.show` is granted to every signed-in role, which is what makes
  * this function necessary: holding the permission means "this page is part of
- * your job", not "every property is". Staff work the whole register; everyone
- * else reaches a property through a relationship to it, or through the public
- * listing that is already visible to the world.
+ * your job", not "every property is". An administrator works the whole
+ * register; everyone else reaches a property through a relationship to it, or
+ * through the public listing that is already visible to the world.
  */
 function canViewProperty(?array $property): bool
 {
@@ -136,8 +136,16 @@ function canViewProperty(?array $property): bool
 
     switch (getUserRole()) {
         case ROLE_ADMIN:
-        case ROLE_AGENT:
             return true;
+
+        // An agent's register is the listings assigned to them — the same
+        // predicate propertyRecordScope() puts on the list, so the page and
+        // the row that links to it agree. This page is the internal record,
+        // carrying the tenancy, the history and the staff paperwork, so a
+        // colleague's is refused here; the public listing at ?page=listing is
+        // still open to them exactly as it is to everyone else.
+        case ROLE_AGENT:
+            return (int) ($property['agent_id'] ?? 0) === (int) ($_SESSION['user_id'] ?? 0);
 
         case ROLE_OWNER:
             return ownsProperty($property);
@@ -398,27 +406,42 @@ function canAssignMaintenanceRequest(array $request): bool
 /**
  * Whether the signed-in user may read one owner's profile page.
  *
- * The page carries the owner's portfolio and their total income to date, so
- * holding `owners.show` cannot be the whole answer: staff may read any of
- * them, an owner may read exactly one — their own. Without this, an owner
- * could walk `?id=` through the table and read every landlord's earnings.
+ * The page carries the owner's portfolio, their bank details and their total
+ * income to date, so holding `owners.show` cannot be the whole answer: an
+ * administrator may read any of them, an owner may read exactly one — their
+ * own — and an agent may read the landlords whose properties they actually
+ * manage. Without this, either could walk `?id=` through the table and read
+ * every landlord's earnings.
+ *
+ * The agent arm asks the database with ownerViewScope()'s own predicate rather
+ * than keeping a second copy of the rule here, so the directory and this page
+ * cannot drift. One indexed lookup.
  */
 function canViewOwnerProfile(array $owner): bool
 {
-    if (!isLoggedIn()) {
+    if (!isLoggedIn() || empty($owner['id'])) {
         return false;
     }
 
-    if (hasRole(ROLE_ADMIN, ROLE_AGENT)) {
+    if (hasRole(ROLE_ADMIN)) {
         return true;
     }
 
     if (getUserRole() === ROLE_OWNER) {
         $ownerId = currentOwnerId();
-        return $ownerId !== null && (int) ($owner['id'] ?? 0) === $ownerId;
+        return $ownerId !== null && (int) $owner['id'] === $ownerId;
     }
 
-    return false;
+    if (getUserRole() !== ROLE_AGENT) {
+        return false;
+    }
+
+    [$scope, $params] = ownerViewScope('o');
+    $stmt = getDBConnection()->prepare(
+        "SELECT 1 FROM owners o WHERE o.id = :ra_oid AND ({$scope}) LIMIT 1"
+    );
+    $stmt->execute($params + [':ra_oid' => (int) $owner['id']]);
+    return (bool) $stmt->fetchColumn();
 }
 
 // ─── Enquiries ─────────────────────────────────────────────────────────

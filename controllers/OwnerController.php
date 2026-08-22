@@ -53,7 +53,10 @@ class OwnerController
         $grantOwner = $accountMatch = null;
         if ($createdId = (int)($_GET['created'] ?? 0)) {
             $candidate = $this->model->findById($createdId);
-            if ($candidate && !$candidate['user_id']) {
+            // Scoped like every other read of an owner row: `?created=` is
+            // request text, and the panel it opens names the landlord and
+            // their email address.
+            if ($candidate && !$candidate['user_id'] && canViewOwnerProfile($candidate)) {
                 $grantOwner   = $candidate;
                 $accountMatch = !empty($candidate['email'])
                     ? $this->users->findByEmail($candidate['email'])
@@ -135,7 +138,11 @@ class OwnerController
         authorize('owners.edit');
         $id = (int)($_GET['id'] ?? 0);
         $owner = $this->model->findById($id);
-        if (!$owner) { setFlash('error', 'Owner not found.'); redirect(APP_URL . '/index.php?page=owners'); }
+
+        // Level 3, the same answer show() gives. This form rewrites the
+        // landlord's bank account and commission rate, so an agent edits the
+        // landlords whose properties they manage and nobody else's.
+        authorizeRecord($owner !== null && canViewOwnerProfile($owner), 'owner', $id);
 
         $editUrl = APP_URL . '/index.php?page=owners&action=edit&id=' . $id;
 
@@ -183,15 +190,13 @@ class OwnerController
         authorize('owners.show');
         $id = (int)($_GET['id'] ?? 0);
         $owner = $this->model->findById($id);
-        if (!$owner) {
-            setFlash('error', 'Owner not found.');
-            redirect(APP_URL . '/index.php?page=' . (can('owners.view') ? 'owners' : 'dashboard'));
-        }
 
         // Level 3. `owners.show` is held by staff and by owners alike, but it
-        // means "an owner profile" for one and "my owner profile" for the
-        // other — this page carries the portfolio and the income to date.
-        authorizeRecord(canViewOwnerProfile($owner), 'owner', $id);
+        // means "any landlord I manage property for" to one and "my own
+        // profile" to the other — this page carries the portfolio, the bank
+        // details and the income to date. A landlord who does not exist is
+        // refused identically to one who is not theirs.
+        authorizeRecord($owner !== null && canViewOwnerProfile($owner), 'owner', $id);
 
         $properties = $this->model->getProperties($id);
 

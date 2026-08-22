@@ -60,10 +60,11 @@ class ReservationController
             'statuses' => self::STATUSES,
             // One grouped query behind the status pills. It is the page's only
             // added cost and does not grow with the number of rows shown.
-            'statusCounts' => $this->model->countsByStatus(),
+            'statusCounts' => $this->model->countsByStatus($filters),
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Reservations',
-            'pageSubtitle' => 'Holds placed on properties, and how long each one has left to run.',
+            // Says whose holds these are, in the reader's own terms.
+            'pageSubtitle' => recordScopeHint('hold'),
             'breadcrumbs' => [['label' => 'Reservations']],
             'actionButton' => [
                 'label' => 'New Reservation',
@@ -77,14 +78,43 @@ class ReservationController
     /**
      * Reservable properties and the customers who can hold them.
      *
+     * A buyer holds a property in their own name and nobody else's, so their
+     * customer list is exactly one entry — themselves. Staff get their scoped
+     * client list. The property list is deliberately *not* cut to the user's
+     * portfolio: reserving a listing is how a buyer expresses interest in one
+     * they do not yet have any relationship with, so every publicly visible
+     * listing stays reservable, and everything else is refused.
+     *
      * @return array{properties:array,customers:array}
      */
     private function formLookups(): array
     {
         $db = getDBConnection();
+
+        // Staff work the whole register, including listings still awaiting
+        // approval. A buyer is offered what the public site already shows
+        // them, so an unapproved listing does not leak through this form.
+        $publicOnly = !hasRole(ROLE_ADMIN, ROLE_AGENT);
+        $properties = $db->query("
+            SELECT id, title, property_code
+            FROM properties
+            WHERE status = 'available' AND is_archived = 0
+            " . ($publicOnly ? "AND approval_status = 'approved'" : '') . "
+            ORDER BY title
+        ")->fetchAll();
+
+        [$customerScope, $customerParams] = customerViewScope('c');
+        $customers = $db->prepare("
+            SELECT c.id, c.full_name
+            FROM customers c
+            WHERE ({$customerScope})
+            ORDER BY c.full_name
+        ");
+        $customers->execute($customerParams);
+
         return [
-            'properties' => $db->query("SELECT id, title, property_code FROM properties WHERE status='available' AND is_archived=0 ORDER BY title")->fetchAll(),
-            'customers'  => $db->query("SELECT id, full_name FROM customers ORDER BY full_name")->fetchAll(),
+            'properties' => $properties,
+            'customers'  => $customers->fetchAll(),
         ];
     }
 
@@ -103,7 +133,13 @@ class ReservationController
 
             $data = [
                 'property_id'      => (int)($_POST['property_id'] ?? 0),
-                'customer_id'      => (int)($_POST['customer_id'] ?? 0),
+                // A buyer reserves in their own name. Reading the id from the
+                // session rather than the form is what stops a signed-in
+                // customer placing — and paying a deposit on — a hold against
+                // somebody else's account by editing one hidden field.
+                'customer_id'      => getUserRole() === ROLE_CUSTOMER
+                    ? (int) currentCustomerId()
+                    : (int)($_POST['customer_id'] ?? 0),
                 'reservation_date' => $_POST['reservation_date'] ?: date('Y-m-d'),
                 'expiry_date'      => $_POST['expiry_date'] ?: reservationExpiryDate(),
                 'deposit_amount'   => (float)($_POST['deposit_amount'] ?? 0),
@@ -121,7 +157,19 @@ class ReservationController
                 addFieldError($errors, 'property_id', 'Choose the property being reserved.');
             }
             if (!$data['customer_id']) {
-                addFieldError($errors, 'customer_id', 'Choose the customer holding the reservation.');
+                addFieldError($errors, 'customer_id', getUserRole() === ROLE_CUSTOMER
+                    ? 'Your account is not linked to a customer record, so a hold cannot be placed. Contact the office.'
+                    : 'Choose the customer holding the reservation.');
+            }
+            // Level 3 on the write, for the roles that choose the customer.
+            // A buyer's id came from the session above and needs no check.
+            if ($data['customer_id'] && getUserRole() !== ROLE_CUSTOMER
+                && !canActOnCustomer($data['customer_id'])) {
+                addFieldError($errors, 'customer_id', 'That customer is not one of yours.');
+            }
+            // The property must be one the form was allowed to offer.
+            if ($data['property_id'] && !$this->isReservable($data['property_id'])) {
+                addFieldError($errors, 'property_id', 'That property is not available to reserve.');
             }
             // A hold that expires before it starts is expired the moment it is
             // written — expireOld() would cancel it on the next page load — so
@@ -163,6 +211,27 @@ class ReservationController
     }
 
     /**
+     * Whether a submitted property id is one this user's form could have
+     * offered — the same predicate formLookups() builds its options from, so
+     * a hand-edited id is refused rather than silently accepted.
+     */
+    private function isReservable(int $propertyId): bool
+    {
+        if ($propertyId <= 0) {
+            return false;
+        }
+        $publicOnly = !hasRole(ROLE_ADMIN, ROLE_AGENT);
+        $stmt = getDBConnection()->prepare("
+            SELECT 1 FROM properties
+            WHERE id = ? AND status = 'available' AND is_archived = 0
+            " . ($publicOnly ? "AND approval_status = 'approved'" : '') . "
+            LIMIT 1
+        ");
+        $stmt->execute([$propertyId]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /**
      * Cancel a hold and, if nothing else is holding it, free the property.
      *
      * Both this and confirm() used to be plain links. A link that changes a
@@ -176,6 +245,10 @@ class ReservationController
     {
         authorize('reservations.cancel');
         $id = (int)($_GET['id'] ?? 0);
+
+        // Level 3. Releasing a hold frees the property for someone else to
+        // take, so it is refused for a reservation this desk does not run.
+        authorizeRecord(canManageReservation($this->model->findById($id)), 'reservation', $id);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
@@ -193,6 +266,8 @@ class ReservationController
     {
         authorize('reservations.confirm');
         $id = (int)($_GET['id'] ?? 0);
+
+        authorizeRecord(canManageReservation($this->model->findById($id)), 'reservation', $id);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();

@@ -30,36 +30,89 @@ class ReportController
         $range  = uiPick($_GET['range'] ?? '', array_keys(self::RANGES)) ?: '6m';
         $months = self::RANGES[$range]['months'];
 
+        // Every figure below is cut by the reader's record scope. This page is
+        // held by administrators and agents; without the scope an agent read
+        // the whole company's turnover, arrears and client count off a page
+        // that is supposed to describe their own book. The predicates are the
+        // same ones the modules themselves use, so a total here and the list
+        // it summarises can never disagree.
+        //
+        // Each scope is fetched once and reused, and every query below is the
+        // same single pass it was before — the clause is added to the WHERE,
+        // not to the number of round trips.
+        [$propertyScope, $propertyParams]   = propertyRecordScope('p');
+        [$leaseScope, $leaseParams]         = leaseViewScope('l', 'p');
+        [$paymentScope, $paymentParams]     = paymentViewScope('py', 'p');
+        [$customerScope, $customerParams]   = customerViewScope('c');
+
         // ── Portfolio ────────────────────────────────────────────────
         // One pass. The doughnut and the four headline counts were five
         // separate scans of the same rows for the same answer.
-        $byStatus = $db->query("
-            SELECT status, COUNT(*) AS c
-            FROM properties WHERE is_archived = 0
-            GROUP BY status
-        ")->fetchAll();
+        $stmt = $db->prepare("
+            SELECT p.status, COUNT(*) AS c
+            FROM properties p
+            WHERE p.is_archived = 0 AND ({$propertyScope})
+            GROUP BY p.status
+        ");
+        $stmt->execute($propertyParams);
+        $byStatus = $stmt->fetchAll();
         $statusCounts = array_map('intval', array_column($byStatus, 'c', 'status'));
 
         // ── People, arrears, revenue ─────────────────────────────────
-        $customers = $db->query("
-            SELECT COUNT(*) AS total, COALESCE(SUM(is_blacklisted = 1), 0) AS blacklisted
-            FROM customers
-        ")->fetch() ?: [];
+        $stmt = $db->prepare("
+            SELECT COUNT(*) AS total, COALESCE(SUM(c.is_blacklisted = 1), 0) AS blacklisted
+            FROM customers c
+            WHERE ({$customerScope})
+        ");
+        $stmt->execute($customerParams);
+        $customers = $stmt->fetch() ?: [];
 
-        $arrears = $db->query("
-            SELECT COALESCE(SUM(status = 'overdue'), 0) AS overdue_count,
-                   COALESCE(SUM(CASE WHEN status IN ('overdue','partial') THEN amount + penalty END), 0) AS arrears_total
-            FROM payment_schedules
-        ")->fetch() ?: [];
+        // Arrears reach payment_schedules through the lease they belong to,
+        // which is what carries the access scope.
+        $stmt = $db->prepare("
+            SELECT COALESCE(SUM(ps.status = 'overdue'), 0) AS overdue_count,
+                   COALESCE(SUM(CASE WHEN ps.status IN ('overdue','partial') THEN ps.amount + ps.penalty END), 0) AS arrears_total
+            FROM payment_schedules ps
+            JOIN leases l ON ps.lease_id = l.id
+            JOIN properties p ON l.property_id = p.id
+            WHERE ({$leaseScope})
+        ");
+        $stmt->execute($leaseParams);
+        $arrears = $stmt->fetch() ?: [];
 
-        $revenue = $db->query("
-            SELECT COALESCE(SUM(CASE WHEN YEAR(payment_date) = YEAR(CURDATE())
-                                     THEN amount END), 0) AS ytd,
-                   COALESCE(SUM(CASE WHEN YEAR(payment_date) = YEAR(CURDATE())
-                                      AND MONTH(payment_date) = MONTH(CURDATE())
-                                     THEN amount END), 0) AS mtd
-            FROM payments WHERE status = 'paid'
-        ")->fetch() ?: [];
+        $stmt = $db->prepare("
+            SELECT COALESCE(SUM(CASE WHEN YEAR(py.payment_date) = YEAR(CURDATE())
+                                     THEN py.amount END), 0) AS ytd,
+                   COALESCE(SUM(CASE WHEN YEAR(py.payment_date) = YEAR(CURDATE())
+                                      AND MONTH(py.payment_date) = MONTH(CURDATE())
+                                     THEN py.amount END), 0) AS mtd
+            FROM payments py
+            LEFT JOIN properties p ON py.property_id = p.id
+            WHERE py.status = 'paid' AND ({$paymentScope})
+        ");
+        $stmt->execute($paymentParams);
+        $revenue = $stmt->fetch() ?: [];
+
+        $stmt = $db->prepare("
+            SELECT COUNT(*)
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            WHERE l.status = 'active' AND ({$leaseScope})
+        ");
+        $stmt->execute($leaseParams);
+        $activeLeases = (int) $stmt->fetchColumn();
+
+        // Commission is already a per-agent ledger, so an agent's figure is
+        // the one written against their own name.
+        $commissionSql = "SELECT COALESCE(SUM(amount),0) FROM commissions WHERE status = 'pending'";
+        $commissionParams = [];
+        if (getUserRole() === ROLE_AGENT) {
+            $commissionSql .= " AND agent_id = :uid";
+            $commissionParams[':uid'] = (int) $_SESSION['user_id'];
+        }
+        $stmt = $db->prepare($commissionSql);
+        $stmt->execute($commissionParams);
+        $commissionPending = (float) $stmt->fetchColumn();
 
         $totalProperties = array_sum($statusCounts);
 
@@ -68,38 +121,54 @@ class ReportController
             'available'          => $statusCounts['available'] ?? 0,
             'rented'             => $statusCounts['rented'] ?? 0,
             'sold'               => $statusCounts['sold'] ?? 0,
-            'active_leases'      => (int) $db->query("SELECT COUNT(*) FROM leases WHERE status='active'")->fetchColumn(),
+            'active_leases'      => $activeLeases,
             'total_customers'    => (int) ($customers['total'] ?? 0),
             'blacklisted'        => (int) ($customers['blacklisted'] ?? 0),
             'overdue_count'      => (int) ($arrears['overdue_count'] ?? 0),
             'arrears_total'      => (float) ($arrears['arrears_total'] ?? 0),
             'revenue_ytd'        => (float) ($revenue['ytd'] ?? 0),
             'revenue_mtd'        => (float) ($revenue['mtd'] ?? 0),
-            'commission_pending' => (float) $db->query("SELECT COALESCE(SUM(amount),0) FROM commissions WHERE status='pending'")->fetchColumn(),
+            'commission_pending' => $commissionPending,
         ];
 
         // Revenue by month. The window is a bound integer resolved from
         // self::RANGES, never a value carried in from the request.
         $stmt = $db->prepare("
-            SELECT DATE_FORMAT(payment_date, '%Y-%m') AS month, SUM(amount) AS total
-            FROM payments
-            WHERE status = 'paid' AND payment_date >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
+            SELECT DATE_FORMAT(py.payment_date, '%Y-%m') AS month, SUM(py.amount) AS total
+            FROM payments py
+            LEFT JOIN properties p ON py.property_id = p.id
+            WHERE py.status = 'paid'
+              AND py.payment_date >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
+              AND ({$paymentScope})
             GROUP BY month ORDER BY month
         ");
+        foreach ($paymentParams as $k => $v) $stmt->bindValue($k, $v);
         $stmt->bindValue(':months', $months, PDO::PARAM_INT);
         $stmt->execute();
         $monthlyRevenue = $stmt->fetchAll();
 
-        // Agent performance (leases created in the last 30 days)
-        $agentPerf = $db->query("
+        // Agent performance (leases created in the last 30 days). The
+        // leaderboard is an administrator's view of the desk; an agent sees
+        // their own line on it and not their colleagues' numbers.
+        $perfSql = "
             SELECT u.full_name, u.avatar, COUNT(l.id) AS leases_created,
                    COALESCE(SUM(l.rent_amount),0) AS rent_total
             FROM users u
             LEFT JOIN leases l ON l.created_by = u.id AND l.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             WHERE u.role_id = 2 AND u.is_active = 1
+        ";
+        $perfParams = [];
+        if (getUserRole() === ROLE_AGENT) {
+            $perfSql .= " AND u.id = :uid";
+            $perfParams[':uid'] = (int) $_SESSION['user_id'];
+        }
+        $perfSql .= "
             GROUP BY u.id, u.full_name, u.avatar
             ORDER BY leases_created DESC, rent_total DESC LIMIT 10
-        ")->fetchAll();
+        ";
+        $stmt = $db->prepare($perfSql);
+        $stmt->execute($perfParams);
+        $agentPerf = $stmt->fetchAll();
 
         $occupancy = $totalProperties > 0 ? round($stats['rented'] / $totalProperties * 100, 1) : 0;
 
@@ -112,7 +181,9 @@ class ReportController
             'ranges' => array_map(static fn(array $r): string => $r['label'], self::RANGES),
             'range'  => $range,
             'pageTitle' => 'Reports & Analytics',
-            'pageSubtitle' => 'The portfolio, the money and the queue, as they stand right now.',
+            'pageSubtitle' => getUserRole() === ROLE_AGENT
+                ? 'Your properties, your money and your queue, as they stand right now.'
+                : 'The portfolio, the money and the queue, as they stand right now.',
             'breadcrumbs' => [['label' => 'Reports']],
         ]);
     }

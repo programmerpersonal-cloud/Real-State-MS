@@ -86,7 +86,10 @@ class CustomerController
         $grantCustomer = $accountMatch = null;
         if ($createdId = (int)($_GET['created'] ?? 0)) {
             $candidate = $this->model->findById($createdId);
-            if ($candidate && !$candidate['user_id']) {
+            // Scoped like every other read of a customer row: `?created=` is
+            // request text, and the panel it opens names the person and their
+            // email address.
+            if ($candidate && !$candidate['user_id'] && canViewCustomer($candidate)) {
                 $grantCustomer = $candidate;
                 $accountMatch  = !empty($candidate['email'])
                     ? $this->users->findByEmail($candidate['email'])
@@ -110,6 +113,9 @@ class CustomerController
             'loginStates'   => self::LOGIN_STATES,
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle'  => 'Customers',
+            // Says whose client list this is. An agent shown twelve of the
+            // agency's four hundred should be able to read why.
+            'pageSubtitle' => recordScopeHint('client'),
             'breadcrumbs'=> [['label' => 'Customers']],
             'actionButton' => [
                 'can'   => 'customers.create',
@@ -173,7 +179,11 @@ class CustomerController
         authorize('customers.edit');
         $id = (int)($_GET['id'] ?? 0);
         $customer = $this->model->findById($id);
-        if (!$customer) { setFlash('error', 'Customer not found.'); redirect(APP_URL . '/index.php?page=customers'); }
+
+        // As show(), and for the stronger reason: this form rewrites the
+        // person's contact details, and keeps the linked account's name and
+        // phone in step with them.
+        authorizeRecord(canViewCustomer($customer), 'customer', $id);
 
         $editUrl = APP_URL . '/index.php?page=customers&action=edit&id=' . $id;
 
@@ -227,7 +237,14 @@ class CustomerController
         authorize('customers.show');
         $id = (int)($_GET['id'] ?? 0);
         $customer = $this->model->findById($id);
-        if (!$customer) { setFlash('error', 'Customer not found.'); redirect(APP_URL . '/index.php?page=customers'); }
+
+        // Level 3. This page carries the national id, the guarantor, the
+        // employment details, the whole rental and payment history — so
+        // holding `customers.show` cannot be the whole answer. Staff read the
+        // clients they deal with; walking `?id=` through the directory is
+        // refused the same way a missing record is.
+        authorizeRecord(canViewCustomer($customer), 'customer', $id);
+
         $rentalHistory = $this->model->getRentalHistory($id);
         $paymentHistory = $this->model->getPaymentHistory($id);
 

@@ -12,10 +12,15 @@
  *   · The arrears figure coloured itself with an inline style computed in
  *     the markup. It is a status, so it wears the status treatment.
  *
- * Expects: $lease, $schedule, $arrears
+ * Expects: $lease, $schedule, $arrears, $canManage
  */
 $l   = $lease;
 $id  = (int) $l['id'];
+/* Holding leases.renew says the role moves tenancies; it does not say this
+   tenancy is theirs to move. The controller has already answered that, and
+   renew()/terminate() enforce the same answer — so the control is drawn only
+   when following it would work. */
+$canManage = $canManage ?? false;
 $due = array_values(array_filter(
     $schedule,
     static fn(array $s): bool => in_array($s['status'], ['pending', 'overdue', 'partial'], true)
@@ -80,7 +85,7 @@ $pageEyebrow       = 'Lease ' . $l['lease_code'];
                 ['label' => 'View tenant', 'icon' => 'bi-person', 'can' => 'customers.show',
                  'url' => APP_URL . '/index.php?page=customers&action=show&id=' . (int) $l['customer_id']],
             ],
-            $l['status'] === 'active' ? [
+            $l['status'] === 'active' && $canManage ? [
                 ['label' => 'Renew lease', 'icon' => 'bi-arrow-clockwise', 'can' => 'leases.renew',
                  'url' => APP_URL . '/index.php?page=leases&action=renew&id=' . $id],
                 ['label' => 'Terminate lease', 'icon' => 'bi-x-circle', 'can' => 'leases.terminate',
@@ -200,7 +205,7 @@ $pageEyebrow       = 'Lease ' . $l['lease_code'];
     </aside>
 </div>
 
-<?php if ($l['status'] === 'active' && can('leases.terminate')): ?>
+<?php if ($l['status'] === 'active' && $canManage && can('leases.terminate')): ?>
     <?php /* The shared modal, not the hand-rolled overlay this page used to
              carry. That one was a div toggled by an inline style, so it had
              no focus trap, no scroll lock, no Escape and no focus return —

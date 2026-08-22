@@ -189,6 +189,96 @@ function propertyIsPubliclyVisible(?array $property): bool
         && (int) ($property['is_archived'] ?? 0) === 0;
 }
 
+/* ─── Record scope, alongside visibility ─────────────────────────────── */
+//
+// Visibility answers "what clearance does this level of document need". It is
+// a property of the document. Whose property the document hangs off is a
+// different question, and for an agent the two give different answers: cleared
+// for every staff-level document in the company, responsible for their own
+// listings only. Before this, walking `?page=documents&action=show&id=` through
+// the store handed one agent every other agent's paperwork.
+//
+// Only the agent arm narrows anything. An administrator already sees
+// everything; an owner, tenant or technician has their access decided entirely
+// by documentVisibilityAllows(), which is already relationship-based, so
+// leaving them alone here keeps that one rule in one place.
+
+/**
+ * SQL predicate restricting a documents query (aliased $d, with its property
+ * LEFT JOIN aliased $p) to the rows the signed-in user is responsible for.
+ *
+ * @return array{0:string,1:array<string,mixed>} [predicate, bound params]
+ */
+function documentRecordScope(string $d = 'd', string $p = 'p'): array
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    if (!$userId) {
+        return ['0 = 1', []];
+    }
+
+    if (hasRole(ROLE_ADMIN)) {
+        return ['1 = 1', []];
+    }
+
+    if (hasRole(ROLE_AGENT)) {
+        // Their listings, their own uploads, and the paperwork that hangs off
+        // no property at all — a company policy or a blank template is agency
+        // business rather than any one desk's.
+        return ["({$p}.agent_id = :doc_scope_user
+                 OR {$d}.uploaded_by = :doc_scope_user
+                 OR {$d}.reference_type IS NULL
+                 OR {$d}.reference_type <> 'property'
+                 OR {$d}.reference_id IS NULL)",
+                [':doc_scope_user' => $userId]];
+    }
+
+    // Roles without `documents.view` never reach a list query; their single
+    // document reads go through documentVisibilityAllows() instead.
+    return ['0 = 1', []];
+}
+
+/**
+ * The row-level counterpart of documentRecordScope().
+ *
+ * Expects a row carrying `property_agent_id` — both Document::findById() and
+ * Document::findForDelivery() attach it. Called *in addition to*
+ * documentVisibilityAllows(), never instead of it: clearance and ownership are
+ * separate questions and both have to say yes.
+ *
+ * A document that names a property whose row has gone missing resolves to a
+ * null agent id and is refused, which is the fail-closed answer.
+ */
+function documentRecordAllows(array $doc): bool
+{
+    if (!hasRole(ROLE_AGENT)) {
+        return true;
+    }
+
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+
+    if ((int) ($doc['uploaded_by'] ?? 0) === $userId) {
+        return true;
+    }
+
+    if (($doc['reference_type'] ?? '') !== 'property' || empty($doc['reference_id'])) {
+        return true;
+    }
+
+    return (int) ($doc['property_agent_id'] ?? 0) === $userId;
+}
+
+/**
+ * May the signed-in user change this document — edit its metadata, archive,
+ * restore or delete it?
+ *
+ * Both halves: the role must hold the action, and the document must be one
+ * they are responsible for.
+ */
+function documentCanManageRecord(array $doc): bool
+{
+    return documentCanManage() && documentRecordAllows($doc);
+}
+
 /**
  * The visibility levels the current viewer is allowed to see.
  *

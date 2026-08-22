@@ -75,6 +75,11 @@ class AuthController
             return;
         }
 
+        // The sign-in screen renders the registration panel beside it so the
+        // two can be switched without a page load, and that panel is built
+        // from the same allow-list the submission is checked against.
+        $roleOptions = $this->selfServiceRoleOptions();
+
         require VIEWS_PATH . '/auth/login.php';
     }
 

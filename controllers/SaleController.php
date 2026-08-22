@@ -61,10 +61,11 @@ class SaleController
             // One added query: a GROUP BY behind the pipeline cards, which
             // report both the count and the value of each stage. Fixed cost,
             // independent of how many sales are rendered.
-            'totals' => $this->model->totalsByStatus(),
+            'totals' => $this->model->totalsByStatus($filters),
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle' => 'Sales',
-            'pageSubtitle' => 'Deals in progress and closed, with the commission each one carries.',
+            // Says whose pipeline this is, in the reader's own terms.
+            'pageSubtitle' => recordScopeHint('deal'),
             'breadcrumbs' => [['label' => 'Sales']],
             'actionButton' => [
                 'label' => 'New Sale',
@@ -78,14 +79,41 @@ class SaleController
     /**
      * Sellable properties, eligible buyers and the agents who can close.
      *
+     * The property and buyer lists carry the signed-in user's record scope, so
+     * an agent closes deals on their own listings for their own clients. The
+     * agent list is not scoped — naming the colleague who earns the commission
+     * is the point of the field — but create() refuses to hand the deal to an
+     * id that is not an active agent.
+     *
      * @return array{properties:array,customers:array,agents:array}
      */
     private function formLookups(): array
     {
         $db = getDBConnection();
+
+        [$propertyScope, $propertyParams] = propertyRecordScope('p');
+        $properties = $db->prepare("
+            SELECT p.id, p.title, p.property_code, p.price
+            FROM properties p
+            WHERE p.status = 'available' AND p.is_archived = 0
+              AND p.property_type IN ('sale','both')
+              AND ({$propertyScope})
+            ORDER BY p.title
+        ");
+        $properties->execute($propertyParams);
+
+        [$customerScope, $customerParams] = customerViewScope('c');
+        $customers = $db->prepare("
+            SELECT c.id, c.full_name, c.phone
+            FROM customers c
+            WHERE c.is_blacklisted = 0 AND ({$customerScope})
+            ORDER BY c.full_name
+        ");
+        $customers->execute($customerParams);
+
         return [
-            'properties' => $db->query("SELECT id, title, property_code, price FROM properties WHERE status='available' AND is_archived=0 AND property_type IN ('sale','both') ORDER BY title")->fetchAll(),
-            'customers'  => $db->query("SELECT id, full_name, phone FROM customers WHERE is_blacklisted=0 ORDER BY full_name")->fetchAll(),
+            'properties' => $properties->fetchAll(),
+            'customers'  => $customers->fetchAll(),
             'agents'     => $db->query("SELECT id, full_name FROM users WHERE role_id=2 AND is_active=1 ORDER BY full_name")->fetchAll(),
         ];
     }
@@ -144,6 +172,20 @@ class SaleController
             if (!isset(self::STATUSES[$data['status']])) {
                 addFieldError($errors, 'status', 'Choose where this deal has got to.');
             }
+            // Level 3 on the write. The <select>s are already scoped, so an id
+            // outside the user's reach was typed into the request by hand.
+            if ($data['property_id'] && !canActOnProperty($data['property_id'])) {
+                addFieldError($errors, 'property_id', 'That property is not one you manage.');
+            }
+            if ($data['customer_id'] && !canActOnCustomer($data['customer_id'])) {
+                addFieldError($errors, 'customer_id', 'That buyer is not one of yours.');
+            }
+            // The commission line is a real debt, so the person it is written
+            // against has to be a real, active agent rather than any user id
+            // the form happened to carry.
+            if ($data['agent_id'] && !$this->isActiveAgent((int) $data['agent_id'])) {
+                addFieldError($errors, 'agent_id', 'That is not an active agent.');
+            }
             if ($errors) {
                 rejectForm($errors, $data, $failUrl);
             }
@@ -174,12 +216,27 @@ class SaleController
         ]);
     }
 
+    /** Whether a submitted agent id is an active member of the agent role. */
+    private function isActiveAgent(int $userId): bool
+    {
+        $stmt = getDBConnection()->prepare(
+            "SELECT 1 FROM users WHERE id = ? AND role_id = 2 AND is_active = 1 LIMIT 1"
+        );
+        $stmt->execute([$userId]);
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function show(): void
     {
         authorize('sales.show');
         $id = (int)($_GET['id'] ?? 0);
         $sale = $this->model->findById($id);
-        if (!$sale) { setFlash('error', 'Sale not found.'); redirect(APP_URL . '/index.php?page=sales'); }
+
+        // Level 3. Holding sales.show opens the page; it does not open every
+        // deal on it, and a deal carries the buyer, the price and the
+        // commission. A missing sale and someone else's are refused alike.
+        authorizeRecord(canViewSale($sale), 'sale', $id);
+
         renderPage(VIEWS_PATH . '/admin/sales/show.php', [
             'sale' => $sale,
             'pageTitle' => 'Sale ' . $sale['sale_code'],

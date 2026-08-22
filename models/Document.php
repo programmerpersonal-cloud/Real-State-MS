@@ -30,18 +30,29 @@ class Document
         $this->db = getDBConnection();
     }
 
-    /** Full row with category and uploader names, for detail and edit screens. */
+    /**
+     * Full row with category and uploader names, for detail and edit screens.
+     *
+     * The parent property's agent_id and owner_id ride along so the record
+     * checks in documents.php can run on this shape too — the edit, archive,
+     * restore and delete actions all read the document through here, and
+     * asking a second query for one column would be a round trip per action.
+     */
     public function findById(int $id): ?array
     {
         $stmt = $this->db->prepare("
             SELECT d.*,
                    c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug,
                    u.full_name AS uploaded_by_name,
-                   a.full_name AS archived_by_name
+                   a.full_name AS archived_by_name,
+                   p.agent_id AS property_agent_id,
+                   p.owner_id AS property_owner_id
               FROM documents d
               LEFT JOIN document_categories c ON c.id = d.category_id
               LEFT JOIN users u ON u.id = d.uploaded_by
               LEFT JOIN users a ON a.id = d.archived_by
+              LEFT JOIN properties p
+                     ON d.reference_type = 'property' AND p.id = d.reference_id
              WHERE d.id = :id
         ");
         $stmt->execute([':id' => $id]);
@@ -61,6 +72,7 @@ class Document
                    p.id       AS property_id,
                    p.title    AS property_title,
                    p.owner_id AS property_owner_id,
+                   p.agent_id AS property_agent_id,
                    p.approval_status,
                    p.is_archived
               FROM documents d
@@ -238,6 +250,20 @@ class Document
         if (!empty($f['uploaded_by'])) {
             $where[] = "d.uploaded_by = :uid";
             $params[':uid'] = (int) $f['uploaded_by'];
+        }
+
+        // Opt-in record scoping, for the staff register only.
+        //
+        // Visibility answers "what clearance does this level need"; it does not
+        // answer "whose property is this". Both are needed for an agent, who
+        // is cleared for every staff-level document in the company but is
+        // responsible for only their own listings. Opt-in because forReference()
+        // is also called from the property detail page, which has already
+        // decided the property question by the time it gets there.
+        if (!empty($f['record_scoped'])) {
+            [$scope, $scopeParams] = documentRecordScope('d', 'p');
+            $where[] = '(' . $scope . ')';
+            $params += $scopeParams;
         }
 
         if (!empty($f['visibility'])) {

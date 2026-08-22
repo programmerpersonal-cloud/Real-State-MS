@@ -182,7 +182,11 @@ class Customer
      */
     private function buildFilters(array $filters): array
     {
-        $where = []; $params = [];
+        // The access scope leads and is never optional: an agent's directory
+        // holds the people they entered and the people they have business
+        // with, and the heading count agrees because it reads the same clause.
+        [$scope, $params] = customerViewScope('c');
+        $where = ['(' . $scope . ')'];
 
         if (!empty($filters['search'])) {
             $where[] = "(c.full_name LIKE :s OR c.phone LIKE :s OR c.email LIKE :s OR c.national_id LIKE :s)";
@@ -203,7 +207,7 @@ class Customer
             $where[] = "(c.user_id IS NULL OR u.is_active = 0)";
         }
 
-        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+        return ['WHERE ' . implode(' AND ', $where), $params];
     }
 
     public function getRentalHistory(int $customerId): array

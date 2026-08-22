@@ -120,6 +120,19 @@ class Property
         $where  = ['p.is_archived = 0'];
         $params = [];
 
+        // Opt-in record scoping, for the management register only.
+        //
+        // This model also serves the public site — the listings grid, the home
+        // page, an agent's public profile — where the visitor has no session
+        // and every approved listing is meant to be visible. Applying the
+        // scope unconditionally would empty those pages, so the staff list
+        // asks for it by passing `scoped` and a public route simply does not.
+        if (!empty($filters['scoped'])) {
+            [$scope, $scopeParams] = propertyRecordScope('p');
+            $where[] = '(' . $scope . ')';
+            $params += $scopeParams;
+        }
+
         if (!empty($filters['search'])) {
             $where[] = "(p.title LIKE :s OR p.property_code LIKE :s OR p.location LIKE :s OR p.address LIKE :s)";
             $params[':s'] = '%' . $filters['search'] . '%';

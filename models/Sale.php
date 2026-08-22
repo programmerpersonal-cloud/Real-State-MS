@@ -35,7 +35,9 @@ class Sale
     {
         $stmt = $this->db->prepare("
             SELECT s.*, c.full_name AS customer_name, c.phone AS customer_phone,
-                   p.title AS property_title, p.property_code, u.full_name AS agent_name
+                   p.title AS property_title, p.property_code,
+                   p.owner_id AS property_owner_id, p.agent_id AS property_agent_id,
+                   u.full_name AS agent_name
             FROM sales s
             JOIN customers c ON s.customer_id = c.id
             JOIN properties p ON s.property_id = p.id
@@ -117,7 +119,11 @@ class Sale
      */
     private function buildWhere(array $filters): array
     {
-        $where = []; $params = [];
+        // The access scope leads and is never optional, so the pipeline, its
+        // heading count and its stage cards all describe the same deals.
+        [$scope, $params] = saleViewScope('s', 'p');
+        $where = ['(' . $scope . ')'];
+
         if (!empty($filters['status'])) { $where[] = "s.status = :st"; $params[':st'] = $filters['status']; }
         if (!empty($filters['payment_type'])) { $where[] = "s.payment_type = :pt"; $params[':pt'] = $filters['payment_type']; }
         if (!empty($filters['agent_id'])) { $where[] = "s.agent_id = :aid"; $params[':aid'] = (int) $filters['agent_id']; }
@@ -127,7 +133,7 @@ class Sale
             $params[':s'] = '%' . $filters['search'] . '%';
         }
 
-        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+        return ['WHERE ' . implode(' AND ', $where), $params];
     }
 
     private const JOINS = "
@@ -172,14 +178,24 @@ class Sale
      *
      * One grouped query; its cost does not change with the number of sales.
      *
+     * Scoped like the list beneath it — unscoped, an agent read the whole
+     * company's deal value off the top of a page showing only their own.
+     *
      * @return array<string, array{cnt:int, total:float}>
      */
-    public function totalsByStatus(): array
+    public function totalsByStatus(array $filters = []): array
     {
-        $rows = $this->db->query("
-            SELECT status, COUNT(*) AS cnt, COALESCE(SUM(sale_amount),0) AS total
-            FROM sales GROUP BY status
-        ")->fetchAll();
+        unset($filters['status']);
+        [$wc, $params] = $this->buildWhere($filters);
+
+        $stmt = $this->db->prepare("
+            SELECT s.status, COUNT(*) AS cnt, COALESCE(SUM(s.sale_amount),0) AS total
+            " . self::JOINS . "
+            {$wc}
+            GROUP BY s.status
+        ");
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
 
         $out = [];
         foreach ($rows as $r) {

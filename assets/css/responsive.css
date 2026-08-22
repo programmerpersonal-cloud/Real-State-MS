@@ -6,10 +6,9 @@
    ================================================================ */
 
 /* ─── Responsive ────────────────────────────────────────── */
-@media(max-width:1024px){
-  .auth__brand{display:none}
-  .auth__form-side{padding:24px}
-}
+/* The authentication screen carries its own breakpoints in
+   pages/auth.css — the split there collapses on a measurement of the
+   card, not of the window, so it does not belong in this file. */
 @media(max-width:1024px){
   .app__content{padding:13px 18px 20px}
   .app__header{padding:0 18px}

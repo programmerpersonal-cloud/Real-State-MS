@@ -33,11 +33,17 @@ class Lease
         $this->db = getDBConnection();
     }
 
+    /**
+     * One lease, with the owning property's owner_id and agent_id attached so
+     * the row-level access checks in record_access.php can run without a
+     * second query — the arrangement MaintenanceRequest::findById() uses.
+     */
     public function findById(int $id): ?array
     {
         $stmt = $this->db->prepare("
             SELECT l.*, c.full_name AS customer_name, c.phone AS customer_phone,
                    p.title AS property_title, p.property_code, p.address AS property_address,
+                   p.owner_id AS property_owner_id, p.agent_id AS property_agent_id,
                    o.full_name AS owner_name, u.full_name AS created_by_name
             FROM leases l
             JOIN customers c ON l.customer_id = c.id
@@ -152,7 +158,12 @@ class Lease
      */
     private function buildWhere(array $filters): array
     {
-        $where = []; $params = [];
+        // The access scope leads, and is never optional: every read below —
+        // list, count, status pills — is ANDed with it, so an agent's page,
+        // its heading count and its pill totals all describe the same rows.
+        [$scope, $params] = leaseViewScope('l', 'p');
+        $where = ['(' . $scope . ')'];
+
         if (!empty($filters['status'])) { $where[] = "l.status = :st"; $params[':st'] = $filters['status']; }
         if (!empty($filters['search'])) {
             $where[] = "(l.lease_code LIKE :s OR c.full_name LIKE :s OR p.title LIKE :s OR p.property_code LIKE :s)";
@@ -166,7 +177,7 @@ class Lease
             $params[':win'] = (int) $filters['ending_within'];
         }
 
-        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
+        return ['WHERE ' . implode(' AND ', $where), $params];
     }
 
     public function getAll(array $filters = [], int $limit = ITEMS_PER_PAGE, int $offset = 0): array
@@ -209,13 +220,31 @@ class Lease
     /**
      * How many leases sit in each status, for the filter pills.
      *
+     * Carries the same access scope as the list itself. A raw GROUP BY over
+     * the table published the size of the agency's whole book to every agent
+     * and tenant who could open the page — the leak count() was fixed for.
+     *
+     * Every filter but status is kept, so each pill reports what the user
+     * would actually see if they clicked it.
+     *
      * @return array<string, int>
      */
-    public function countsByStatus(): array
+    public function countsByStatus(array $filters = []): array
     {
-        $rows = $this->db->query("SELECT status, COUNT(*) AS n FROM leases GROUP BY status")->fetchAll();
+        unset($filters['status']);
+        [$wc, $params] = $this->buildWhere($filters);
 
-        return array_column($rows, 'n', 'status');
+        $stmt = $this->db->prepare("
+            SELECT l.status, COUNT(*) AS n
+            FROM leases l
+            JOIN customers c ON l.customer_id = c.id
+            JOIN properties p ON l.property_id = p.id
+            {$wc}
+            GROUP BY l.status
+        ");
+        $stmt->execute($params);
+
+        return array_map('intval', array_column($stmt->fetchAll(), 'n', 'status'));
     }
 
     /**

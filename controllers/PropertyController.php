@@ -60,6 +60,11 @@ class PropertyController
         // empty filter rather than a value carried into the query. The free
         // text and the ids stay bound parameters inside buildFilters().
         $filters = [
+            // The management register, not the public grid: this is the one
+            // caller that asks Property::getAll() for the access scope, so an
+            // agent's page holds the listings assigned to them and its heading
+            // count agrees. The public listings route deliberately omits it.
+            'scoped'        => true,
             'search'        => trim((string) ($_GET['search'] ?? '')),
             'property_type' => uiPick($_GET['property_type'] ?? '', array_keys(self::LISTING_TYPES)),
             'category'      => uiPick($_GET['category'] ?? '', array_keys(self::CATEGORIES)),
@@ -143,6 +148,15 @@ class PropertyController
                 APP_URL . '/index.php?page=properties&action=create');
 
             $data = $this->extractPropertyData();
+
+            // An agent who leaves the assignment blank is assigning it to
+            // themselves. Without this the listing they just created would be
+            // outside their own scope and disappear from the register the
+            // moment they saved it.
+            if (getUserRole() === ROLE_AGENT && empty($data['agent_id'])) {
+                $data['agent_id'] = (int) $_SESSION['user_id'];
+            }
+
             $errors = $this->validateProperty($data);
             if (!empty($errors)) {
                 // Give back what was typed — including a coordinate that was
@@ -198,7 +212,12 @@ class PropertyController
         authorize('properties.edit');
         $id = (int)($_GET['id'] ?? 0);
         $property = $this->model->findById($id);
-        if (!$property) { setFlash('error', 'Property not found.'); redirect(APP_URL . '/index.php?page=properties'); }
+
+        // Level 3. `properties.edit` says an agent maintains listings, not
+        // that they maintain everyone's — the form beneath rewrites price,
+        // status, owner and the agent the listing is assigned to. A missing
+        // property and a colleague's are refused identically.
+        authorizeRecord(canManageProperty($property), 'property', $id);
 
         ['owners' => $owners, 'agents' => $agents, 'branches' => $branches] = self::formLookups();
         $images = $this->model->getImages($id);
@@ -265,19 +284,39 @@ class PropertyController
         $id = (int)($_GET['id'] ?? 0);
         $property = $this->model->findById($id);
         // Holding properties.show means this page is part of the role's job,
-        // not that every property is. Staff work the whole register; an owner
-        // reaches the ones they own, a tenant the home they rent or any live
-        // public listing, a technician the address of a job. A missing
-        // property and someone else's are refused identically.
+        // not that every property is. An administrator works the whole
+        // register; an agent the listings assigned to them, an owner the ones
+        // they own, a tenant the home they rent or any live public listing, a
+        // technician the address of a job. A missing property and someone
+        // else's are refused identically.
         authorizeRecord($property !== null && canViewProperty($property), 'property', $id);
         $images = $this->model->getImages($id);
-        $history = $this->model->getHistory($id);
 
-        // Active lease, if any
-        $db = getDBConnection();
-        $stmt = $db->prepare("SELECT l.*, c.full_name AS customer_name FROM leases l JOIN customers c ON l.customer_id=c.id WHERE l.property_id = ? AND l.status='active' LIMIT 1");
-        $stmt->execute([$id]);
-        $activeLease = $stmt->fetch() ?: null;
+        // A tenant reaches this page for any live public listing — that is
+        // what makes a browsing buyer able to read a property they have no
+        // relationship with, and it is the right answer for the listing
+        // itself. The two panels below are not part of the listing:
+        //
+        //   the tenancy   names the current occupant, their rent and their
+        //                 dates, which is nobody's business but the people
+        //                 running the property;
+        //   the history   is the internal change log — price movements,
+        //                 status changes, who edited what.
+        //
+        // Both are therefore loaded only for the people entitled to the
+        // property's records, not for everyone the page opens for. The query
+        // is skipped rather than the panel hidden, so a reader who may not see
+        // it does not pay for it either.
+        $insider = can('leases.view') || ownsProperty($property);
+
+        $history = $insider ? $this->model->getHistory($id) : [];
+
+        $activeLease = null;
+        if ($insider) {
+            $stmt = getDBConnection()->prepare("SELECT l.*, c.full_name AS customer_name FROM leases l JOIN customers c ON l.customer_id=c.id WHERE l.property_id = ? AND l.status='active' LIMIT 1");
+            $stmt->execute([$id]);
+            $activeLease = $stmt->fetch() ?: null;
+        }
 
         // Documents. Every signed-in role can reach this page, so the
         // visibility scope is what keeps a browsing customer from a title
@@ -346,6 +385,7 @@ class PropertyController
     {
         authorize('properties.approve');
         $id = (int)($_GET['id'] ?? 0);
+        authorizeRecord(canManageProperty($this->model->findById($id)), 'property', $id);
         $this->model->update($id, ['approval_status' => 'approved']);
         $this->model->logChange($id, 'approved');
         logAudit('approved_property', 'property', $id);
@@ -357,6 +397,7 @@ class PropertyController
     {
         authorize('properties.archive');
         $id = (int)($_GET['id'] ?? 0);
+        authorizeRecord(canManageProperty($this->model->findById($id)), 'property', $id);
         $this->model->delete($id);
         logAudit('archived_property', 'property', $id);
         setFlash('success', 'Property archived.');
@@ -368,9 +409,30 @@ class PropertyController
         authorize('properties.delete-image');
         $imgId = (int)($_GET['img_id'] ?? 0);
         $propId = (int)($_GET['id'] ?? 0);
+
+        // Two ids arrive and neither was checked: the property had to be one
+        // this user maintains, and the image had to belong to that property —
+        // otherwise the pair `?id=mine&img_id=theirs` deleted a photograph
+        // from a listing across the office.
+        authorizeRecord(canManageProperty($this->model->findById($propId)), 'property', $propId);
+        authorizeRecord($this->imageBelongsTo($imgId, $propId), 'property_image', $imgId);
+
         $this->model->deleteImage($imgId);
         setFlash('success', 'Image deleted.');
         redirect(APP_URL . '/index.php?page=properties&action=edit&id=' . $propId);
+    }
+
+    /** Whether an image id really hangs off the property id it was posted with. */
+    private function imageBelongsTo(int $imageId, int $propertyId): bool
+    {
+        if ($imageId <= 0 || $propertyId <= 0) {
+            return false;
+        }
+        $stmt = getDBConnection()->prepare(
+            "SELECT 1 FROM property_images WHERE id = ? AND property_id = ? LIMIT 1"
+        );
+        $stmt->execute([$imageId, $propertyId]);
+        return (bool) $stmt->fetchColumn();
     }
 
     private function extractPropertyData(): array

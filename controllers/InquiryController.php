@@ -79,12 +79,16 @@ class InquiryController
         authorize('inquiries.show');
         $id = (int)($_GET['id'] ?? 0);
         $inquiry = $this->model->findById($id);
-        if (!$inquiry) { setFlash('error', 'Inquiry not found.'); redirect(APP_URL . '/index.php?page=inquiries'); }
 
         // Level 3. Holding inquiries.show opens the page; it does not open
         // every enquiry on it. Nothing above this line has read the row's
         // contents, and nothing below runs if the row is not theirs.
-        authorizeRecord(canViewInquiry($inquiry), 'inquiry', $id);
+        //
+        // A missing enquiry takes the same refusal as somebody else's. The
+        // earlier "not found" redirect was an existence oracle: a real id
+        // answered 403 and an invented one answered a redirect, which is
+        // enough to map the table by walking `?id=`.
+        authorizeRecord($inquiry !== null && canViewInquiry($inquiry), 'inquiry', $id);
 
         $messages = $this->model->getMessages($id);
 
@@ -109,11 +113,10 @@ class InquiryController
             redirect(APP_URL . '/index.php?page=inquiries&action=show&id=' . $id);
         }
         $inquiry = $this->model->findById($id);
-        if (!$inquiry) { setFlash('error', 'Inquiry not found.'); redirect(APP_URL . '/index.php?page=inquiries'); }
 
         // Replying to an enquiry you are not allowed to read is the same
         // breach as reading it, so it is refused the same way.
-        authorizeRecord(canViewInquiry($inquiry), 'inquiry', $id);
+        authorizeRecord($inquiry !== null && canViewInquiry($inquiry), 'inquiry', $id);
 
         // Find a user id to send the message to (use customer's user_id if available, otherwise the assigned user)
         $db = getDBConnection();
@@ -191,12 +194,17 @@ class InquiryController
         }
 
         // Properties open to enquiry are the ones already advertised publicly,
-        // so no access scope applies — anyone who can reach a listing can ask
-        // about it.
+        // so no record scope applies — anyone who can reach a listing can ask
+        // about it. What does apply is the approval state: a listing still
+        // waiting to go live is not advertised, and naming it in this form
+        // published it to every customer who opened the page. Staff, who work
+        // the register rather than the shop window, keep the full list.
+        $publicOnly = !hasRole(ROLE_ADMIN, ROLE_AGENT);
         $properties = getDBConnection()->query("
             SELECT id, title, property_code
             FROM properties
             WHERE is_archived = 0 AND status = 'available'
+            " . ($publicOnly ? "AND approval_status = 'approved'" : '') . "
             ORDER BY title
         ")->fetchAll();
 

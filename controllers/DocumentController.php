@@ -99,7 +99,11 @@ class DocumentController
             requireLogin();
         }
 
-        if (!documentVisibilityAllows($doc, $property)) {
+        // Clearance, then ownership. Both have to say yes: an agent is cleared
+        // for every staff-level document in the company but holds only the
+        // paperwork on their own listings, and the file is what actually
+        // leaves the building.
+        if (!documentVisibilityAllows($doc, $property) || !documentRecordAllows($doc)) {
             $this->deny(isLoggedIn() ? 403 : 404);
         }
 
@@ -229,6 +233,9 @@ class DocumentController
             // the Archived filter has something to find.
             'visibility_in'    => $scope,
             'include_archived' => true,
+            // The other half of the answer: clearance says which levels this
+            // reader may see, this says whose paperwork is theirs to hold.
+            'record_scoped'    => true,
             // Never interpolated: Document::SORTS resolves this key.
             'sort' => uiSortValue(array_keys(Document::SORTS), 'newest'),
         ];
@@ -278,25 +285,28 @@ class DocumentController
         $id  = (int) ($_GET['id'] ?? 0);
         $doc = $id > 0 ? $this->model->findForDelivery($id) : null;
 
-        if (!$doc) {
-            setFlash('error', 'Document not found.');
-            redirect(APP_URL . '/index.php?page=documents');
-        }
-
         // owner_id included so an owner opening a document on their own
         // property is cleared here the same way the download endpoint clears
         // them; without it the page and the file would disagree.
-        $property = !empty($doc['property_id']) ? [
+        $property = $doc && !empty($doc['property_id']) ? [
             'id'              => $doc['property_id'],
             'owner_id'        => $doc['property_owner_id'] ?? null,
             'approval_status' => $doc['approval_status'] ?? '',
             'is_archived'     => $doc['is_archived'] ?? 1,
         ] : null;
 
-        if (!documentVisibilityAllows($doc, $property)) {
-            setFlash('error', 'You do not have permission to view that document.');
-            redirect(APP_URL . '/index.php?page=dashboard');
-        }
+        // A refusal is a 403 that explains itself, the way every other record
+        // check in the application answers — not a bounce to the dashboard,
+        // which reads as the application being broken. A document that does
+        // not exist is refused identically to one that is not theirs, so the
+        // response cannot be used to discover which ids are real.
+        authorizeRecord(
+            $doc !== null
+                && documentVisibilityAllows($doc, $property)
+                && documentRecordAllows($doc),
+            'document',
+            $id
+        );
 
         $full = $this->model->findById($id);
 
@@ -324,6 +334,17 @@ class DocumentController
         $data    = $this->extractData();
         $failUrl = $this->returnUrl($data, true);
         $errors  = $this->validate($data);
+
+        // Level 3 on the write, checked before the file is moved onto disk so
+        // a refused upload leaves no orphan in the store. The <select> is
+        // already scoped, so an id outside the user's reach was typed in by
+        // hand.
+        if (!$errors && $data['reference_type'] === 'property'
+            && !canActOnProperty((int) $data['reference_id'])) {
+            logAudit('denied_document_upload', 'property', (int) $data['reference_id'],
+                '', 'property outside ' . getUserRole() . ' scope');
+            $errors[] = 'That property is not one you manage.';
+        }
 
         // The file is only moved onto disk once the metadata is known good, so
         // a rejected submission never leaves an orphan in the store.
@@ -361,10 +382,11 @@ class DocumentController
         $id  = (int) ($_GET['id'] ?? 0);
         $doc = $id > 0 ? $this->model->findById($id) : null;
 
-        if (!$doc) {
-            setFlash('error', 'Document not found.');
-            redirect(APP_URL . '/index.php?page=documents');
-        }
+        // Level 3. `documents.edit` says an agent maintains paperwork, not
+        // that they maintain everyone's — visibility is one of the fields this
+        // form rewrites, so an unchecked edit could publish another desk's
+        // title deed to the public listing.
+        authorizeRecord($doc !== null && documentRecordAllows($doc), 'document', $id);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             enforceCSRF();
@@ -435,10 +457,8 @@ class DocumentController
         $id  = (int) ($_POST['id'] ?? 0);
         $doc = $id > 0 ? $this->model->findById($id) : null;
 
-        if (!$doc) {
-            setFlash('error', 'Document not found.');
-            redirect($this->backUrl());
-        }
+        // Withdrawing another desk's document takes it off their listing.
+        authorizeRecord($doc !== null && documentRecordAllows($doc), 'document', $id);
 
         if ($this->model->archive($id)) {
             logAudit('archived_document', 'document', $id, 'active', 'archived');
@@ -455,8 +475,15 @@ class DocumentController
         authorize('documents.restore');
         enforceCSRF();
 
-        $id = (int) ($_POST['id'] ?? 0);
-        if ($id > 0 && $this->model->restore($id)) {
+        $id  = (int) ($_POST['id'] ?? 0);
+        $doc = $id > 0 ? $this->model->findById($id) : null;
+
+        // Restoring is the mirror of archiving, and was the way round it:
+        // without this an agent could bring back a document another desk had
+        // deliberately withdrawn.
+        authorizeRecord($doc !== null && documentRecordAllows($doc), 'document', $id);
+
+        if ($this->model->restore($id)) {
             logAudit('restored_document', 'document', $id, 'archived', 'active');
             setFlash('success', 'Document restored.');
         } else {
@@ -475,10 +502,7 @@ class DocumentController
         $id  = (int) ($_POST['id'] ?? 0);
         $doc = $id > 0 ? $this->model->findById($id) : null;
 
-        if (!$doc) {
-            setFlash('error', 'Document not found.');
-            redirect($this->backUrl());
-        }
+        authorizeRecord($doc !== null && documentRecordAllows($doc), 'document', $id);
 
         if ($this->model->delete($id)) {
             logAudit('deleted_document', 'document', $id, trim(($doc['document_code'] ?? '') . ' ' . $doc['title']), '');
@@ -498,13 +522,22 @@ class DocumentController
     private function formLookups(): array
     {
         $db = getDBConnection();
+
+        // Scoped: an agent files paperwork against their own listings. This is
+        // what the form offers; create() re-checks the submitted id.
+        [$scope, $params] = propertyRecordScope('p');
+        $properties = $db->prepare("
+            SELECT p.id, p.title, p.property_code
+            FROM properties p
+            WHERE p.is_archived = 0 AND ({$scope})
+            ORDER BY p.title
+        ");
+        $properties->execute($params);
+
         return [
             'categories'   => $this->categories->options(),
             'categoryMeta' => $this->categories->formMeta(),
-            'properties'   => $db->query("
-                SELECT id, title, property_code FROM properties
-                 WHERE is_archived = 0 ORDER BY title
-            ")->fetchAll(),
+            'properties'   => $properties->fetchAll(),
         ];
     }
 

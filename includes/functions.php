@@ -668,9 +668,20 @@ function propertyStatusBreakdown(): array
     ];
 
     try {
-        $rows = getDBConnection()
-            ->query("SELECT status, COUNT(*) AS c FROM properties WHERE is_archived = 0 GROUP BY status")
-            ->fetchAll();
+        // Carries the reader's record scope, like every other property count.
+        // Today only the administrator dashboard calls this, where the scope
+        // is `1 = 1` — but a widget that answers "how many properties" must
+        // answer it for the person reading, or the next page to reuse it
+        // becomes a leak nobody noticed.
+        [$scope, $params] = propertyRecordScope('p');
+        $stmt = getDBConnection()->prepare("
+            SELECT p.status, COUNT(*) AS c
+            FROM properties p
+            WHERE p.is_archived = 0 AND ({$scope})
+            GROUP BY p.status
+        ");
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
     } catch (PDOException $e) {
         // The topbar asks for this on every page; a database hiccup should
         // cost the widget, not the whole shell around it.
