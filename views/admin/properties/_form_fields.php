@@ -15,8 +15,9 @@ $uid  = $uid ?? 'prop';
 $fd   = $fd ?? [];
 $errs = $formErrors ?? [];
 
-// Status is an edit-time field. A new listing is always created as available
-// and pending approval, so offering the full status list on the create form
+// Status is an edit-time field. A new listing is always created as available,
+// and its approval state is decided by the role of the person creating it —
+// never by the form — so offering the full status list on the create form
 // would invite someone to record a property as already sold before it exists.
 $showStatus = $showStatus ?? false;
 

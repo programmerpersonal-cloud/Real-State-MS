@@ -163,6 +163,24 @@ define('BIZ_HOURS', [
 // What we promise publicly and must therefore actually meet.
 define('BIZ_RESPONSE_HOURS', 24);
 
+// Social accounts, as an ordered [key => [name, icon, url]] map.
+//
+// PLACEHOLDER HANDLES. These are the URLs the authentication screen and the
+// public footer link to when the settings table has nothing for that network;
+// an administrator overrides any of them with a `social_<key>` setting, and a
+// network with neither a setting nor a default here is simply not rendered.
+// Replace the handles below with the agency's real profiles before launch.
+//
+// WhatsApp is deliberately absent: it is derived from BIZ_PHONE, because the
+// number people are told to call and the number they message have to be the
+// same one.
+define('BIZ_SOCIAL', [
+    'facebook'  => ['Facebook',  'bi-facebook',  'https://www.facebook.com/saxanerealestate'],
+    'instagram' => ['Instagram', 'bi-instagram', 'https://www.instagram.com/saxanerealestate'],
+    'linkedin'  => ['LinkedIn',  'bi-linkedin',  'https://www.linkedin.com/company/saxanerealestate'],
+    'x'         => ['X',         'bi-twitter-x', 'https://x.com/saxanerealest'],
+]);
+
 // ─── Marketing / SEO ───────────────────────────────────────────────────
 // Social preview image (1200x630). Referenced absolutely — relative paths
 // are ignored by every social crawler.

@@ -576,6 +576,89 @@ function notify(int $userId, string $title, string $message = '', string $type =
 }
 
 /**
+ * How long ago, in words.
+ *
+ * The approval queue is read by age — the submission that has waited longest
+ * is the one that matters — and "Aug 19" does not answer "how long has this
+ * been sitting there" without the reader doing arithmetic. Deliberately
+ * coarse: past a week nobody counts days, they want the date, which the
+ * column beside it already gives.
+ */
+function timeAgo(?string $datetime): string
+{
+    if (!$datetime) {
+        return '';
+    }
+    $then = strtotime($datetime);
+    if ($then === false) {
+        return '';
+    }
+
+    $seconds = time() - $then;
+    if ($seconds < 0)    return 'just now';   // clock skew, not a negative age
+    if ($seconds < 60)   return 'just now';
+    if ($seconds < 3600) return (int) ($seconds / 60) . 'm ago';
+    if ($seconds < 86400) {
+        $h = (int) ($seconds / 3600);
+        return $h . ($h === 1 ? ' hour ago' : ' hours ago');
+    }
+
+    $days = (int) ($seconds / 86400);
+    if ($days === 1)  return 'yesterday';
+    if ($days < 30)   return $days . ' days ago';
+    if ($days < 365)  { $m = (int) ($days / 30); return $m . ($m === 1 ? ' month ago' : ' months ago'); }
+    $y = (int) ($days / 365);
+    return $y . ($y === 1 ? ' year ago' : ' years ago');
+}
+
+/**
+ * Notify every active administrator of the same thing, once each.
+ *
+ * The approval queue needs an inbox entry to point at it, and "the admin" is
+ * not one row — an agency can have several, and a submission that only
+ * reached whichever one happens to be `id = 1` is a submission that can sit
+ * unseen. One INSERT per administrator, in a single multi-row statement.
+ *
+ * Returns how many people were told, so the caller can log it honestly.
+ */
+function notifyAdmins(string $title, string $message = '', string $type = 'info', string $refType = '', int $refId = 0, ?int $exceptUserId = null): int
+{
+    try {
+        $db = getDBConnection();
+
+        // Role is read from the roles table by name rather than a hard-coded
+        // id, so renumbering the seed data cannot silently stop the alerts.
+        $sql = "SELECT u.id FROM users u
+                JOIN roles r ON u.role_id = r.id
+                WHERE r.name = :role AND u.is_active = 1";
+        $params = [':role' => ROLE_ADMIN];
+        if ($exceptUserId) {
+            $sql .= " AND u.id <> :me";
+            $params[':me'] = $exceptUserId;
+        }
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+        if (!$ids) {
+            return 0;
+        }
+
+        $values = implode(',', array_fill(0, count($ids), '(?, ?, ?, ?, ?, ?)'));
+        $bind   = [];
+        foreach ($ids as $id) {
+            array_push($bind, $id, $title, $message, $type, $refType, $refId);
+        }
+        $db->prepare("INSERT INTO notifications (user_id, title, message, type, reference_type, reference_id)
+                      VALUES {$values}")->execute($bind);
+
+        return count($ids);
+    } catch (PDOException $e) {
+        error_log('Admin notification error: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
  * Get the status badge class for a given status.
  */
 function getStatusBadgeClass(string $status): string

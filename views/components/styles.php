@@ -17,6 +17,17 @@
  * and before everything that reads a type token.
  *
  * Expects: $bundle  'app' (default) | 'public' | 'auth'
+ * Optional: $pageStyles  extra sheets from assets/css, appended after the
+ *           bundle and before responsive.css — so a page's own rules can
+ *           override the components they build on, and the narrow-width
+ *           rules in responsive.css still win over both.
+ *
+ * The counterpart of $extraScripts in scripts.php, and it works for the same
+ * reason: layout.php renders the view into a buffer *before* it renders
+ * <head>, so a variable the view sets is already in scope by the time this
+ * partial runs. A page that carries a stylesheet nothing else needs — the
+ * reporting workspace, for one — names it rather than shipping it to every
+ * signed-in screen.
  *
  * A page loads only the bundle it renders in: the public site has no use for
  * the sidebar rail, and the app has none for the marketing pages. Everything
@@ -29,6 +40,16 @@ $sheets = match ($bundle) {
     'auth'   => ['design-system', 'tokens-app', 'components', 'pages/auth'],
     default  => ['design-system', 'tokens-app', 'layout', 'components', 'pages/dashboard', 'pages/settings'],
 };
+/* Page sheets sit between the bundle and responsive.css. Anything the page
+   names is loaded once, even if it names it twice, and only if the file is
+   really there — a typo should cost a missing style, not a 404 in the
+   network panel of every reviewer who opens the page. */
+foreach (array_unique($pageStyles ?? []) as $pageSheet) {
+    if (is_file(ASSETS_PATH . '/css/' . $pageSheet . '.css')) {
+        $sheets[] = $pageSheet;
+    }
+}
+
 $sheets[] = 'responsive';
 
 /**

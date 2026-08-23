@@ -24,6 +24,8 @@ $p       = $property;
    that would refuse. */
 $canEdit = can('properties.edit') && canManageProperty($p);
 $canRunListing = canManageProperty($p);
+$isArchived = (int) ($p['is_archived'] ?? 0) === 1;
+$approval   = (string) ($p['approval_status'] ?? '');
 $coords  = propertyCoords($p);
 $price   = propertyPrice($p);
 
@@ -86,9 +88,14 @@ $tabs = array_values(array_filter([
         <h2 class="detail-header__title"><?= sanitize($p['title']) ?></h2>
 
         <div class="detail-header__meta">
-            <span><?= uiStatus($p['status']) ?></span>
-            <?php if (($p['approval_status'] ?? '') !== 'approved'): ?>
-                <span><?= uiStatus($p['approval_status'], uiLabel($p['approval_status']) . ' approval') ?></span>
+            <?php if ($isArchived): ?>
+                <span><?= uiStatus('archived', 'Archived') ?></span>
+            <?php else: ?>
+                <span><?= uiStatus($p['status']) ?></span>
+            <?php endif ?>
+            <?php if ($approval !== 'approved'): ?>
+                <span><?= uiStatus($approval,
+                    $approval === 'pending' ? 'Awaiting approval' : 'Returned for changes') ?></span>
             <?php endif ?>
             <span><i class="bi bi-geo-alt" aria-hidden="true"></i> <?= sanitize($p['location'] ?: 'Location not set') ?></span>
             <span><i class="bi <?= categoryIcon($p['category']) ?>" aria-hidden="true"></i> <?= sanitize(uiLabel($p['category'])) ?></span>
@@ -127,27 +134,109 @@ $tabs = array_values(array_filter([
                 <i class="bi bi-pencil" aria-hidden="true"></i> Edit
             </a>
         <?php endif ?>
-        <?= uiRowActions(array_filter([
-            $canRunListing ? ['label' => 'Approve listing', 'icon' => 'bi-check2-circle', 'can' => 'properties.approve',
-             'url'     => $base . '&action=approve&id=' . (int) $p['id'],
-             'confirm' => [
-                 'title' => 'Approve this listing?', 'tone' => 'info', 'action' => 'Approve',
-                 'body'  => 'It becomes visible on the public site and can be reserved, let or sold.',
-                 'record' => $p['property_code'] . ' · ' . $p['title'],
-             ]] : null,
+        <?php
+        /* Every state change below is a signed POST, not a link. Approving
+           publishes a listing to the public site and archiving takes one off
+           it; a verb reachable by GET is a verb a prefetcher, a crawler or a
+           shared bookmark can perform on somebody's behalf.
+
+           Which verbs appear depends on where the property actually is: an
+           archived property offers Restore and nothing else that would act on
+           a record the register cannot see, and an already-approved listing
+           is not offered approval again. */
+        $record = $p['property_code'] . ' · ' . $p['title'];
+        ?>
+        <?php if ($isArchived && $canRunListing && canAny('properties.restore', 'properties.archive')): ?>
+            <?php /* The only thing to do with an archived property, so it is a
+                     button rather than a menu item three clicks deep. */ ?>
+            <form method="POST" action="<?= $base ?>&amp;action=restore" class="inline-form">
+                <?= csrfField() ?>
+                <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+                <button type="submit" class="btn btn--primary btn--sm"
+                        data-confirm="It returns to the active Properties register as <?= sanitize(strtolower(uiLabel($p['status_before_archive'] ?: 'available'))) ?>, with its photographs, owner, agent, documents and history exactly as they are."
+                        data-confirm-title="Restore this property?"
+                        data-confirm-action="Restore property"
+                        data-confirm-tone="primary"
+                        data-confirm-record="<?= sanitize($record) ?>">
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Restore
+                </button>
+            </form>
+        <?php endif ?>
+
+        <?= uiRowActions(array_values(array_filter([
+            ($canRunListing && !$isArchived && $approval !== 'approved')
+                ? ['label' => 'Approve listing', 'icon' => 'bi-check2-circle', 'can' => 'properties.approve',
+                   'method' => 'post', 'url' => $base . '&action=approve',
+                   'fields' => ['id' => (int) $p['id']],
+                   'confirm' => [
+                       'title' => 'Approve this listing?', 'tone' => 'info', 'action' => 'Approve',
+                       'body'  => 'It becomes visible on the public site and can be reserved, let or sold. The agent who submitted it is notified.',
+                       'record' => $record,
+                   ]] : null,
+            ($canRunListing && !$isArchived && $approval !== 'rejected' && can('properties.approve'))
+                ? ['label' => 'Return with a note', 'icon' => 'bi-arrow-counterclockwise',
+                   'url' => '#',
+                   'attrs' => [
+                       'data-modal-open'  => 'propertyRejectModal',
+                       'data-fill-id'     => (string) (int) $p['id'],
+                       'data-fill-record' => $record,
+                   ]] : null,
             ['label' => 'View public listing', 'icon' => 'bi-box-arrow-up-right',
              'url' => APP_URL . '/index.php?page=listing&id=' . (int) $p['id']],
-            $canRunListing ? ['label' => 'Archive', 'icon' => 'bi-archive', 'can' => 'properties.archive', 'danger' => true,
-             'url'     => $base . '&action=archive&id=' . (int) $p['id'],
-             'confirm' => [
-                 'title'  => 'Archive this property?',
-                 'body'   => 'It is removed from the register and from public listings. Leases, payments and documents already recorded against it are kept.',
-                 'action' => 'Archive property',
-                 'record' => $p['property_code'] . ' · ' . $p['title'],
-             ]] : null,
-        ]), 'More actions') ?>
+            ($canRunListing && !$isArchived)
+                ? ['label' => 'Archive', 'icon' => 'bi-archive', 'can' => 'properties.archive', 'danger' => true,
+                   'method' => 'post', 'url' => $base . '&action=archive',
+                   'fields' => ['id' => (int) $p['id']],
+                   'confirm' => [
+                       'title'  => 'Archive this property?',
+                       'body'   => 'It moves to Archived Properties and comes off the public site. Nothing is deleted — photos, owner, agent, leases, payments and documents are kept, and you can restore it at any time.',
+                       'action' => 'Archive property',
+                       'record' => $record,
+                   ]] : null,
+        ])), 'More actions') ?>
     </div>
 </div>
+
+<?php
+/* Where this property stands, in a sentence.
+ *
+ * The pills above name the state; they do not explain what it means for the
+ * property or what happens next, and those are the two things somebody
+ * opening a listing that is not live actually needs. Only rendered when
+ * there is something to say — an approved, unarchived property is the normal
+ * case and gets no banner at all.
+ */
+$banner = null;
+if ($isArchived) {
+    $banner = ['muted', 'bi-archive', 'This property is archived',
+        'It is hidden from the register and from the public site. Nothing has been '
+        . 'deleted — its photographs, owner, agent, documents, leases and payments are '
+        . 'all kept, and restoring returns it as '
+        . strtolower(uiLabel($p['status_before_archive'] ?: 'available')) . '.'];
+} elseif ($approval === 'pending') {
+    $banner = ['', 'bi-hourglass-split', 'Awaiting approval',
+        can('properties.approve')
+            ? 'This listing was submitted for review and is not on the public site yet. '
+              . 'Approve it to publish it, or return it to the agent with a note.'
+            : 'This listing has been submitted for review. An administrator has to approve '
+              . 'it before it appears on the public site; you will be notified either way.'];
+} elseif ($approval === 'rejected') {
+    $banner = ['muted', 'bi-arrow-counterclockwise', 'Returned for changes',
+        ($p['approval_note'] ?? '') !== ''
+            ? 'Reason given: ' . $p['approval_note']
+            : 'This listing was not approved and is not on the public site.'];
+}
+?>
+<?php if ($banner): ?>
+    <?php [$tone, $icon, $title, $body] = $banner; ?>
+    <div class="notice<?= $tone !== '' ? ' notice--' . $tone : '' ?>">
+        <div class="notice__icon"><i class="bi <?= $icon ?>" aria-hidden="true"></i></div>
+        <div class="notice__body">
+            <div class="notice__title"><?= sanitize($title) ?></div>
+            <p class="notice__item"><?= sanitize($body) ?></p>
+        </div>
+    </div>
+<?php endif ?>
 
 <!-- ── Tabs ─────────────────────────────────────────────────────── -->
 <div class="tabs" data-tabs role="tablist">
@@ -487,3 +576,12 @@ $tabs = array_values(array_filter([
         </div>
     </div>
 </div>
+
+<?php
+/* The approval decision that needs a reason. Rendered only for the people who
+   can actually take it — a dialog nobody on this page may submit is markup
+   for nothing, and its trigger is drawn under the same condition above. */
+if ($canRunListing && !$isArchived && $approval !== 'rejected' && can('properties.approve')) {
+    require __DIR__ . '/_reject_modal.php';
+}
+?>

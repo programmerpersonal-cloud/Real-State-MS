@@ -8,7 +8,14 @@ $uid = 'pc';
 <div class="card">
     <div class="card__header">
         <h2 class="card__title">Property details</h2>
-        <span class="text-subtle">New listings start as pending approval</span>
+        <?php /* What happens to this person's listing on save, not a general
+                 rule — an administrator publishes directly, an agent submits
+                 for review, and only one of those is true for the reader. */ ?>
+        <span class="text-subtle">
+            <?= hasRole(ROLE_ADMIN)
+                ? 'Published on save — listings you create are approved automatically'
+                : 'Submitted for review — an administrator approves it before it goes live' ?>
+        </span>
     </div>
     <div class="card__body">
         <form method="POST" enctype="multipart/form-data" data-validate>

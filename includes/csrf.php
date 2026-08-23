@@ -53,3 +53,24 @@ function enforceCSRF(): void
         die('Security validation failed. Please refresh and try again.');
     }
 }
+
+/**
+ * Refuse anything that is not a POST.
+ *
+ * enforceCSRF() alone does not do this: validateCSRFToken() passes every
+ * non-POST request straight through, on the reasonable assumption that a GET
+ * is a read. An action that changes state therefore has to say so itself —
+ * without this, `?action=approve&id=7` typed into the address bar, left in a
+ * bookmark, or followed by a link prefetcher sails past the CSRF check with
+ * no token at all, because there was no POST body to check.
+ *
+ * Call it immediately before enforceCSRF() in any action that writes.
+ */
+function requirePost(): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+        http_response_code(405);
+        header('Allow: POST');
+        die('This action must be submitted from the application.');
+    }
+}

@@ -59,6 +59,13 @@ require_once __DIR__ . '/property_access.php';
 // currentOwnerId()/currentCustomerId() and the same fail-closed conventions.
 require_once __DIR__ . '/record_access.php';
 
+// The reporting vocabulary — what a period is, what the period before it is,
+// which filters are real, and which rows already contradict each other. After
+// record_access.php because the data-quality checks read the same scopes the
+// reports do, and after ui.php because the filter validators are built on
+// uiPick().
+require_once __DIR__ . '/reporting.php';
+
 // Security headers
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');

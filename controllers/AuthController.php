@@ -5,6 +5,7 @@
  */
 
 require_once BASE_PATH . '/models/User.php';
+require_once BASE_PATH . '/models/Property.php';
 
 class AuthController
 {
@@ -79,6 +80,7 @@ class AuthController
         // two can be switched without a page load, and that panel is built
         // from the same allow-list the submission is checked against.
         $roleOptions = $this->selfServiceRoleOptions();
+        $showcase    = $this->showcaseProperties();
 
         require VIEWS_PATH . '/auth/login.php';
     }
@@ -105,6 +107,7 @@ class AuthController
         $roleOptions = $this->selfServiceRoleOptions();
         $formErrors  = $_SESSION['form_errors'] ?? [];
         unset($_SESSION['form_errors']);
+        $showcase    = $this->showcaseProperties();
 
         require VIEWS_PATH . '/auth/register.php';
     }
@@ -123,6 +126,58 @@ class AuthController
         $stmt->execute(self::SELF_SERVICE_ROLES);
 
         return array_map('strval', array_column($stmt->fetchAll(), 'display_name', 'id'));
+    }
+
+    /**
+     * Photographs for the slideshow beside the sign-in form.
+     *
+     * Real listings, newest first, with their own cover photo where one has
+     * been uploaded — propertyImage() already falls back to a seeded stock
+     * shot per row, so a fresh install still shows a full panel rather than
+     * an empty blue rectangle.
+     *
+     * Everything is wrapped: the authentication screen is the one page that
+     * has to render when the database is unreachable, because it is where
+     * an administrator goes to find out why. A failure here costs the
+     * decoration, never the form.
+     *
+     * @return array<int,array{image:string,title:string,location:string,badge:string,price:string}>
+     */
+    private function showcaseProperties(int $limit = 6): array
+    {
+        try {
+            $model = new Property();
+            $rows  = $model->getAll(['status' => 'available'], $limit, 0);
+            $covers = $model->getCoversFor(array_column($rows, 'id'));
+        } catch (Throwable $e) {
+            $rows = $covers = [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $isRent = ($row['property_type'] ?? '') === 'rent';
+            $amount = (float) ($isRent ? ($row['rent_amount'] ?? 0) : ($row['price'] ?? 0));
+
+            $out[] = [
+                'image'    => propertyImage($row, $covers[(int) $row['id']] ?? null),
+                'title'    => (string) ($row['title'] ?? 'Featured property'),
+                'location' => (string) ($row['location'] ?? ''),
+                'badge'    => $isRent ? 'For Rent' : 'For Sale',
+                'price'    => $amount > 0
+                    ? formatCurrency($amount) . ($isRent ? ' / month' : '')
+                    : '',
+            ];
+        }
+
+        /* No listings yet — the panel is still a photograph, just an
+           unlabelled one. Better an empty caption than an empty frame. */
+        if (!$out) {
+            foreach (stockPropertyGallery('saxane-auth', $limit) as $src) {
+                $out[] = ['image' => $src, 'title' => '', 'location' => '', 'badge' => '', 'price' => ''];
+            }
+        }
+
+        return $out;
     }
 
     /**

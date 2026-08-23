@@ -57,6 +57,22 @@ function permissionMatrix(): array
         // destructive or structural (approving a listing, blacklisting a
         // customer, deleting a document, touching users/branches/settings) is
         // withheld — an agent creates and edits, an admin removes.
+        //
+        // The property workflow is the sharpest case of that line, and it is
+        // drawn by omission here rather than by a check in a controller:
+        //
+        //   properties.approve   sign a listing off        admin only
+        //   properties.reject    send it back              admin only
+        //   properties.approvals open the approval queue   admin only
+        //   properties.archive   file a property away      admin only
+        //   properties.restore   bring one back            admin only
+        //
+        // An agent creates a listing and it enters the queue as 'pending';
+        // they cannot approve it, their own least of all. Because can() has no
+        // entry to match and this role holds no wildcard, every one of those
+        // strings is false for an agent in the UI *and* at authorize(), which
+        // is what makes a hand-typed ?action=approve a 403 rather than a
+        // hidden button someone found.
         ROLE_AGENT => [
             'dashboard.view',
 

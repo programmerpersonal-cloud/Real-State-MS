@@ -69,7 +69,10 @@ switch ($page) {
 
             // One extra row: the first becomes the spotlight, the rest fill
             // the featured grid, so both sections come from a single query.
-            $homeProperties     = $propertyModel->getAll(['status' => 'available'], 7, 0);
+            // approved_only: a listing still waiting on an administrator is
+            // not a listing the world sees. Every public query on this page
+            // carries it for the same reason.
+            $homeProperties     = $propertyModel->getAll(['status' => 'available', 'approved_only' => true], 7, 0);
             $spotlightProperty  = array_shift($homeProperties) ?: null;
             $featuredProperties = $homeProperties;
 
@@ -186,6 +189,7 @@ switch ($page) {
             'property_type' => $_GET['property_type'] ?? '',
             'category'      => $_GET['category']      ?? '',
             'status'        => 'available',
+            'approved_only' => true,
             'min_price'     => $_GET['min_price']     ?? '',
             'max_price'     => $_GET['max_price']     ?? '',
             'min_rooms'     => $_GET['min_rooms']     ?? '',
@@ -212,7 +216,11 @@ switch ($page) {
         $propertyModel = new Property();
         $id = (int)($_GET['id'] ?? 0);
         $property = $id > 0 ? $propertyModel->findById($id) : null;
-        if (!$property || !empty($property['is_archived'])) {
+        // propertyIsPubliclyVisible() is the one answer to "may an anonymous
+        // visitor see this": approved, and not archived. The archive half was
+        // already checked here; approval was not, so a listing awaiting review
+        // was reachable by id even though it appeared in no public grid.
+        if (!propertyIsPubliclyVisible($property)) {
             http_response_code(404);
             $publicView = '404';
         } else {
@@ -309,14 +317,20 @@ switch ($page) {
             require_once BASE_PATH . '/models/Property.php';
             $propertyModel = new Property();
 
+            // An agent's public profile counts the work the public can see,
+            // so both the grid and the two figures beside it read approved
+            // listings only — otherwise the headline number and the grid
+            // beneath it disagree.
+            $publicScope = ['agent_id' => $agentId, 'approved_only' => true];
+
             $agentProperties = $propertyModel->getAll(
-                ['agent_id' => $agentId, 'status' => 'available'], 6, 0
+                $publicScope + ['status' => 'available'], 6, 0
             );
             $agentCovers = $propertyModel->getCoversFor(array_column($agentProperties, 'id'));
 
             $agentStats = [
-                'listings' => $propertyModel->count(['agent_id' => $agentId, 'status' => 'available']),
-                'total'    => $propertyModel->count(['agent_id' => $agentId]),
+                'listings' => $propertyModel->count($publicScope + ['status' => 'available']),
+                'total'    => $propertyModel->count($publicScope),
                 'since'    => !empty($agent['created_at'])
                     ? date('F Y', strtotime((string) $agent['created_at']))
                     : '',
@@ -382,8 +396,17 @@ switch ($page) {
             'edit'         => 'edit',
             'show'         => 'show',
             'delete-image' => 'deleteImage',
+            // Approval workflow — administrators only, enforced in the
+            // controller rather than here; the router's job is to find the
+            // method, not to decide who may reach it.
+            'approvals'    => 'approvals',
             'approve'      => 'approve',
+            'reject'       => 'reject',
+            // Archive workflow. `archived` is the list, and archive/restore
+            // are the two directions through it.
+            'archived'     => 'archived',
             'archive'      => 'archive',
+            'restore'      => 'restore',
             default        => 'index',
         };
         dispatch('PropertyController', $method);
@@ -510,15 +533,19 @@ switch ($page) {
         break;
 
     // ─── Reports ───────────────────────────────────────
+    // Eight reports, eight controller actions, one per tab — and the tab is
+    // the route rather than a piece of page state. Each is a real URL that
+    // can be bookmarked, shared with whoever has to answer for the number on
+    // it, and reached with the back button.
+    //
+    // The tab name is resolved through an allowlist on the controller, so a
+    // hand-typed ?tab=;DROP resolves to the overview rather than to a method
+    // name. Every one of those methods calls authorize() itself: none of them
+    // inherits it from index(), because a new report added later must fail
+    // closed if its author forgets.
     case 'reports':
-        $method = match ($action) {
-            'occupancy'  => 'occupancy',
-            'revenue'    => 'revenue',
-            'commission' => 'commission',
-            'arrears'    => 'arrears',
-            default      => 'index',
-        };
-        dispatch('ReportController', $method);
+        require_once BASE_PATH . '/controllers/ReportController.php';
+        dispatch('ReportController', ReportController::routeFor($_GET['tab'] ?? '', $action));
         break;
 
     // ─── Audit Logs ────────────────────────────────────

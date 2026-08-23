@@ -137,20 +137,41 @@ CREATE TABLE properties (
     has_security TINYINT(1) DEFAULT 0,
     utilities_included TEXT,
     status ENUM('available','reserved','rented','sold','inactive','maintenance') DEFAULT 'available',
+    -- Approval gates public visibility. An agent's listing is created
+    -- 'pending' and an administrator decides; an administrator's own listing
+    -- is created 'approved', because self-approval is not a review.
     approval_status ENUM('pending','approved','rejected') DEFAULT 'pending',
+    approved_by INT DEFAULT NULL,
+    approved_at DATETIME DEFAULT NULL,
+    approval_note TEXT DEFAULT NULL,
     owner_id INT DEFAULT NULL,
     agent_id INT DEFAULT NULL,
     branch_id INT DEFAULT NULL,
+    -- Who submitted the listing. Distinct from agent_id, which is the
+    -- assignment and can be reassigned by an administrator.
+    created_by INT DEFAULT NULL,
+    -- Archive is reversible: status_before_archive holds the status the
+    -- property carried on its way in, so a restore returns it to the
+    -- register in the state it left. Independent of approval — archiving
+    -- neither approves nor un-approves.
     is_archived TINYINT(1) DEFAULT 0,
+    archived_at DATETIME DEFAULT NULL,
+    archived_by INT DEFAULT NULL,
+    status_before_archive VARCHAR(20) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES owners(id) ON DELETE SET NULL,
     FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (archived_by) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_prop_status (status),
     INDEX idx_prop_type (property_type),
     INDEX idx_prop_category (category),
-    INDEX idx_prop_code (property_code)
+    INDEX idx_prop_code (property_code),
+    INDEX idx_prop_approval (approval_status, is_archived, created_at),
+    INDEX idx_prop_archived (is_archived, archived_at)
 ) ENGINE=InnoDB;
 
 -- ─── PROPERTY IMAGES ───────────────────────────────────────

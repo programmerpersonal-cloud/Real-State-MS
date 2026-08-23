@@ -73,36 +73,55 @@ $toolbar = [
 
 /** The row actions a property offers, filtered by permission inside uiRowActions(). */
 $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): string {
+    $id      = (int) $p['id'];
     $pending = ($p['approval_status'] ?? '') === 'pending';
+    $record  = $p['property_code'] . ' · ' . $p['title'];
 
     return uiRowActions([
-        ['label' => 'View details', 'icon' => 'bi-eye',    'url' => $showUrl((int) $p['id']), 'can' => 'properties.show'],
-        ['label' => 'Edit',         'icon' => 'bi-pencil', 'url' => $editUrl((int) $p['id']), 'can' => 'properties.edit'],
+        ['label' => 'View details', 'icon' => 'bi-eye',    'url' => $showUrl($id), 'can' => 'properties.show'],
+        ['label' => 'Edit',         'icon' => 'bi-pencil', 'url' => $editUrl($id), 'can' => 'properties.edit'],
 
         // Offered only while there is something to approve, so the menu says
         // what can be done now rather than listing every verb the module has.
+        //
+        // A signed POST rather than a link. Approving publishes a listing to
+        // the public site, and a state change reachable by GET is one a
+        // prefetcher, a crawler or a shared bookmark can perform unasked.
         ...($pending ? [[
             'label' => 'Approve listing', 'icon' => 'bi-check2-circle', 'can' => 'properties.approve',
-            'url'     => $listUrl . '&action=approve&id=' . (int) $p['id'],
+            'method' => 'post', 'url' => $listUrl . '&action=approve',
+            'fields' => ['id' => $id],
             'confirm' => [
                 'title'  => 'Approve this listing?',
-                'body'   => 'It becomes visible on the public site and can be reserved, let or sold.',
+                'body'   => 'It becomes visible on the public site and can be reserved, let or sold. The agent who submitted it is notified.',
                 'action' => 'Approve',
                 'tone'   => 'info',
-                'record' => $p['property_code'] . ' · ' . $p['title'],
+                'record' => $record,
             ],
         ]] : []),
 
         ['label' => 'Archive', 'icon' => 'bi-archive', 'can' => 'properties.archive', 'danger' => true,
-         'url'     => $listUrl . '&action=archive&id=' . (int) $p['id'],
+         'method' => 'post', 'url' => $listUrl . '&action=archive',
+         'fields' => ['id' => $id],
          'confirm' => [
              'title'  => 'Archive this property?',
-             'body'   => 'It is removed from the register and from public listings. Leases, payments and documents already recorded against it are kept.',
+             // The wording changed because the behaviour did: archiving is now
+             // reversible, and a confirmation that does not say so reads as a
+             // deletion and stops people using it.
+             'body'   => 'It moves to Archived Properties and comes off the public site. Nothing is deleted — photos, owner, agent, leases, payments and documents are kept, and you can restore it at any time.',
              'action' => 'Archive property',
-             'record' => $p['property_code'] . ' · ' . $p['title'],
+             'record' => $record,
          ]],
     ]);
 };
+?>
+
+<?php
+/* Active / Pending approval / Archived. The register is three lists, and
+   until this strip existed only the first of them was reachable — a property
+   archived from the menu below simply disappeared. */
+$activeRegister = 'active';
+require __DIR__ . '/_register_tabs.php';
 ?>
 
 <?php require VIEWS_PATH . '/components/ui/list_toolbar.php'; ?>
@@ -198,7 +217,20 @@ $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): str
                                 <span class="text-subtle">—</span>
                             <?php endif ?>
                         </td>
-                        <td><?= uiStatus($p['status']) ?></td>
+                        <td>
+                            <?= uiStatus($p['status']) ?>
+                            <?php if (($p['approval_status'] ?? '') !== 'approved'): ?>
+                                <?php /* The register lists approved and unapproved listings
+                                         together, so an unapproved one has to say so — its
+                                         status pill reads "Available" while the public
+                                         cannot see it, and that is a contradiction the row
+                                         has to resolve itself. */ ?>
+                                <div class="person__meta">
+                                    <?= uiStatus($p['approval_status'],
+                                        $p['approval_status'] === 'pending' ? 'Awaiting approval' : 'Returned') ?>
+                                </div>
+                            <?php endif ?>
+                        </td>
                         <td class="cell-date col-mid"><?= formatDate($p['updated_at'] ?? $p['created_at']) ?></td>
                         <td class="cell-actions"><?= $rowActions($p) ?></td>
                     </tr>
@@ -228,7 +260,16 @@ $rowActions = static function (array $p) use ($showUrl, $editUrl, $listUrl): str
                    aria-label="Open <?= sanitize($p['title']) ?>">
                     <img src="<?= sanitize(propertyImage($p, $cover)) ?>"
                          alt="" loading="lazy" width="400" height="250">
-                    <?= uiStatus($p['status']) ?>
+                    <?php /* Approval outranks status on the cover. A card reading
+                             "Available" over a listing the public cannot see is the
+                             card telling the reader the opposite of the truth, and
+                             there is only room for one pill here. */ ?>
+                    <?php if (($p['approval_status'] ?? '') !== 'approved'): ?>
+                        <?= uiStatus($p['approval_status'],
+                            $p['approval_status'] === 'pending' ? 'Awaiting approval' : 'Returned') ?>
+                    <?php else: ?>
+                        <?= uiStatus($p['status']) ?>
+                    <?php endif ?>
                 </a>
                 <div class="prop-card__body">
                     <h3 class="prop-card__title">

@@ -1095,9 +1095,37 @@ function initModal(modal) {
   if (!dialog) return;
   let lastFocused = null;
 
+  /**
+   * Copy the record a trigger names into the dialog.
+   *
+   * A dialog that asks about one row — "return this listing, and why" —
+   * would otherwise have to be rendered once per row, so a page of twenty
+   * submissions carried twenty hidden copies of the same form. Instead the
+   * trigger says which record it means:
+   *
+   *   <button data-modal-open="…" data-fill-id="7" data-fill-record="PRP-1 · Flat">
+   *   <input name="id" data-fill="id">   <p data-fill="record"></p>
+   *
+   * Values are written with .value / .textContent, never innerHTML, so a
+   * record's title is text on arrival and cannot bring markup with it.
+   */
+  const fillFrom = (trigger) => {
+    if (!trigger) return;
+    Object.keys(trigger.dataset).forEach(key => {
+      if (key.length <= 4 || key.slice(0, 4) !== 'fill') return;
+      const name = key.charAt(4).toLowerCase() + key.slice(5);
+      dialog.querySelectorAll('[data-fill="' + name + '"]').forEach(target => {
+        const isField = /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
+        if (isField) target.value = trigger.dataset[key];
+        else target.textContent = trigger.dataset[key];
+      });
+    });
+  };
+
   const open = (trigger) => {
     if (!modal.hidden) return;
     lastFocused = document.activeElement;
+    fillFrom(trigger);
     modal.hidden = false;
     // Measured while the dialog is mounted but before .is-open starts the
     // transition, so the box being measured is the one about to move.

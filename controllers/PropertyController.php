@@ -81,6 +81,10 @@ class PropertyController
         $totalCount = $this->model->count($filters);
         $totalPages = (int) ceil($totalCount / ITEMS_PER_PAGE);
 
+        // The register strip: Active / Pending approval / Archived, with the
+        // quantity on each. One query for all three — see stateCounts().
+        $stateCounts = $this->model->stateCounts();
+
         // Covers for the whole page in one query, for the grid view. Batched
         // rather than fetched per card: at 20 rows the obvious version costs
         // 20 round trips to draw one screen.
@@ -105,6 +109,7 @@ class PropertyController
             'totalPages' => $totalPages,
             'totalCount' => $totalCount,
             'formData'   => $formData,
+            'stateCounts'=> $stateCounts,
             'openCreateModal' => ($_GET['modal'] ?? '') === 'create',
             'pageTitle'  => 'Properties',
             'breadcrumbs'=> [['label' => 'Properties']],
@@ -167,6 +172,28 @@ class PropertyController
                     'longitude' => trim((string)($_POST['longitude'] ?? '')),
                 ]), $failUrl);
             }
+
+            /* Approval is decided here, from the session, and never from the
+               form. `approval_status` is not among the fields
+               extractPropertyData() reads, so a POST carrying one is ignored
+               rather than trusted — the only thing that moves this value is
+               the role of the person signed in.
+
+               An administrator publishing their own listing is the review:
+               asking them to approve a property they just wrote would be a
+               queue entry addressed to the person who created it, and an
+               inbox message asking them to check their own work. An agent's
+               listing enters the queue as 'pending' and waits. */
+            $isApprover = $this->userIsApprover();
+            // Generated here rather than left to the model, so the flash and
+            // the administrators' notification can name the property by the
+            // code the record will actually carry.
+            $data['property_code']   = generateCode('PRP');
+            $data['created_by']      = (int) $_SESSION['user_id'];
+            $data['approval_status'] = $isApprover ? 'approved' : 'pending';
+            $data['approved_by']     = $isApprover ? (int) $_SESSION['user_id'] : null;
+            $data['approved_at']     = $isApprover ? date('Y-m-d H:i:s') : null;
+
             $id = $this->model->create($data);
             if ($id) {
                 if (!empty($_FILES['images']['name'][0])) {
@@ -183,7 +210,31 @@ class PropertyController
                 }
                 $this->model->logChange($id, 'created');
                 logAudit('created_property', 'property', $id);
-                setFlash('success', 'Property created successfully!');
+
+                if ($isApprover) {
+                    $this->model->logChange($id, 'approved', 'approval_status', '', 'approved');
+                    setFlash('success', 'Property created and published.');
+                } else {
+                    /* One notification per administrator, written once, at the
+                       moment the listing actually enters the queue. Nothing
+                       here runs on a page view, so refreshing the register
+                       cannot manufacture a second copy. */
+                    $this->model->logChange($id, 'submitted_for_approval', 'approval_status', '', 'pending');
+                    notifyAdmins(
+                        'New property awaiting approval',
+                        sprintf(
+                            'A new property (%s — %s) has been submitted by %s and requires your approval.',
+                            $data['property_code'] ?? '',
+                            $data['title'],
+                            getCurrentUser()['full_name'] ?? 'an agent'
+                        ),
+                        'warning',
+                        'property',
+                        $id,
+                        (int) $_SESSION['user_id']
+                    );
+                    setFlash('success', 'Property submitted for approval. An administrator will review it before it goes live.');
+                }
                 redirect(APP_URL . '/index.php?page=properties&action=show&id=' . $id);
             }
             setFlash('error', 'Failed to create property.');
@@ -381,27 +432,348 @@ class PropertyController
         ]);
     }
 
+    /* ═══════════════════════════════════════════════════════════════
+       Approval workflow
+
+       One rule, stated once: only an administrator decides whether a
+       listing is fit to publish. It is enforced in three places that must
+       all agree, and each is there for a different failure —
+
+         permissionMatrix()   withholds properties.approve from every role but
+                              the administrator, so authorize() refuses a typed
+                              URL before any work is done;
+         userIsApprover()     re-asserts the role itself, so the rule survives
+                              somebody widening the matrix by accident;
+         the self-approval    refuses even an administrator signing off a
+         guard                listing they submitted themselves, because a
+                              review by its own author is not a review.
+
+       Nothing in this section reads approval state out of the request.
+       ═══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Whether the signed-in user may sign a listing off.
+     *
+     * Both halves are required. The permission is the system's answer and the
+     * role is the business rule, and they are checked together so that
+     * granting properties.approve to a non-administrator — by a matrix edit, a
+     * merge, or a future role — still does not produce an approver.
+     */
+    private function userIsApprover(): bool
+    {
+        return hasRole(ROLE_ADMIN) && can('properties.approve');
+    }
+
+    /**
+     * The approval queue: agent-submitted listings waiting on a decision.
+     *
+     * Administrator-only, behind the same permission that performs the
+     * decision — a queue somebody may read but never act on only frustrates
+     * them.
+     */
+    public function approvals(): void
+    {
+        authorize('properties.approve');
+
+        // 'pending' by default, because that is what the page is for. The
+        // other two states are reachable so a past decision can be reviewed,
+        // and all three are checked against this list rather than trusted.
+        $state = uiPick($_GET['state'] ?? '', ['pending', 'approved', 'rejected']) ?: 'pending';
+
+        $filters = [
+            'scoped'          => true,
+            'approval_status' => $state,
+            'with_workflow'   => true,
+            'search'          => trim((string) ($_GET['search'] ?? '')),
+            'category'        => uiPick($_GET['category'] ?? '', array_keys(self::CATEGORIES)),
+            'agent_id'        => max(0, (int) ($_GET['agent_id'] ?? 0)) ?: '',
+            // Oldest first: the queue is worked from the front, and the
+            // submission that has waited longest is the one that matters.
+            'sort'            => uiSortValue(array_keys(Property::SORTS), 'oldest'),
+        ];
+
+        $page       = max(1, (int) ($_GET['p'] ?? 1));
+        $offset     = ($page - 1) * ITEMS_PER_PAGE;
+        $properties = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
+        $totalCount = $this->model->count($filters);
+
+        renderPage(VIEWS_PATH . '/admin/properties/approvals.php', array_merge(self::formLookups(), [
+            'properties'     => $properties,
+            'covers'         => $this->model->getCoversFor(array_column($properties, 'id')),
+            'filters'        => $filters,
+            'categories'     => self::CATEGORIES,
+            'state'          => $state,
+            'stateCounts'    => $this->model->stateCounts(),
+            'approvalCounts' => $this->approvalCounts(),
+            'page'           => $page,
+            'totalPages'     => (int) ceil($totalCount / ITEMS_PER_PAGE),
+            'totalCount'     => $totalCount,
+            'pageTitle'      => 'Property Approvals',
+            'breadcrumbs'    => [
+                ['label' => 'Properties', 'url' => APP_URL . '/index.php?page=properties'],
+                ['label' => 'Approvals'],
+            ],
+        ]));
+    }
+
+    /** Pending / approved / rejected, unarchived, for the queue's own pills. */
+    private function approvalCounts(): array
+    {
+        [$scope, $params] = propertyRecordScope('p');
+        $stmt = getDBConnection()->prepare("
+            SELECT SUM(p.approval_status = 'pending')  AS pending,
+                   SUM(p.approval_status = 'approved') AS approved,
+                   SUM(p.approval_status = 'rejected') AS rejected
+            FROM properties p
+            WHERE p.is_archived = 0 AND ({$scope})
+        ");
+        $stmt->execute($params);
+        $row = $stmt->fetch() ?: [];
+        return [
+            'pending'  => (int) ($row['pending']  ?? 0),
+            'approved' => (int) ($row['approved'] ?? 0),
+            'rejected' => (int) ($row['rejected'] ?? 0),
+        ];
+    }
+
     public function approve(): void
     {
         authorize('properties.approve');
-        $id = (int)($_GET['id'] ?? 0);
-        authorizeRecord(canManageProperty($this->model->findById($id)), 'property', $id);
-        $this->model->update($id, ['approval_status' => 'approved']);
-        $this->model->logChange($id, 'approved');
-        logAudit('approved_property', 'property', $id);
-        setFlash('success', 'Property approved.');
-        redirect(APP_URL . '/index.php?page=properties&action=show&id=' . $id);
+        // POST-only, then CSRF. The order matters: validateCSRFToken() waves
+        // every non-POST request through, so without requirePost() a GET
+        // carrying no token at all would reach the update below.
+        requirePost();
+        enforceCSRF();
+
+        $id = (int) ($_POST['id'] ?? 0);
+        $property = $this->model->findById($id);
+        authorizeRecord($property !== null && canManageProperty($property), 'property', $id);
+
+        // Belt and braces over the permission: the business rule is "an
+        // administrator approves", asserted against the role as well as the
+        // matrix. A refusal here is a genuine escalation attempt, and
+        // authorizeRecord() writes it to the audit log as one.
+        authorizeRecord($this->userIsApprover(), 'property.approval', $id);
+
+        // Nobody signs off their own submission, seniority included.
+        authorizeRecord(
+            (int) ($property['created_by'] ?? 0) !== (int) $_SESSION['user_id'],
+            'property.self-approval',
+            $id
+        );
+
+        if (($property['approval_status'] ?? '') === 'approved') {
+            setFlash('info', 'That property is already approved.');
+            redirect($this->afterDecisionUrl($id));
+        }
+
+        $this->model->update($id, [
+            'approval_status' => 'approved',
+            'approved_by'     => (int) $_SESSION['user_id'],
+            'approved_at'     => date('Y-m-d H:i:s'),
+            // A previous rejection's reason is spent once the listing is
+            // approved; leaving it would have the record contradict itself.
+            'approval_note'   => null,
+        ]);
+        $this->model->logChange($id, 'approved', 'approval_status', (string) $property['approval_status'], 'approved');
+        logAudit('approved_property', 'property', $id, (string) $property['approval_status'], 'approved');
+
+        $this->notifySubmitter(
+            $property,
+            'Property approved',
+            sprintf('Your property "%s" (%s) has been approved and is now live.',
+                $property['title'], $property['property_code']),
+            'success'
+        );
+
+        setFlash('success', 'Property approved. It is now live on the register and the public site.');
+        redirect($this->afterDecisionUrl($id));
+    }
+
+    /**
+     * Send a listing back to its agent with a reason.
+     *
+     * The reason is the whole point — "rejected", alone, leaves the agent to
+     * guess what to change — so it is required rather than optional, and it
+     * travels to them in the notification as well as sitting on the record.
+     */
+    public function reject(): void
+    {
+        authorize('properties.approve');
+        requirePost();
+        enforceCSRF();
+
+        $id = (int) ($_POST['id'] ?? 0);
+        $property = $this->model->findById($id);
+        authorizeRecord($property !== null && canManageProperty($property), 'property', $id);
+        authorizeRecord($this->userIsApprover(), 'property.approval', $id);
+
+        $note = trim(sanitize($_POST['approval_note'] ?? ''));
+        if ($note === '') {
+            setFlash('error', 'A reason is required, so the agent knows what to change.');
+            redirect($this->afterDecisionUrl($id));
+        }
+
+        $this->model->update($id, [
+            'approval_status' => 'rejected',
+            'approved_by'     => (int) $_SESSION['user_id'],
+            'approved_at'     => date('Y-m-d H:i:s'),
+            'approval_note'   => $note,
+        ]);
+        $this->model->logChange($id, 'rejected', 'approval_status', (string) $property['approval_status'], 'rejected');
+        logAudit('rejected_property', 'property', $id, (string) $property['approval_status'], 'rejected');
+
+        $this->notifySubmitter(
+            $property,
+            'Property returned for changes',
+            sprintf('Your property "%s" (%s) was not approved. Reason: %s',
+                $property['title'], $property['property_code'], $note),
+            'warning'
+        );
+
+        setFlash('success', 'Property returned to the agent with your note.');
+        redirect($this->afterDecisionUrl($id));
+    }
+
+    /**
+     * Tell whoever submitted the listing what was decided.
+     *
+     * Addressed to created_by — the person who filed it — falling back to the
+     * assigned agent for records that predate that column. Never sent to the
+     * decider: an administrator who approves a listing they are also the agent
+     * for does not need an inbox entry describing what they just did.
+     */
+    private function notifySubmitter(array $property, string $title, string $message, string $type): void
+    {
+        $target = (int) ($property['created_by'] ?? 0) ?: (int) ($property['agent_id'] ?? 0);
+        if ($target > 0 && $target !== (int) $_SESSION['user_id']) {
+            notify($target, $title, $message, $type, 'property', (int) $property['id']);
+        }
+    }
+
+    /**
+     * Where an approval decision returns to.
+     *
+     * Back to the queue when the decision was made from the queue — there is
+     * usually a next one waiting, and returning to the record after each
+     * decision makes working through ten of them ten trips back. Taken from
+     * the property page, it stays on the property.
+     */
+    private function afterDecisionUrl(int $id): string
+    {
+        $from = (string) ($_POST['from'] ?? $_GET['from'] ?? '');
+        return $from === 'approvals'
+            ? APP_URL . '/index.php?page=properties&action=approvals'
+            : APP_URL . '/index.php?page=properties&action=show&id=' . $id;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       Archive workflow
+
+       Archiving used to be a one-way door: the register hid the row, the
+       status was overwritten with 'inactive', and no screen in the
+       application could list an archived property or bring one back. The
+       three actions below close that loop — archived() is the list,
+       restore() is the way out, and Property::archive() remembers the
+       status so the way out lands somewhere honest.
+       ═══════════════════════════════════════════════════════════════ */
+
+    /**
+     * The archive.
+     *
+     * Behind properties.archive rather than properties.view, because this is a
+     * management screen: the people who may put a property in it are the
+     * people who may take one out.
+     */
+    public function archived(): void
+    {
+        authorize('properties.archive');
+
+        $filters = [
+            'scoped'        => true,
+            'archived'      => 1,
+            'with_workflow' => true,
+            'search'        => trim((string) ($_GET['search'] ?? '')),
+            'property_type' => uiPick($_GET['property_type'] ?? '', array_keys(self::LISTING_TYPES)),
+            'category'      => uiPick($_GET['category'] ?? '', array_keys(self::CATEGORIES)),
+            'owner_id'      => max(0, (int) ($_GET['owner_id'] ?? 0)) ?: '',
+            'sort'          => uiSortValue(array_keys(Property::SORTS), 'updated_desc'),
+        ];
+
+        $page       = max(1, (int) ($_GET['p'] ?? 1));
+        $offset     = ($page - 1) * ITEMS_PER_PAGE;
+        $properties = $this->model->getAll($filters, ITEMS_PER_PAGE, $offset);
+        $totalCount = $this->model->count($filters);
+
+        renderPage(VIEWS_PATH . '/admin/properties/archived.php', array_merge(self::formLookups(), [
+            'properties'   => $properties,
+            'covers'       => $this->model->getCoversFor(array_column($properties, 'id')),
+            'filters'      => $filters,
+            'listingTypes' => self::LISTING_TYPES,
+            'categories'   => self::CATEGORIES,
+            'stateCounts'  => $this->model->stateCounts(),
+            'page'         => $page,
+            'totalPages'   => (int) ceil($totalCount / ITEMS_PER_PAGE),
+            'totalCount'   => $totalCount,
+            'pageTitle'    => 'Archived Properties',
+            'breadcrumbs'  => [
+                ['label' => 'Properties', 'url' => APP_URL . '/index.php?page=properties'],
+                ['label' => 'Archived'],
+            ],
+        ]));
     }
 
     public function archive(): void
     {
         authorize('properties.archive');
-        $id = (int)($_GET['id'] ?? 0);
-        authorizeRecord(canManageProperty($this->model->findById($id)), 'property', $id);
-        $this->model->delete($id);
-        logAudit('archived_property', 'property', $id);
-        setFlash('success', 'Property archived.');
-        redirect(APP_URL . '/index.php?page=properties');
+        requirePost();
+        enforceCSRF();
+
+        $id = (int) ($_POST['id'] ?? 0);
+        $property = $this->model->findById($id);
+        authorizeRecord($property !== null && canManageProperty($property), 'property', $id);
+
+        if (!$this->model->archive($id, (int) $_SESSION['user_id'])) {
+            setFlash('info', 'That property is already archived.');
+            redirect(APP_URL . '/index.php?page=properties&action=archived');
+        }
+
+        $this->model->logChange($id, 'archived', 'status', (string) $property['status'], 'inactive');
+        logAudit('archived_property', 'property', $id, (string) $property['status'], 'archived');
+        setFlash('success', 'Property archived. It is kept in full and can be restored at any time.');
+        redirect(APP_URL . '/index.php?page=properties&action=archived');
+    }
+
+    /**
+     * Bring an archived property back into the register.
+     *
+     * The approval state is deliberately untouched. A listing that was pending
+     * when it was archived is pending when it returns — restoring is not a way
+     * around the review, and archiving was never a way to lose one.
+     */
+    public function restore(): void
+    {
+        authorize('properties.restore', 'properties.archive');
+        requirePost();
+        enforceCSRF();
+
+        $id = (int) ($_POST['id'] ?? 0);
+        $property = $this->model->findById($id);
+        authorizeRecord($property !== null && canManageProperty($property), 'property', $id);
+
+        if (!$this->model->restore($id)) {
+            setFlash('info', 'That property is already in the active register.');
+            redirect(APP_URL . '/index.php?page=properties&action=archived');
+        }
+
+        $restored = $property['status_before_archive'] ?: 'available';
+        $this->model->logChange($id, 'restored', 'status', 'inactive', $restored);
+        logAudit('restored_property', 'property', $id, 'archived', 'active');
+        setFlash('success', sprintf(
+            'Property restored to the register as %s.',
+            strtolower(uiLabel($restored))
+        ));
+        redirect(APP_URL . '/index.php?page=properties&action=show&id=' . $id);
     }
 
     public function deleteImage(): void

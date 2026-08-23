@@ -146,11 +146,28 @@
 
 @media(max-width:1024px){
   .navbar__inner{gap:var(--space-4)}
-  .nav-toggle{display:inline-flex}
   .navbar__actions .btn--outline{display:none}
 
+  /* The drawer turns `position:fixed` here, so it leaves the flex row
+     and stops pushing the actions across. Without an auto margin the
+     trigger lands beside the brand, mid-bar, instead of at the edge. */
+  .navbar__actions{margin-left:auto}
+  /* A long company name gives up width before the trigger does. */
+  .brand{flex-shrink:1}
+
+  /* The bar outranks both the scrim and the panel, so the trigger stays
+     lit, on top and clickable while the drawer is open — one button
+     both opens and closes it. */
+  .site-header{z-index:230}
+  .nav-toggle{display:inline-flex;position:relative;z-index:1}
+  /* Same button, second state: the hamburger becomes a ✕ off the
+     aria-expanded the script already maintains. */
+  .nav-toggle[aria-expanded="true"] .bi-list::before{content:"\f659"}
+
   .navmenu{
-    position:fixed;top:0;right:0;bottom:0;z-index:220;
+    /* Opens below the bar rather than over it, so the panel can never
+       cover the brand or the close button. 40px mirrors .topbar. */
+    position:fixed;top:calc(var(--navbar-height) + 40px);right:0;bottom:0;z-index:220;
     width:min(360px,86vw);
     background:var(--surface);
     border-left:1px solid var(--border);
@@ -163,11 +180,13 @@
     margin-left:0;
   }
   .navmenu.is-open{transform:translateX(0)}
-  .navmenu__head{
-    display:flex;align-items:center;justify-content:space-between;
-    padding-bottom:var(--space-4);margin-bottom:var(--space-3);
-    border-bottom:1px solid var(--border);
-  }
+  /* The topbar collapses on scroll; the panel follows it up. */
+  .is-scrolled .navmenu{top:var(--navbar-height)}
+  /* The bar above the panel already carries the brand and the close
+     control, so repeating both inside the panel is noise. Hidden, not
+     removed: #navClose keeps working as a fallback close target for
+     anything that reaches it programmatically. */
+  .navmenu__head{display:none}
   .navmenu__close{
     width:44px;height:44px;display:grid;place-items:center;
     background:transparent;border:1px solid var(--border);
@@ -2168,7 +2187,9 @@ body.has-drawer{overflow:hidden}
   /* Header CTA and menu button as a matched pair. */
   .navbar__actions{gap:var(--space-2)}
   .navbar__actions .btn--sm{min-height:40px;padding:8px 14px}
-  .nav-toggle{width:42px;height:42px;flex-shrink:0}
+  /* 44px, not 42: the trigger is the one control on a phone that has
+     no second way in, so it gets the full recommended target. */
+  .nav-toggle{width:44px;height:44px;flex-shrink:0}
 }
 
 @media(max-width:640px){

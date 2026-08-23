@@ -69,6 +69,15 @@
 @media(prefers-reduced-motion:reduce){.notice__link i{transition:none}.notice__link:hover i{transform:none}}
 /* The glyph goes rather than the padding: on a narrow screen the text needs
    the full width more than the banner needs an ornament. */
+/* Tone modifiers. The base is a warning — that is what the banner was first
+   written for — and a notice that is simply explaining something should not
+   wear an alarm colour it has not earned. Each modifier moves the left rule
+   and the glyph together, so the two never disagree about how urgent the
+   message is. */
+.notice--info{border-left-color:var(--info)}
+.notice--info .notice__icon{background:var(--info-bg);color:var(--info)}
+.notice--muted{border-left-color:var(--border-strong)}
+.notice--muted .notice__icon{background:var(--surface-3);color:var(--text-muted)}
 @media(max-width:560px){.notice{padding:10px 12px}.notice__icon{display:none}}
 
 /* ─── Buttons ───────────────────────────────────────────── */
@@ -141,6 +150,40 @@
   text-align:center;display:flex;flex-direction:column;gap:6px;
 }
 .text-center{text-align:center}
+
+/* ─── Social account row ────────────────────────────────── */
+/* Icon links to the company's profiles, rendered by
+   views/components/social_links.php. Icon-only by design: each link
+   carries its network's name as screen-reader text and as a tooltip,
+   so nothing here is conveyed by the glyph alone. */
+.social-row{list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0;padding:0}
+.social-row__link{
+  width:40px;height:40px;display:grid;place-items:center;
+  border-radius:var(--radius);color:var(--text-muted);font-size:1rem;
+  background:var(--surface-2);border:1px solid var(--border);
+  transition:color var(--transition),background var(--transition),
+             border-color var(--transition),transform var(--transition-fast);
+}
+.social-row__link:hover{
+  color:#fff;background:var(--primary);border-color:var(--primary);
+  transform:translateY(-2px);
+}
+.social-row__link:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media(pointer:coarse){.social-row__link{width:44px;height:44px}}
+@media(prefers-reduced-motion:reduce){.social-row__link:hover{transform:none}}
+
+/* A field with a leading glyph. The icon is decorative — it repeats what the
+   label already says — so it is pointer-inert and the input carries its own
+   left padding, which is what keeps the value from running underneath it.
+   Composes with .input-reveal, which owns the right-hand side of the box. */
+.input-icon{position:relative;display:block}
+.input-icon > i{
+  position:absolute;left:13px;top:50%;transform:translateY(-50%);
+  color:var(--text-subtle);font-size:.95rem;line-height:1;pointer-events:none;
+  transition:color var(--transition);
+}
+.input-icon .form-control{padding-left:38px}
+.input-icon:focus-within > i{color:var(--primary)}
 
 /* A password field with a reveal button inside it. The input keeps its own
    padding on the right so the text never runs under the button. */
@@ -798,6 +841,48 @@ body.is-modal-open{overflow:hidden}
 .person__meta{font-size:var(--fs-2xs);color:var(--text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 a.person:hover .person__name{color:var(--primary)}
 
+
+/* Media cell — a thumbnail, a title and a line of meta, in one table cell.
+
+   The archive and the approval queue are both lists of properties somebody
+   has to *recognise* rather than read: a listing archived four months ago is
+   remembered as a building, not as PRP-20260816-DB6F1. The photograph does
+   that work, and .person above cannot — it is round, avatar-sized, and a
+   32px circle of a warehouse is not a warehouse.
+
+   The thumbnail is fixed at 56×42 with an explicit width/height in the markup
+   so the row's height is reserved before the image arrives and the table does
+   not jolt as a screenful of covers loads. */
+.media-cell{display:flex;align-items:center;gap:10px;min-width:0}
+.media-cell__thumb{
+  width:56px;height:42px;flex-shrink:0;object-fit:cover;
+  border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--surface-3);
+}
+.media-cell__body{display:flex;flex-direction:column;min-width:0;gap:2px;line-height:1.35}
+.media-cell__body .person__meta{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.media-cell__body .person__meta span{display:inline-flex;align-items:center;gap:4px}
+
+/* One primary action beside the overflow menu.
+
+   On a screen whose entire purpose is a single verb — Restore, in the
+   archive; Approve, in the approval queue — hiding that verb inside a ⋮
+   charges a click for the only thing anybody came to do. The rest of the
+   actions stay in the menu, so the row still has exactly one obvious move
+   and the hierarchy reads at a glance.
+
+   Nowrap, because the pair must not break across two lines and double the
+   height of every row in the table. */
+.cell-actions__pair{
+  display:inline-flex;align-items:center;gap:var(--space-2);
+  justify-content:flex-end;white-space:nowrap;
+}
+
+@media (max-width:560px){
+  /* The photograph is the first thing to go: at this width the title needs
+     the room more than the row needs a thumbnail. */
+  .media-cell__thumb{display:none}
+}
 
 /* An applied filter, shown as a removable chip so what is narrowing the
    list is visible without reopening the filter controls. */

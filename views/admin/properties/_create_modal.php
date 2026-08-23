@@ -20,7 +20,18 @@ $uid = 'pm';
         <header class="modal__header">
             <div>
                 <h3 class="modal__title" id="propertyCreateTitle"><i class="bi bi-house-add"></i> Add Property</h3>
-                <p class="modal__subtitle">New listings start as <strong>pending approval</strong>.</p>
+                <?php /* Says what will actually happen to *this* person's listing.
+                         An administrator publishes directly; an agent submits for
+                         review. Stating the wrong one is worse than saying nothing,
+                         and the old copy told administrators their own listing
+                         would sit in a queue waiting for them. */ ?>
+                <p class="modal__subtitle">
+                    <?php if (hasRole(ROLE_ADMIN)): ?>
+                        Published immediately — listings you create are <strong>approved</strong> on save.
+                    <?php else: ?>
+                        Submitted for review — an administrator approves it before it goes live.
+                    <?php endif ?>
+                </p>
             </div>
             <button type="button" class="modal__close" data-modal-close aria-label="Close">
                 <i class="bi bi-x-lg"></i>

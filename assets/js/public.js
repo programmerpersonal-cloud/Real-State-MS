@@ -51,7 +51,12 @@
       toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
 
       if (open) {
-        var first = menu.querySelector('a, button');
+        // First *visible* control, not simply the first in the DOM: on
+        // mobile the panel's own head is display:none, and focusing a
+        // hidden button would strand the focus ring where nobody can
+        // see it.
+        var first = Array.prototype.slice.call(menu.querySelectorAll('a, button'))
+          .filter(function (el) { return el.offsetParent !== null; })[0];
         if (first) first.focus();
       } else {
         toggle.focus();

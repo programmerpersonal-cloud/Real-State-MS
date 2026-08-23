@@ -19,6 +19,9 @@
  *   counts   array   [value => int]                  optional
  *   total    int     count for the "All" pill        optional
  *   all      string  label for the "All" pill        (default 'All')
+ *                    pass false when there is no such thing — the property
+ *                    approval queue is one of pending/approved/rejected and a
+ *                    mixed list is not a queue anyone works from
  *   tones    bool    colour the dots from the status map (default true)
  *
  * The options are the same array the controller validates the request against,
@@ -43,7 +46,11 @@ $urlFor = static function (string $status) use ($param): string {
     return APP_URL . '/index.php?' . http_build_query($params);
 };
 
-$items = ['' => $sf['all'] ?? 'All'] + ($sf['options'] ?? []);
+$allLabel = $sf['all'] ?? 'All';
+$items    = ($sf['options'] ?? []);
+if ($allLabel !== false && $allLabel !== null) {
+    $items = ['' => $allLabel] + $items;
+}
 ?>
 <nav class="status-tabs" aria-label="Filter by status">
     <?php foreach ($items as $key => $label): ?>

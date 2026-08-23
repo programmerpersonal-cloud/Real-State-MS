@@ -19,11 +19,17 @@ class Property
             SELECT p.*, o.full_name AS owner_name,
                    u.full_name AS agent_name, u.avatar AS agent_avatar,
                    u.email AS agent_email, u.phone AS agent_phone,
-                   b.name AS branch_name
+                   b.name AS branch_name,
+                   ap.full_name AS approved_by_name,
+                   ab.full_name AS archived_by_name,
+                   sb.full_name AS submitted_by_name
             FROM properties p
             LEFT JOIN owners o ON p.owner_id = o.id
             LEFT JOIN users u ON p.agent_id = u.id
             LEFT JOIN branches b ON p.branch_id = b.id
+            LEFT JOIN users ap ON p.approved_by = ap.id
+            LEFT JOIN users ab ON p.archived_by = ab.id
+            LEFT JOIN users sb ON p.created_by  = sb.id
             WHERE p.id = :id
         ");
         $stmt->execute([':id' => $id]);
@@ -37,13 +43,15 @@ class Property
                 INSERT INTO properties (property_code, title, property_type, category, description, location, address,
                     latitude, longitude,
                     size_sqm, num_rooms, num_bathrooms, num_floors, price, rent_amount, deposit_amount,
-                    is_furnished, has_parking, has_security, utilities_included, status, approval_status,
-                    owner_id, agent_id, branch_id)
+                    is_furnished, has_parking, has_security, utilities_included, status,
+                    approval_status, approved_by, approved_at,
+                    owner_id, agent_id, branch_id, created_by)
                 VALUES (:code, :title, :type, :cat, :desc, :loc, :addr,
                     :lat, :lng,
                     :size, :rooms, :baths, :floors, :price, :rent, :deposit,
-                    :furnished, :parking, :security, :utilities, :status, :approval,
-                    :owner_id, :agent_id, :branch_id)
+                    :furnished, :parking, :security, :utilities, :status,
+                    :approval, :approved_by, :approved_at,
+                    :owner_id, :agent_id, :branch_id, :created_by)
             ");
             $stmt->execute([
                 ':code'      => $data['property_code'] ?? generateCode('PRP'),
@@ -67,10 +75,15 @@ class Property
                 ':security'  => $data['has_security'] ?? 0,
                 ':utilities' => $data['utilities_included'] ?? '',
                 ':status'    => $data['status'] ?? 'available',
+                // The caller decides the approval state, because the answer
+                // depends on who is signed in — see PropertyController::create().
                 ':approval'  => $data['approval_status'] ?? 'pending',
+                ':approved_by' => $data['approved_by'] ?? null,
+                ':approved_at' => $data['approved_at'] ?? null,
                 ':owner_id'  => $data['owner_id'] ?: null,
                 ':agent_id'  => $data['agent_id'] ?: null,
                 ':branch_id' => $data['branch_id'] ?: null,
+                ':created_by'=> $data['created_by'] ?? null,
             ]);
             return (int) $this->db->lastInsertId();
         } catch (PDOException $e) {
@@ -86,7 +99,12 @@ class Property
         $allowed = ['title','property_type','category','description','location','address',
             'latitude','longitude','size_sqm','num_rooms','num_bathrooms','num_floors','price','rent_amount','deposit_amount',
             'is_furnished','has_parking','has_security','utilities_included','status','approval_status',
-            'owner_id','agent_id','branch_id','is_archived'];
+            'owner_id','agent_id','branch_id','is_archived',
+            // Workflow columns. Never populated from request input — approve(),
+            // reject(), archive() and restore() set them from the session and
+            // the clock, so a hand-crafted POST cannot forge an approver.
+            'approved_by','approved_at','approval_note',
+            'archived_at','archived_by','status_before_archive','created_by'];
 
         foreach ($allowed as $field) {
             if (array_key_exists($field, $data)) {
@@ -100,10 +118,74 @@ class Property
         return $this->db->prepare($sql)->execute($params);
     }
 
+    /**
+     * Archive a property, remembering the way back.
+     *
+     * The previous version wrote `is_archived = 1, status = 'inactive'` and
+     * threw the old status away, which made archiving a one-way door: nothing
+     * left on the row said whether the property had been available, rented or
+     * reserved, so no restore could put it back honestly. The status it held
+     * on the way in is kept in status_before_archive, and the who/when in
+     * archived_by/archived_at.
+     *
+     * Approval is deliberately untouched. Filing a property away is not a
+     * review of it, and a restore must not smuggle an approval through.
+     *
+     * Already-archived rows are refused rather than re-archived — a double
+     * submit would otherwise overwrite the remembered status with 'inactive'
+     * and lose it for good.
+     */
+    public function archive(int $id, ?int $userId = null): bool
+    {
+        $stmt = $this->db->prepare("SELECT status, is_archived FROM properties WHERE id = ? LIMIT 1");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        if (!$row || (int) $row['is_archived'] === 1) {
+            return false;
+        }
+
+        return $this->update($id, [
+            'is_archived'           => 1,
+            'status_before_archive' => $row['status'],
+            'status'                => 'inactive',
+            'archived_at'           => date('Y-m-d H:i:s'),
+            'archived_by'           => $userId ?: ($_SESSION['user_id'] ?? null),
+        ]);
+    }
+
+    /**
+     * Return an archived property to the register in the state it left.
+     *
+     * Falls back to 'available' only when there is nothing remembered — rows
+     * archived before this workflow existed, which the migration could not
+     * invent a previous status for.
+     *
+     * Nothing is deleted and nothing is re-created: images, owner, agent,
+     * documents, leases and history all hang off the same row and are
+     * untouched by the flag flipping back.
+     */
+    public function restore(int $id): bool
+    {
+        $stmt = $this->db->prepare("SELECT status_before_archive, is_archived FROM properties WHERE id = ? LIMIT 1");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        if (!$row || (int) $row['is_archived'] === 0) {
+            return false;
+        }
+
+        return $this->update($id, [
+            'is_archived'           => 0,
+            'status'                => $row['status_before_archive'] ?: 'available',
+            'archived_at'           => null,
+            'archived_by'           => null,
+            'status_before_archive' => null,
+        ]);
+    }
+
+    /** Kept as the soft-delete entry point the rest of the app already calls. */
     public function delete(int $id): bool
     {
-        // Soft delete (archive)
-        return $this->update($id, ['is_archived' => 1, 'status' => 'inactive']);
+        return $this->archive($id);
     }
 
     /**
@@ -117,8 +199,40 @@ class Property
      */
     private function buildFilters(array $filters): array
     {
-        $where  = ['p.is_archived = 0'];
+        $where  = [];
         $params = [];
+
+        /* Archive state.
+         *
+         * `p.is_archived = 0` used to be hard-coded here, which is why there
+         * was no way to list an archived property from anywhere in the app —
+         * the only query that could reach one was findById(). It is now a
+         * filter with the same default, so every existing caller behaves
+         * exactly as before and the archive page opts in:
+         *
+         *   (absent) / 0  active only        the register, the public site
+         *   1             archived only      the archive page
+         *   'any'         both               nothing needs this yet, but a
+         *                                    report might, and the alternative
+         *                                    is a second copy of this method.
+         *
+         * The two are mutually exclusive by construction, so a property can
+         * never appear in the active list and the archive at the same time.
+         */
+        $archived = $filters['archived'] ?? 0;
+        if ($archived !== 'any') {
+            $where[] = 'p.is_archived = ' . ((int) $archived === 1 ? '1' : '0');
+        }
+
+        // Approval state. `approved_only` is the public site's gate: a listing
+        // an administrator has not approved is not a listing the world sees.
+        // `approval_status` is the staff queue's filter.
+        if (!empty($filters['approved_only'])) {
+            $where[] = "p.approval_status = 'approved'";
+        } elseif (!empty($filters['approval_status'])) {
+            $where[] = 'p.approval_status = :appr';
+            $params[':appr'] = $filters['approval_status'];
+        }
 
         // Opt-in record scoping, for the management register only.
         //
@@ -177,7 +291,9 @@ class Property
             $params[':minb'] = (int) $filters['min_baths'];
         }
 
-        return ['WHERE ' . implode(' AND ', $where), $params];
+        // 'archived' => 'any' with no other filter leaves nothing to say, and
+        // a bare "WHERE" is a syntax error rather than an empty filter.
+        return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $params];
     }
 
     /**
@@ -217,11 +333,27 @@ class Property
         [$whereClause, $params] = $this->buildFilters($filters);
         $orderBy = self::SORTS[$filters['sort'] ?? ''] ?? self::SORTS['newest'];
 
+        /* The archive page and the approval queue name the people behind the
+           workflow columns — who filed this away, who submitted it, who signed
+           it off. Three more LEFT JOINs on a primary key is nothing, but the
+           public listings grid has no use for them, so they are opt-in rather
+           than paid for on every page that lists a property. */
+        $workflow = !empty($filters['with_workflow'])
+            ? ', ab.full_name AS archived_by_name, sb.full_name AS submitted_by_name,'
+              . ' ap.full_name AS approved_by_name'
+            : '';
+        $workflowJoins = !empty($filters['with_workflow'])
+            ? 'LEFT JOIN users ab ON p.archived_by = ab.id
+               LEFT JOIN users sb ON p.created_by  = sb.id
+               LEFT JOIN users ap ON p.approved_by = ap.id'
+            : '';
+
         $stmt = $this->db->prepare("
-            SELECT p.*, o.full_name AS owner_name, u.full_name AS agent_name
+            SELECT p.*, o.full_name AS owner_name, u.full_name AS agent_name{$workflow}
             FROM properties p
             LEFT JOIN owners o ON p.owner_id = o.id
             LEFT JOIN users u ON p.agent_id = u.id
+            {$workflowJoins}
             {$whereClause}
             ORDER BY {$orderBy}
             LIMIT :limit OFFSET :offset
@@ -239,6 +371,47 @@ class Property
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM properties p {$whereClause}");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * How many properties sit in each state of the register, in one query.
+     *
+     * The three tabs across the top of the Properties page — Active, Pending
+     * approval, Archived — are three counts of the same table under the same
+     * access scope, and asking for them separately would be three round trips
+     * to draw one strip of pills. Conditional SUMs give all three in one pass.
+     *
+     * The scope is the same predicate the list itself uses, so an agent's
+     * "Pending approval" count is their own listings, never the whole office's.
+     *
+     * @return array{active:int, pending:int, rejected:int, archived:int}
+     */
+    public function stateCounts(bool $scoped = true): array
+    {
+        $params = [];
+        $scopeSql = '1 = 1';
+        if ($scoped) {
+            [$scopeSql, $params] = propertyRecordScope('p');
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT
+                SUM(p.is_archived = 0)                                          AS active,
+                SUM(p.is_archived = 0 AND p.approval_status = 'pending')         AS pending,
+                SUM(p.is_archived = 0 AND p.approval_status = 'rejected')        AS rejected,
+                SUM(p.is_archived = 1)                                           AS archived
+            FROM properties p
+            WHERE ({$scopeSql})
+        ");
+        $stmt->execute($params);
+        $row = $stmt->fetch() ?: [];
+
+        return [
+            'active'   => (int) ($row['active']   ?? 0),
+            'pending'  => (int) ($row['pending']  ?? 0),
+            'rejected' => (int) ($row['rejected'] ?? 0),
+            'archived' => (int) ($row['archived'] ?? 0),
+        ];
     }
 
     /**
@@ -287,7 +460,8 @@ class Property
      */
     public function countByCategory(string $status = 'available'): array
     {
-        $sql = "SELECT category, COUNT(*) AS n FROM properties WHERE is_archived = 0";
+        $sql = "SELECT category, COUNT(*) AS n FROM properties
+                 WHERE is_archived = 0 AND approval_status = 'approved'";
         $params = [];
         if ($status !== '') {
             $sql .= " AND status = :st";
@@ -316,6 +490,7 @@ class Property
             FROM properties p
             LEFT JOIN users u ON p.agent_id = u.id
             WHERE p.is_archived = 0
+              AND p.approval_status = 'approved'
               AND p.status = 'available'
               AND p.id <> :pid
             ORDER BY (p.category = :cat) DESC, p.created_at DESC
