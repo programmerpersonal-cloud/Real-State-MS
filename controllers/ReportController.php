@@ -70,7 +70,7 @@ class ReportController
         'rentals' => [
             'label' => 'Rentals',
             'icon'  => 'bi-house-check',
-            'blurb' => 'Occupancy, vacancy, lease expiry and rent collection.',
+            'blurb' => 'Tenancies, occupancy, lease expiry and the rent they are owed.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'sales' => [
@@ -118,7 +118,7 @@ class ReportController
      * coming is navigation, and a tab that appears later without warning is a
      * surprise. Nothing in either case shows a number that is not real.
      */
-    private const BUILT = ['overview', 'financial', 'properties', 'payments', 'performance'];
+    private const BUILT = ['overview', 'financial', 'properties', 'rentals', 'payments', 'performance'];
 
     /**
      * The request's tab, resolved to a controller method.
@@ -234,6 +234,7 @@ class ReportController
             'overview'    => $this->overviewData($analytics, $compare),
             'financial'   => $this->financialData($analytics, $compare),
             'properties'  => $this->propertiesData($analytics, $compare),
+            'rentals'     => $this->rentalsData($analytics),
             'payments'    => $this->paymentsData($analytics, $compare),
             'performance' => $this->performanceData($analytics),
             default       => [],
@@ -699,11 +700,23 @@ class ReportController
      */
     private function propertiesData(CoreAnalytics $analytics, bool $compare): array
     {
-        $state     = $analytics->portfolioState();
-        $inventory = $analytics->inventory();
-        $occupancy = $analytics->occupancy();
-        $locations = $analytics->portfolioLocations(15);
-        $streams   = $analytics->revenueByStream();
+        // $compare is accepted for a uniform dispatcher signature and then
+        // deliberately unused: there is nothing on this report that can be
+        // compared with a previous period. Portfolio state has no history to
+        // compare against, and revenue here is per-property detail rather
+        // than a headline figure. Turning the toggle on changes the toolbar
+        // and nothing else, which is the honest outcome.
+        unset($compare);
+
+        // Each of these is fetched exactly once and then passed on. The
+        // insight rules used to ask the model again for the inventory and the
+        // composition they were being shown alongside, which cost four extra
+        // round trips per render for figures already in hand.
+        $state       = $analytics->portfolioState();
+        $inventory   = $analytics->inventory();
+        $occupancy   = $inventory['occupancy'];
+        $locations   = $analytics->portfolioLocations(15);
+        $composition = $analytics->portfolioComposition();
 
         $perPage = 25;
         $total   = $analytics->portfolioTableCount();
@@ -714,20 +727,24 @@ class ReportController
             'state'            => $state,
             'inventory'        => $inventory,
             'occupancy'        => $occupancy,
-            'composition'      => $analytics->portfolioComposition(),
+            'composition'      => $composition,
             'listingIntent'    => $analytics->portfolioListingIntent(),
             'locations'        => $locations,
             'portfolio'        => $analytics->portfolioTable($perPage, ($page - 1) * $perPage),
             'portfolioTotal'   => $total,
             'portfolioPage'    => $page,
             'portfolioPages'   => $pages,
-            'revenue'          => (float) $streams['total'],
-            'previousRevenue'  => $compare ? $analytics->collectedRevenue(true) : null,
+            // No company revenue total and no comparison figure. This report
+            // shows revenue per property in the table and nowhere else, and
+            // fetching a portfolio-wide total the view never prints cost four
+            // aggregates a render for nothing.
             'integrityFlags'   => $analytics->portfolioIntegrityFlags(),
             'unattributed'     => $analytics->unattributedRevenue(),
             'ledger'           => null,
             'dataQuality'      => reportDataQuality(),
-            'insights'         => $this->portfolioInsights($analytics, $state, $occupancy, $locations),
+            'insights'         => $this->portfolioInsights(
+                $analytics, $state, $occupancy, $locations, $composition, $inventory
+            ),
         ];
     }
 
@@ -746,7 +763,9 @@ class ReportController
         CoreAnalytics $analytics,
         array $state,
         array $occupancy,
-        array $locations
+        array $locations,
+        array $composition,
+        array $inventory
     ): array {
         $out    = [];
         $window = $analytics->window();
@@ -803,7 +822,6 @@ class ReportController
         }
 
         // Composition, but only where there is a mix to describe.
-        $composition = $analytics->portfolioComposition();
         if (count($composition) > 1 && $total > 0) {
             $top = $composition[0];
             $out[] = [
@@ -847,7 +865,7 @@ class ReportController
             ];
         }
 
-        $pending = (int) ($analytics->inventory()['lifecycle']['pending_approval'] ?? 0);
+        $pending = (int) ($inventory['lifecycle']['pending_approval'] ?? 0);
         if ($pending > 0) {
             $out[] = [
                 'rank'   => 15,
@@ -860,6 +878,165 @@ class ReportController
                     $pending === 1 ? 'listing is' : 'listings are'
                 ),
                 'metric' => number_format($pending),
+            ];
+        }
+
+        usort($out, static fn(array $a, array $b): int => ($a['rank'] ?? 50) <=> ($b['rank'] ?? 50));
+
+        return array_slice($out, 0, 5);
+    }
+
+    /**
+     * The rentals report.
+     *
+     * Two clocks run here and the report keeps them apart. The tenancy
+     * figures — how many are active, what the rent roll is, when they end —
+     * are current-state and do not move with the reporting window. The rent
+     * ledger figures do: expected and settled are bounded by the window on
+     * the due-date axis, exactly as the approved collection rate requires.
+     *
+     * Nothing is re-derived. Occupancy comes from occupancy(), the ledger
+     * from rentLedger() and rentLedgerSeries(); this method adds the tenancy
+     * dimension around them.
+     *
+     * @return array<string,mixed>
+     */
+    private function rentalsData(CoreAnalytics $analytics): array
+    {
+        $summary   = $analytics->leaseSummary();
+        $occupancy = $analytics->occupancy();
+        $ledger    = $analytics->rentLedger();
+        $expiry    = $analytics->leaseExpiryBuckets();
+        $flags     = $analytics->leaseIntegrityFlags();
+
+        $perPage = 25;
+        $total   = $analytics->leaseTableCount('active');
+        $pages   = max(1, (int) ceil($total / $perPage));
+        $page    = max(1, min($pages, (int) ($_GET['p'] ?? 1)));
+
+        return [
+            'summary'       => $summary,
+            'occupancy'     => $occupancy,
+            'ledger'        => $ledger,
+            'ledgerSeries'  => $analytics->rentLedgerSeries(),
+            'expiry'        => $expiry,
+            'leases'        => $analytics->leaseTable('active', $perPage, ($page - 1) * $perPage),
+            'leaseTotal'    => $total,
+            'leasePage'     => $page,
+            'leasePages'    => $pages,
+            'attention'     => $analytics->leaseTable('attention', 25, 0),
+            'leaseFlags'    => $flags,
+            'unattributed'  => $analytics->unattributedRevenue(),
+            'dataQuality'   => reportDataQuality(),
+            'insights'      => $this->rentalInsights($analytics, $summary, $occupancy, $ledger, $expiry, $flags),
+        ];
+    }
+
+    /**
+     * Rental insights, derived rather than written.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function rentalInsights(
+        CoreAnalytics $analytics,
+        array $summary,
+        array $occupancy,
+        array $ledger,
+        array $expiry,
+        array $flags
+    ): array {
+        $out    = [];
+        $window = $analytics->window();
+        $filter = $analytics->filters();
+        $by     = static function (array $expiry, string $key): int {
+            foreach ($expiry as $b) { if ($b['key'] === $key) { return (int) $b['count']; } }
+            return 0;
+        };
+
+        // An expired tenancy still flagged active is the most urgent thing a
+        // rentals report can say, so it leads when it happens.
+        $expired = $by($expiry, 'expired');
+        if ($expired > 0) {
+            $out[] = [
+                'rank' => 5, 'tone' => 'danger', 'icon' => 'bi-calendar-x',
+                'label' => 'Expired', 'metric' => number_format($expired),
+                'text' => sprintf(
+                    '%d %s still marked active but past its end date — the tenancy has run out and the record has not caught up.',
+                    $expired, $expired === 1 ? 'lease is' : 'leases are'
+                ),
+            ];
+        }
+
+        $soon = $by($expiry, 'd7') + $by($expiry, 'd30') + $by($expiry, 'd60');
+        if ($soon > 0) {
+            $out[] = [
+                'rank' => 10, 'tone' => 'warning', 'icon' => 'bi-hourglass-split',
+                'label' => 'Ending soon', 'metric' => number_format($soon),
+                'text' => sprintf(
+                    '%d %s within 60 days and %s renewal or re-letting.',
+                    $soon, $soon === 1 ? 'tenancy ends' : 'tenancies end',
+                    $soon === 1 ? 'needs' : 'need'
+                ),
+            ];
+        }
+
+        if ((int) $ledger['overdue_count'] > 0) {
+            $out[] = [
+                'rank' => 20, 'tone' => 'danger', 'icon' => 'bi-exclamation-triangle',
+                'label' => 'Arrears',
+                'metric' => formatCurrency((float) $ledger['arrears']),
+                'text' => sprintf(
+                    '%s is overdue across %d scheduled %s.',
+                    formatCurrency((float) $ledger['arrears']),
+                    (int) $ledger['overdue_count'],
+                    (int) $ledger['overdue_count'] === 1 ? 'instalment' : 'instalments'
+                ),
+                'url' => reportUrl($window, $filter, ['tab' => 'payments']),
+            ];
+        }
+
+        if ($ledger['collection_rate'] !== null && $ledger['expected'] > 0 && $ledger['collection_rate'] < 90.0) {
+            $out[] = [
+                'rank' => 30,
+                'tone' => $ledger['collection_rate'] < 70.0 ? 'danger' : 'warning',
+                'icon' => 'bi-percent', 'label' => 'Collection',
+                'metric' => reportPercent($ledger['collection_rate']),
+                'text' => sprintf(
+                    'Only %s of the rent scheduled in this period has been settled. Measured against a 90%% attention threshold, not a company target.',
+                    reportPercent($ledger['collection_rate'])
+                ),
+            ];
+        }
+
+        if ((int) $occupancy['rentable'] > 0 && (int) $occupancy['vacant'] > 0) {
+            $out[] = [
+                'rank' => 40, 'tone' => 'info', 'icon' => 'bi-house-dash',
+                'label' => 'Vacancy',
+                'metric' => reportPercent($occupancy['rate']) . ' let',
+                'text' => sprintf(
+                    '%d of %d rentable %s standing empty.',
+                    (int) $occupancy['vacant'], (int) $occupancy['rentable'],
+                    (int) $occupancy['vacant'] === 1 ? 'property is' : 'properties are'
+                ),
+            ];
+        }
+
+        // Money owed against tenancies that have already ended. Not a
+        // performance figure — a collectability one, and easily missed
+        // because it sits inside the company-wide arrears total.
+        $ended = $flags['ended_with_balance'] ?? null;
+        if ($ended && $ended['count'] > 0 && $ended['amount'] > 0) {
+            $out[] = [
+                'rank' => 25, 'tone' => 'warning', 'icon' => 'bi-journal-x',
+                'label' => 'Ended tenancies',
+                'metric' => formatCurrency((float) $ended['amount']),
+                'text' => sprintf(
+                    '%s is still unsettled on %d ended %s, of which %s is already overdue.',
+                    formatCurrency((float) $ended['amount']),
+                    (int) $ended['count'],
+                    (int) $ended['count'] === 1 ? 'tenancy' : 'tenancies',
+                    formatCurrency((float) $ended['arrears'])
+                ),
             ];
         }
 

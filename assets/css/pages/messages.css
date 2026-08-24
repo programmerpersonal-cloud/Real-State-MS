@@ -1,0 +1,664 @@
+/* ================================================================
+   MESSAGES — the communication workspace
+   ----------------------------------------------------------------
+   Loaded only by ?page=messages, through $pageStyles in
+   views/messages/index.php. Same arrangement pages/reports.css uses:
+   a two-panel workspace is no use to the other twenty-five screens
+   and should not be in their stylesheet.
+
+   Nothing here introduces a colour, a radius or a spacing value.
+   Every one is a token from design-system.css / tokens-app.css.
+
+   ── The height model ──────────────────────────────────────────
+   A chat panel needs its own scroll region, which means it needs a
+   *bounded* height — and the shell is deliberately unbounded
+   (`.app{min-height:100dvh}`), because every other page grows as
+   long as its content.
+
+   Rather than subtract a guessed stack of header, page-header and
+   footer heights — arithmetic that breaks the moment any of them
+   changes — the shell is bounded for this page only, and the panels
+   then simply flex into what is left. No numbers, nothing to keep
+   in step:
+
+     .app:has(.msg)            height:100dvh   (was min-height)
+     .app__main, .app__content min-height:0    (let children shrink)
+     .msg                      flex:1          (take what remains)
+     .msg__items/.msg__stream  overflow-y:auto (scroll inside)
+
+   :has() is doing real work here, so the @supports block at the
+   foot of this file gives browsers without it a plain, scrolling
+   page with capped scroll regions. It degrades to "usable and
+   slightly taller", never to "broken".
+   ================================================================ */
+
+/* ─── Bounding the shell, for this page only ─────────────────── */
+.app:has(.msg) {
+  height: 100vh;          /* honest fallback */
+  height: 100dvh;         /* corrects for mobile browser chrome */
+  min-height: 0;
+  overflow: hidden;
+}
+.app:has(.msg) .app__main { min-height: 0; }
+.app:has(.msg) .app__content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+/* The page header keeps its own height; only the workspace flexes. */
+.app:has(.msg) .page-header { flex: 0 0 auto; }
+
+/* ─── The workspace ──────────────────────────────────────────── */
+.msg {
+  --msg-list-w: 336px;
+
+  display: grid;
+  grid-template-columns: var(--msg-list-w) minmax(0, 1fr);
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+  /* Never let a long name or a wide context tag push the page sideways. */
+  max-width: 100%;
+}
+
+.msg__list,
+.msg__panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+}
+
+/* ─── Inbox: head, search, filters ───────────────────────────── */
+.msg__list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.msg__list-title { min-width: 0; }
+.msg__list-heading {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: .01em;
+}
+.msg__total {
+  display: block;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.msg__new { white-space: nowrap; }
+
+.msg__search {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.msg__search .input-icon { flex: 1; min-width: 0; }
+.msg__search .form-control { height: var(--control-h-sm); font-size: var(--fs-xs); }
+
+.msg__filters {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.msg__filters::-webkit-scrollbar { display: none; }
+.msg__filter {
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease;
+}
+.msg__filter:hover { background: var(--surface-3); color: var(--text); }
+.msg__filter.is-active { background: var(--primary-light); color: var(--primary-ink); }
+
+/* ─── Inbox: the list ────────────────────────────────────────── */
+.msg__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.msg__items--empty { display: flex; align-items: center; justify-content: center; padding: var(--space-4); }
+
+.msg__item { border-bottom: 1px solid var(--border); }
+.msg__item:last-child { border-bottom: 0; }
+
+.msg__item-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  /* The unread marker rail. Transparent when read, so the text never
+     shifts sideways as a conversation changes state. */
+  border-left: 3px solid transparent;
+  color: inherit;
+  transition: background .15s ease;
+}
+.msg__item-link:hover { background: var(--surface-2); }
+.msg__item-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.msg__item.is-active .msg__item-link {
+  background: var(--primary-tint);
+  border-left-color: var(--primary);
+}
+/* Unread is signalled three ways — rail, weight, badge — never by
+   colour alone. */
+.msg__item.is-unread .msg__item-link { border-left-color: var(--primary); }
+.msg__item.is-unread .msg__item-name { font-weight: 700; }
+.msg__item.is-unread .msg__item-preview { color: var(--text-body); font-weight: 500; }
+
+.msg__item-body { min-width: 0; }
+.msg__item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.msg__item-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  /* A long name shortens rather than widening the panel. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.msg__item-time {
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.msg__item-role,
+.msg__item-context,
+.msg__item-preview {
+  display: block;
+  font-size: var(--fs-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg__item-role { color: var(--text-subtle); margin-top: 1px; }
+.msg__item-context {
+  color: var(--primary-ink);
+  margin-top: 3px;
+  font-weight: 500;
+}
+.msg__item-context .bi { font-size: .85em; margin-right: 3px; }
+.msg__item-preview { color: var(--text-muted); margin-top: 3px; }
+.msg__item-preview--none { font-style: italic; color: var(--text-subtle); }
+
+.msg__item-badge {
+  align-self: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: #fff;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.msg__list-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.msg__list-count { font-size: var(--fs-2xs); color: var(--text-subtle); }
+
+/* ─── Thread: header ─────────────────────────────────────────── */
+.msg__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.msg__back {
+  display: none;          /* narrow screens only — see the media query */
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--primary);
+  padding: 6px 4px 6px 0;
+  min-height: 44px;
+}
+.msg__head-who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
+}
+.msg__head-text { min-width: 0; }
+.msg__head-name {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg__head-role {
+  margin: 1px 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+}
+.msg__head-flag { color: var(--warning); font-weight: 600; }
+.msg__head-actions { flex: 0 0 auto; }
+
+/* ─── Thread: business context ───────────────────────────────── */
+.msg__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  flex: 0 0 auto;
+}
+.msg__context-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-pill);
+  background: var(--primary-light);
+  color: var(--primary-ink);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.msg__context-tag:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.msg__context-out { font-size: .8em; opacity: .75; }
+.msg__context-tag--plain {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+.msg__context-tag--closed {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+/* ─── Thread: the message stream ─────────────────────────────── */
+.msg__stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-4);
+  background: var(--surface-2);
+}
+.msg__stream:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.msg__stream-empty { display: flex; align-items: center; justify-content: center; min-height: 100%; }
+
+.msg__earlier { text-align: center; margin: 0 0 var(--space-4); }
+
+.msg__list-messages { list-style: none; margin: 0; padding: 0; }
+
+.msg__day {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-3);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.msg__day::before,
+.msg__day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.msg__list-messages > .msg__day:first-child { margin-top: 0; }
+
+.msg__msg { display: flex; margin-bottom: var(--space-3); }
+.msg__msg--mine { justify-content: flex-end; }
+
+.msg__msg-inner {
+  max-width: min(78%, 620px);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+/* Sent messages differ by surface, border and alignment as well as by
+   author name — three signals, so none of them is load-bearing alone. */
+.msg__msg--mine .msg__msg-inner {
+  background: var(--primary-tint);
+  border-color: var(--primary-border);
+}
+.msg__msg--gone .msg__msg-inner { background: var(--surface-3); border-style: dashed; }
+
+.msg__msg-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 4px;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+}
+.msg__msg-author { font-weight: 700; color: var(--text-muted); }
+.msg__msg-edited { font-style: italic; }
+
+.msg__msg-body {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--text-body);
+  /* A pasted URL or a long reference must reflow, not widen the panel. */
+  overflow-wrap: anywhere;
+}
+.msg__msg--gone .msg__msg-body { color: var(--text-subtle); }
+
+/* ─── Composer ───────────────────────────────────────────────── */
+.msg__composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "field send" "hint hint";
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+.msg__textarea {
+  grid-area: field;
+  resize: vertical;
+  min-height: var(--control-h);
+  max-height: 40vh;
+  line-height: var(--lh-snug);
+}
+.msg__send { grid-area: send; align-self: end; }
+.msg__hint {
+  grid-area: hint;
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+}
+.msg__hint kbd {
+  font-family: var(--font-mono);
+  font-size: .95em;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+}
+.msg__composer--locked {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  background: var(--surface-3);
+}
+.msg__composer--locked p { margin: 0; font-size: var(--fs-xs); }
+
+/* ─── New conversation ───────────────────────────────────────── */
+.msg__compose { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.msg__compose-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+.msg__compose-context {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+  font-size: var(--fs-xs);
+}
+.msg__compose-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.msg__optional { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--text-subtle); }
+
+.msg__recipients { border: 0; padding: 0; margin: 0 0 var(--space-5); min-width: 0; }
+.msg__filter-box { margin-bottom: var(--space-3); }
+.msg__filter-box .form-control { height: var(--control-h-sm); font-size: var(--fs-xs); }
+
+.msg__contacts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.msg__contact { min-width: 0; }
+
+/* The radio is the control; the label is the target. Kept in the
+   accessibility tree and focusable rather than display:none, so the
+   group is still reachable and announced by keyboard. */
+.msg__contact-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.msg__contact-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color .15s ease, background .15s ease;
+}
+.msg__contact-label:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.msg__contact-input:focus-visible + .msg__contact-label {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.msg__contact-input:checked + .msg__contact-label {
+  border-color: var(--primary);
+  background: var(--primary-tint);
+}
+.msg__contact-text { min-width: 0; flex: 1; }
+.msg__contact-name {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg__contact-role { display: block; font-size: var(--fs-2xs); color: var(--text-muted); }
+.msg__contact-rel {
+  display: block;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  margin-top: 2px;
+}
+.msg__contact-tick { color: var(--primary); opacity: 0; flex: 0 0 auto; }
+.msg__contact-input:checked + .msg__contact-label .msg__contact-tick { opacity: 1; }
+
+.msg__contacts-none {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-subtle);
+  font-style: italic;
+}
+
+.msg__compose-field { min-width: 0; }
+.msg__compose-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+
+/* ─── Blank panel ────────────────────────────────────────────── */
+.msg__blank {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ─── Avatars (initials) ─────────────────────────────────────── */
+/* Only 2 of 24 accounts carry a photograph, so initials are the
+   normal presentation rather than the fallback. Decorative and
+   aria-hidden: the name is always rendered beside them. */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  letter-spacing: .02em;
+  line-height: 1;
+  object-fit: cover;
+  user-select: none;
+}
+.avatar--sm { width: 28px; height: 28px; font-size: var(--fs-2xs); }
+.avatar--md { width: 38px; height: 38px; font-size: var(--fs-xs); }
+.avatar--lg { width: 44px; height: 44px; font-size: var(--fs-sm); }
+
+/* Six tints, each a status/brand wash already in the palette paired
+   with its own accessible ink. No new colours are introduced. */
+.avatar--t0 { background: var(--primary-light); color: var(--primary-ink); }
+.avatar--t1 { background: var(--success-bg);    color: var(--success); }
+.avatar--t2 { background: var(--warning-bg);    color: var(--warning); }
+.avatar--t3 { background: var(--purple-bg);     color: var(--purple); }
+.avatar--t4 { background: var(--orange-bg);     color: var(--orange); }
+.avatar--t5 { background: var(--info-bg);       color: var(--info); }
+
+/* ─── Tablet ─────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .msg { --msg-list-w: 290px; gap: var(--space-3); }
+}
+
+/* ─── Narrow: the URL-driven takeover ────────────────────────── */
+/* The two panels stop coexisting. Which one is shown is decided by
+   the URL — .msg--detail is written by the view when a conversation
+   or the recipient picker is open — so Back is the browser's Back
+   and no script is involved. */
+@media (max-width: 860px) {
+  .msg {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  /* Inbox showing: the list is the page. */
+  .msg:not(.msg--detail) .msg__panel { display: none; }
+
+  /* Detail showing: the thread is the page. */
+  .msg--detail .msg__list { display: none; }
+
+  .msg__list,
+  .msg__panel { border-radius: var(--card-radius); }
+
+  .msg__back { display: inline-flex; }
+
+  /* Touch targets: a conversation row is a primary control on a
+     phone and gets the full 44px, plus room for a thumb. */
+  .msg__item-link { padding: var(--space-3) var(--space-4); min-height: 64px; }
+  .msg__filter { padding: 9px 14px; }
+
+  .msg__msg-inner { max-width: 88%; }
+
+  /* The composer is the reason this page is height-bounded: it must
+     stay put while the stream scrolls under it, and it must not be
+     pushed under the on-screen keyboard. 100dvh shrinks when the
+     keyboard opens, so the grid re-flows rather than overflowing. */
+  .msg__composer { padding: var(--space-3); }
+  .msg__textarea { max-height: 30vh; }
+}
+
+@media (max-width: 480px) {
+  .msg__list-head { padding: var(--space-3); }
+  .msg__search,
+  .msg__filters { padding-left: var(--space-3); padding-right: var(--space-3); }
+  .msg__item-link { padding: var(--space-3); }
+  .msg__stream { padding: var(--space-3); }
+  .msg__head { padding: var(--space-3); }
+  .msg__msg-inner { max-width: 92%; }
+  /* Send collapses to its icon; the label stays for screen readers. */
+  .msg__send span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+}
+
+/* ─── Fallback for browsers without :has() ───────────────────── */
+/* The shell stays unbounded, so the workspace cannot flex into a
+   fixed remainder. The scroll regions get explicit caps instead:
+   the page scrolls a little more, the composer still follows the
+   thread, and nothing is unreachable. */
+@supports not selector(:has(*)) {
+  .msg { min-height: 60vh; }
+  .msg__items { max-height: 68vh; }
+  .msg__stream { max-height: 58vh; }
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .msg__item-link,
+  .msg__contact-label,
+  .msg__filter,
+  .msg__context-tag { transition: none; }
+}

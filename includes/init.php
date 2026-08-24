@@ -59,6 +59,12 @@ require_once __DIR__ . '/property_access.php';
 // currentOwnerId()/currentCustomerId() and the same fail-closed conventions.
 require_once __DIR__ . '/record_access.php';
 
+// Who may talk to whom, and which conversations they may touch. After
+// record_access.php because it reuses currentOwnerId()/currentCustomerId() and
+// defers to canViewProperty()/canViewLease()/canViewMaintenanceRequest() for
+// the business context a conversation carries, rather than restating them.
+require_once __DIR__ . '/communication_access.php';
+
 // The reporting vocabulary — what a period is, what the period before it is,
 // which filters are real, and which rows already contradict each other. After
 // record_access.php because the data-quality checks read the same scopes the

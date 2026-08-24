@@ -542,6 +542,23 @@
 }
 .dq[open] .dq__chev{transform:rotate(180deg)}
 
+/* The rentals report carries a second, narrower panel beside the module-wide
+   one. Toned to the info ramp rather than the warning ramp so two amber
+   blocks do not stack and compete — these are tenancy record issues, and the
+   figures above them are unaffected either way. */
+.dq--rentals{
+  background:var(--info-bg);
+  border-color:color-mix(in srgb,var(--info) 22%,transparent);
+}
+.dq--rentals .dq__icon{color:var(--info)}
+.dq--rentals .dq__count{color:var(--info)}
+.dq--rentals .dq__list{border-top-color:color-mix(in srgb,var(--info) 18%,transparent)}
+.dq--rentals .dq__badge{
+  background:var(--info-bg);color:var(--info);
+  border-color:color-mix(in srgb,var(--info) 28%,transparent);
+}
+.dq--rentals .dq__summary:focus-visible{outline-color:var(--info)}
+
 .dq__list{
   list-style:none;margin:0;padding:0;
   border-top:1px solid color-mix(in srgb,var(--warning) 18%,transparent);
@@ -648,7 +665,11 @@
   .rtoolbar{border:none;box-shadow:none;padding:0;margin-bottom:var(--space-4)}
   .rtoolbar__period{border-top:none;padding-top:0;margin-top:0}
 
+  /* Four across suits the four-KPI reports. The five- and six-KPI ones read
+     better at three: six into four columns prints as 4+2, which leaves a
+     ragged half-row at the top of the page. */
   .kpis{grid-template-columns:repeat(4,1fr)}
+  .kpis--five,.kpis--six{grid-template-columns:repeat(3,1fr)}
   .rgrid--wide{grid-template-columns:1fr 1fr}
 
   .card,.kpi,.rpending,.dq{

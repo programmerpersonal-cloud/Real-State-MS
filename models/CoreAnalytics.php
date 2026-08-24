@@ -888,6 +888,240 @@ class CoreAnalytics extends Analytics
         ", $scopeParams + $filterParams + $this->periodParams());
     }
 
+    // ─── Rentals · tenancies and the rent roll ─────────────────────────
+    //
+    // The rental report reuses the approved rent ledger wholesale — expected,
+    // settled, arrears and not-yet-due all come from rentLedger() and
+    // rentLedgerSeries() rather than being re-derived here. What these
+    // methods add is the tenancy dimension: how many are running, when they
+    // end, and which one owes what.
+
+    /**
+     * Active tenancies and the rent they contract for.
+     *
+     * "Active" is `status = 'active'` and not past its end date — the same
+     * live-lease test occupancy() uses, so the two can never disagree about
+     * how many tenancies are running.
+     *
+     * `rent_roll` is the sum of contracted monthly rent across those
+     * tenancies. It is a standing figure, not a period one: it says what the
+     * book is worth per month today, and deliberately does not move with the
+     * reporting window.
+     *
+     * @return array<string,mixed>
+     */
+    public function leaseSummary(): array
+    {
+        [$scope, $params]           = $this->scope('lease', 'l', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $row = $this->row("
+            SELECT COUNT(*) AS active,
+                   COALESCE(SUM(l.rent_amount), 0) AS rent_roll,
+                   COALESCE(AVG(l.rent_amount), 0) AS average_rent,
+                   COALESCE(SUM(l.end_date <= DATE_ADD(:w_today, INTERVAL 60 DAY)), 0) AS ending_soon
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            WHERE l.status = 'active' AND l.end_date >= :w_today
+              AND ({$scope})
+              {$filterSql}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+
+        return [
+            'active'       => (int) ($row['active'] ?? 0),
+            'rent_roll'    => (float) ($row['rent_roll'] ?? 0),
+            'average_rent' => (int) ($row['active'] ?? 0) > 0 ? (float) $row['average_rent'] : null,
+            'ending_soon'  => (int) ($row['ending_soon'] ?? 0),
+        ];
+    }
+
+    /**
+     * When the running tenancies end.
+     *
+     * The buckets are mutually exclusive and an expired lease is never
+     * "expiring soon" — it has already gone, which is a different and more
+     * urgent problem. `expired` here means a lease still flagged active whose
+     * end date has passed: nothing rolls that status forward automatically, so
+     * the count is a queue rather than a statistic.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function leaseExpiryBuckets(): array
+    {
+        [$scope, $params]           = $this->scope('lease', 'l', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $row = $this->row("
+            SELECT COALESCE(SUM(l.end_date < :w_today), 0) AS expired,
+                   COALESCE(SUM(l.end_date >= :w_today
+                                AND l.end_date <= DATE_ADD(:w_today, INTERVAL 7 DAY)), 0) AS d7,
+                   COALESCE(SUM(l.end_date > DATE_ADD(:w_today, INTERVAL 7 DAY)
+                                AND l.end_date <= DATE_ADD(:w_today, INTERVAL 30 DAY)), 0) AS d30,
+                   COALESCE(SUM(l.end_date > DATE_ADD(:w_today, INTERVAL 30 DAY)
+                                AND l.end_date <= DATE_ADD(:w_today, INTERVAL 60 DAY)), 0) AS d60,
+                   COALESCE(SUM(l.end_date > DATE_ADD(:w_today, INTERVAL 60 DAY)), 0) AS beyond
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            WHERE l.status = 'active' AND ({$scope}) {$filterSql}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+
+        return [
+            ['key' => 'expired', 'label' => 'Already expired',   'count' => (int) ($row['expired'] ?? 0), 'tone' => '--danger'],
+            ['key' => 'd7',      'label' => 'Within 7 days',     'count' => (int) ($row['d7'] ?? 0),      'tone' => '--warning'],
+            ['key' => 'd30',     'label' => 'Within 30 days',    'count' => (int) ($row['d30'] ?? 0),     'tone' => '--orange'],
+            ['key' => 'd60',     'label' => 'Within 60 days',    'count' => (int) ($row['d60'] ?? 0),     'tone' => '--info'],
+            ['key' => 'beyond',  'label' => 'More than 60 days', 'count' => (int) ($row['beyond'] ?? 0),  'tone' => '--success'],
+        ];
+    }
+
+    /**
+     * One row per tenancy, with its own slice of the rent ledger.
+     *
+     * The ledger columns are per-lease aggregates computed in the same pass,
+     * so a tenancy cannot appear twice and no per-row query is issued. Which
+     * matters: joining leases to payment_schedules directly would multiply the
+     * lease row by its instalment count, and a table promising one row per
+     * tenancy would quietly stop keeping that promise.
+     *
+     * `expected` and `settled` are bounded by the reporting window on the
+     * due-date axis, matching the approved collection-rate definition.
+     * `outstanding` and `arrears` are running balances across the whole
+     * tenancy, which is why a lease can show more outstanding than expected.
+     *
+     * @param string $mode 'active' for the running book, 'attention' for the
+     *                     queue of expired and soon-ending tenancies
+     * @return array<int,array<string,mixed>>
+     */
+    public function leaseTable(string $mode = 'active', int $limit = 25, int $offset = 0): array
+    {
+        [$scope, $params]           = $this->scope('lease', 'l', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $limit  = max(1, min(100, $limit));
+        $offset = max(0, min(100000, $offset));
+
+        // Written here, never taken from the request.
+        $where = $mode === 'attention'
+            ? "l.status = 'active' AND l.end_date <= DATE_ADD(:w_today, INTERVAL 60 DAY)"
+            : "l.status = 'active' AND l.end_date >= :w_today";
+        $order = $mode === 'attention' ? 'l.end_date ASC' : 'l.end_date ASC';
+
+        return $this->rows("
+            SELECT l.id, l.lease_code, l.start_date, l.end_date, l.rent_amount, l.status,
+                   DATEDIFF(l.end_date, :w_today) AS days_left,
+                   p.id AS property_id, p.title AS property_title, p.property_code, p.status AS property_status,
+                   c.full_name AS tenant_name,
+                   COALESCE(SUM(CASE WHEN ps.due_date BETWEEN :w_from AND :w_to
+                                     THEN ps.amount + ps.penalty END), 0) AS expected,
+                   COALESCE(SUM(CASE WHEN ps.status = 'paid' AND ps.due_date BETWEEN :w_from AND :w_to
+                                     THEN ps.amount END), 0) AS settled,
+                   COALESCE(SUM(CASE WHEN ps.status <> 'paid'
+                                     THEN ps.amount + ps.penalty END), 0) AS outstanding,
+                   COALESCE(SUM(CASE WHEN ps.status IN ('overdue','partial')
+                                     THEN ps.amount + ps.penalty END), 0) AS arrears,
+                   COALESCE(SUM(ps.status = 'overdue'), 0) AS overdue_count
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            LEFT JOIN customers c ON l.customer_id = c.id
+            LEFT JOIN payment_schedules ps ON ps.lease_id = l.id
+            WHERE {$where} AND ({$scope}) {$filterSql}
+            GROUP BY l.id, l.lease_code, l.start_date, l.end_date, l.rent_amount, l.status,
+                     p.id, p.title, p.property_code, p.status, c.full_name
+            ORDER BY {$order}, l.id ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params + $filterParams + $this->periodParams() + [':w_today' => $this->window['today']]);
+    }
+
+    /** How many tenancies the active table pages through. */
+    public function leaseTableCount(string $mode = 'active'): int
+    {
+        [$scope, $params]           = $this->scope('lease', 'l', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $where = $mode === 'attention'
+            ? "l.status = 'active' AND l.end_date <= DATE_ADD(:w_today, INTERVAL 60 DAY)"
+            : "l.status = 'active' AND l.end_date >= :w_today";
+
+        return $this->count("
+            SELECT COUNT(*) FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            WHERE {$where} AND ({$scope}) {$filterSql}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+    }
+
+    /**
+     * Tenancy records that do not agree with themselves.
+     *
+     * Every one of these is a condition the schema permits and no workflow
+     * prevents. The last is the one worth reading twice: a terminated tenancy
+     * that still carries unpaid instalments contributes to company-wide
+     * arrears and to the outstanding balance, so the money is being reported
+     * against a let that has already ended.
+     *
+     * @return array<string,array{count:int,amount:float}>
+     */
+    public function leaseIntegrityFlags(): array
+    {
+        [$scope, $params]           = $this->scope('lease', 'l', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $row = $this->row("
+            SELECT COALESCE(SUM(l.status = 'active' AND l.end_date < :w_today), 0) AS active_past_end,
+                   COALESCE(SUM(l.end_date < l.start_date), 0) AS end_before_start,
+                   COALESCE(SUM(l.move_out_date IS NOT NULL AND l.move_in_date IS NOT NULL
+                                AND l.move_out_date < l.move_in_date), 0) AS moveout_before_movein,
+                   COALESCE(SUM(l.rent_amount <= 0), 0) AS zero_rent,
+                   COALESCE(SUM(l.status = 'active' AND p.status <> 'rented'), 0) AS status_disagrees
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+
+        // Two active tenancies on one property at once — the schema allows it
+        // and nothing checks for it.
+        $dup = $this->count("
+            SELECT COUNT(*) FROM (
+                SELECT l.property_id
+                FROM leases l
+                JOIN properties p ON l.property_id = p.id
+                WHERE l.status = 'active' AND ({$scope}) {$filterSql}
+                GROUP BY l.property_id
+                HAVING COUNT(*) > 1
+            ) dupes
+        ", $params + $filterParams);
+
+        // Money still owed against tenancies that have already ended.
+        $ended = $this->row("
+            SELECT COUNT(DISTINCT l.id) AS leases,
+                   COALESCE(SUM(CASE WHEN ps.status IN ('overdue','partial')
+                                     THEN ps.amount + ps.penalty END), 0) AS arrears,
+                   COALESCE(SUM(CASE WHEN ps.status = 'pending'
+                                     THEN ps.amount + ps.penalty END), 0) AS not_yet_due
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            JOIN payment_schedules ps ON ps.lease_id = l.id
+            WHERE l.status IN ('terminated','expired') AND ps.status <> 'paid'
+              AND ({$scope}) {$filterSql}
+        ", $params + $filterParams);
+
+        $n = static fn($v): array => ['count' => (int) $v, 'amount' => 0.0];
+
+        return [
+            'active_past_end'       => $n($row['active_past_end'] ?? 0),
+            'end_before_start'      => $n($row['end_before_start'] ?? 0),
+            'moveout_before_movein' => $n($row['moveout_before_movein'] ?? 0),
+            'zero_rent'             => $n($row['zero_rent'] ?? 0),
+            'status_disagrees'      => $n($row['status_disagrees'] ?? 0),
+            'duplicate_active'      => $n($dup),
+            'ended_with_balance'    => [
+                'count'       => (int) ($ended['leases'] ?? 0),
+                'amount'      => (float) ($ended['arrears'] ?? 0) + (float) ($ended['not_yet_due'] ?? 0),
+                'arrears'     => (float) ($ended['arrears'] ?? 0),
+                'not_yet_due' => (float) ($ended['not_yet_due'] ?? 0),
+            ],
+        ];
+    }
+
     // ─── Portfolio · inventory and composition ─────────────────────────
     //
     // Everything here is current-state. A property is occupied now, approved

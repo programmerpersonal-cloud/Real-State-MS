@@ -50,6 +50,16 @@ function permissionMatrix(): array
         // ─── Administrator ─────────────────────────────────────────────
         // Runs the company. The only role with a wildcard, and the only one
         // that may change who else can do what.
+        //
+        // The wildcard is an *authorization* statement — which modules and
+        // actions are open — and it is not a relationship. It grants
+        // `messages.create`, and `messages.create` means "starting a
+        // conversation is part of your job". It does not mean "with every
+        // account in the database": who an administrator may actually write
+        // to is decided by messageContactScope() in
+        // includes/communication_access.php, which resolves the agency team
+        // plus the clients who have no agent to fall back on. Reading `*` as
+        // a licence to message anyone would make that file decorative.
         ROLE_ADMIN => ['*'],
 
         // ─── Agent ─────────────────────────────────────────────────────
@@ -94,6 +104,16 @@ function permissionMatrix(): array
 
             'inquiries.view', 'inquiries.show', 'inquiries.create', 'inquiries.reply',
 
+            // The agency's side of the communication module. An agent is the
+            // hub — owners, tenants, buyers and technicians all resolve to
+            // them — so they hold every action. Who each of those actions may
+            // be aimed at is a different question, answered by
+            // messageContactScope() in communication_access.php: holding
+            // `messages.create` means "starting conversations is part of your
+            // job", never "with anyone".
+            'messages.view', 'messages.show', 'messages.create',
+            'messages.send', 'messages.archive',
+
             'documents.view', 'documents.show', 'documents.create',
             'documents.edit', 'documents.archive', 'documents.restore',
 
@@ -130,6 +150,14 @@ function permissionMatrix(): array
             // replying is the agency's job.
             'inquiries.view', 'inquiries.show',
 
+            // Correspondence with the agents managing their portfolio — or,
+            // where no agent has been assigned, with the office. The same five
+            // actions every non-admin role holds: the difference between an
+            // owner and an agent here is not what they may do, it is who
+            // messageContactScope() resolves for them.
+            'messages.view', 'messages.show', 'messages.create',
+            'messages.send', 'messages.archive',
+
             'notifications.view',
             'profile.view', 'profile.edit',
         ],
@@ -165,6 +193,12 @@ function permissionMatrix(): array
 
             'reservations.create',
 
+            // Their agent, about their tenancy or their purchase. Resolved
+            // through the live lease, sale or reservation — which is why
+            // moving out ends the conversation rather than merely hiding it.
+            'messages.view', 'messages.show', 'messages.create',
+            'messages.send', 'messages.archive',
+
             'notifications.view',
             'profile.view', 'profile.edit',
         ],
@@ -181,6 +215,12 @@ function permissionMatrix(): array
             // The address and access notes for the job in hand.
             'properties.show',
             'documents.show',
+
+            // Operational coordination with the agent responsible for the
+            // property they are working on. Nothing commercial travels this
+            // way that does not already travel through the job itself.
+            'messages.view', 'messages.show', 'messages.create',
+            'messages.send', 'messages.archive',
 
             'notifications.view',
             'profile.view', 'profile.edit',

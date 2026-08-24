@@ -117,6 +117,61 @@ function uiPriority(string $priority): string
 }
 
 /**
+ * A person's initials — one or two letters, upper case.
+ *
+ * "Maryan Aba-Nuur Maxamed" → MM. First and last word, so a middle name does
+ * not displace the surname; hyphens and punctuation are stepped over rather
+ * than counted as letters, and a single-word name yields one letter.
+ *
+ * mb_* throughout because the names in this database are not all ASCII and a
+ * byte-wise substr would cut a multi-byte character in half.
+ */
+function uiInitials(?string $name): string
+{
+    $words = preg_split('/[\s\-_.]+/u', trim((string) $name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if (!$words) {
+        return '?';
+    }
+
+    $first = mb_substr($words[0], 0, 1);
+    $last  = count($words) > 1 ? mb_substr($words[count($words) - 1], 0, 1) : '';
+
+    return mb_strtoupper($first . $last);
+}
+
+/**
+ * An avatar that works when there is no avatar.
+ *
+ * Only 2 of the 24 accounts in this system carry an uploaded photograph, so a
+ * grid of identical default-avatar silhouettes is the normal case rather than
+ * the exception — and it tells the reader nothing about which row is which.
+ * Initials on a tinted disc do, and they cost no request.
+ *
+ * The tint is derived from the name, so the same person is the same colour on
+ * every screen and two people in one list are unlikely to collide. It is
+ * decoration only: `aria-hidden`, because the name it stands for is always
+ * rendered beside it, and colour never carries meaning here.
+ *
+ * @param string $size 'sm' | 'md' | 'lg'
+ */
+function uiAvatar(?string $name, ?string $avatar = null, string $size = 'md'): string
+{
+    $class = 'avatar avatar--' . preg_replace('/[^a-z]/', '', $size);
+
+    if ($avatar && is_file(BASE_PATH . '/' . $avatar)) {
+        return '<img src="' . sanitize(getAvatarUrl($avatar)) . '" alt="" aria-hidden="true"'
+             . ' class="' . $class . '" loading="lazy">';
+    }
+
+    // Six hues, picked by a stable hash of the name. crc32 rather than a sum
+    // of bytes so "Ali" and "Ila" do not land on the same colour.
+    $tone = crc32(mb_strtolower(trim((string) $name))) % 6;
+
+    return '<span class="' . $class . ' avatar--t' . $tone . '" aria-hidden="true">'
+         . sanitize(uiInitials($name)) . '</span>';
+}
+
+/**
  * Avatar + name + sub-line: the shape a person takes in a table row.
  *
  * One helper for users, customers, owners and agents, so the avatar is the

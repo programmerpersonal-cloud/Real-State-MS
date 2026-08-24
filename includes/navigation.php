@@ -88,6 +88,10 @@ function appNavSections(): array
 
         ['Operations', [
             ['maintenance',   $maintenanceLabel, 'bi-wrench-adjustable'],
+            // Above Inquiries because the two are easily confused and this is
+            // the one people go looking for: Inquiries is the public site's
+            // lead inbox, Messages is correspondence between accounts.
+            ['messages',      'Messages',        'bi-chat-dots'],
             ['inquiries',     $inquiryLabel,     'bi-chat-left-text'],
             ['notifications', 'Notifications',   'bi-bell'],
         ]],

@@ -58,13 +58,30 @@ $ccSeries   = $ccC['series'] ?? [];
 $ccUnit     = $ccC['unit'] ?? 'number';
 $ccHeight   = (int) ($ccC['height'] ?? 190);
 
-/* A series of nothing but zeroes is as empty as no series at all — drawing a
-   flat line along the axis implies a measurement was taken and came back
-   zero, which on a portfolio with no transactions is not what happened. */
+/* When is a card empty?
+ *
+ * For an absolute quantity — money, a count — a series of nothing but zeroes
+ * is as empty as no series at all: drawing a flat line along the axis implies
+ * a measurement was taken and came back zero, which on a portfolio with no
+ * transactions is not what happened.
+ *
+ * For a *rate* the opposite is true, and getting this wrong hid a real
+ * finding. The collection-performance chart plots settled ÷ expected, with
+ * null where nothing was scheduled and a number where something was. A period
+ * in which $1,100 of rent fell due and none of it was paid is 0% — a
+ * measurement, and the worst one there is. Treating it as "no data" printed
+ * "no rent fell due in this period" over a month where rent very much fell
+ * due and nobody paid it.
+ *
+ * So a rate is empty only when every bucket is null, and an absolute is empty
+ * when every bucket is null or zero. The distinction between null and zero is
+ * already carried faithfully from the model; this is where it earns its keep. */
+$ccRate    = $ccUnit === 'percent';
 $ccHasData = false;
 foreach ($ccSeries as $ccS) {
     foreach ($ccS['data'] ?? [] as $ccV) {
-        if ($ccV !== null && (float) $ccV != 0.0) { $ccHasData = true; break 2; }
+        if ($ccV === null) { continue; }
+        if ($ccRate || (float) $ccV != 0.0) { $ccHasData = true; break 2; }
     }
 }
 

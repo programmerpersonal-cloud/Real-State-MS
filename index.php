@@ -510,6 +510,27 @@ switch ($page) {
         dispatch('InquiryController', $method);
         break;
 
+    // ─── Messages ──────────────────────────────────────
+    // The two-panel workspace is one page, and which panel is filled is a
+    // property of the URL rather than of JavaScript: `index` is the inbox,
+    // `show` is the inbox with a conversation open. That is what makes the
+    // mobile takeover work with the browser's own Back button and no script.
+    //
+    // start/send/archive/unarchive are POST-only. Each calls requirePost()
+    // and enforceCSRF() itself rather than inheriting it from here, because
+    // an action added later must fail closed if its author forgets.
+    case 'messages':
+        $method = match ($action) {
+            'show'      => 'show',
+            'start'     => 'start',
+            'send'      => 'send',
+            'archive'   => 'archive',
+            'unarchive' => 'unarchive',
+            default     => 'index',
+        };
+        dispatch('CommunicationController', $method);
+        break;
+
     // ─── Testimonials (public review moderation) ───────
     case 'testimonials':
         $method = match ($action) {
