@@ -35,14 +35,15 @@ $look = [
    that exist as routes — anything else stays plain text rather than becoming
    a link to a 404. */
 $targets = [
-    'property'    => 'properties',
-    'lease'       => 'leases',
-    'payment'     => 'payments',
-    'maintenance' => 'maintenance',
-    'inquiry'     => 'inquiries',
-    'reservation' => 'reservations',
-    'sale'        => 'sales',
-    'document'    => 'documents',
+    'property'     => 'properties',
+    'lease'        => 'leases',
+    'payment'      => 'payments',
+    'maintenance'  => 'maintenance',
+    'inquiry'      => 'inquiries',
+    'conversation' => 'messages',
+    'reservation'  => 'reservations',
+    'sale'         => 'sales',
+    'document'     => 'documents',
 ];
 ?>
 

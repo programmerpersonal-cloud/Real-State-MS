@@ -9,6 +9,24 @@ $r = $request;
 // checks run again when either form posts.
 $canAssign = $canAssign ?? false;
 $canUpdate = $canManage ?? false;
+
+/* Contextual messaging about this job. The page header carries it rather than
+   a card, because coordinating a repair is something you do *about* the whole
+   request, not about one panel of it — and because a technician reading this
+   on a phone should find it before scrolling.
+
+   communicationEntryPoint() decides whether it appears at all: a technician
+   gets the agent responsible for the property, or the managing office when no
+   agent is assigned, and an unrelated reader gets nothing. */
+$__msgEntry = communicationEntryPoint(['maintenance_request_id' => (int) $r['id']]);
+if ($__msgEntry) {
+    $actionButtons = [[
+        'label' => $__msgEntry['label'],
+        'icon'  => $__msgEntry['icon'],
+        'url'   => $__msgEntry['url'],
+        'class' => 'btn--outline',
+    ]];
+}
 ?>
 <div class="grid-2">
     <div class="card">

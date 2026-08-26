@@ -109,6 +109,14 @@ register_shutdown_function(function (): void {
     }
     $ids = implode(',', array_map('intval', $GLOBALS['fixtureConversations']));
     try {
+        // Notifications first. They carry a polymorphic reference_id with no
+        // foreign key to `conversations`, so unlike participants and messages
+        // they do NOT cascade — deleting the conversation alone would leave
+        // orphaned "New message from…" rows sitting in a real user's inbox,
+        // pointing at a conversation that no longer exists.
+        getDBConnection()->exec("DELETE FROM notifications
+                                 WHERE reference_type = 'conversation' AND reference_id IN ({$ids})");
+
         // Participants and messages go with it: both cascade.
         getDBConnection()->exec("DELETE FROM conversations WHERE id IN ({$ids})");
         echo "\nCleaned up fixture conversations: {$ids}\n";
@@ -553,12 +561,17 @@ if ($speaker === null) {
 
         $row = $db->query("SELECT last_message_id FROM conversations WHERE id = {$convId}")->fetchColumn();
         check((int) $row === $msgId, 'the conversation now points at its newest message');
-        check($messages->totalUnreadFor() === 0, 'the sender has no unread count for their own message');
+        /* Scoped to this fixture, not to the account. The tool runs against a
+           live database in which the reader may legitimately have unread mail
+           of their own, so a global count would make these assertions depend
+           on whatever else is in the inbox that day. */
+        check(($messages->unreadCountsFor()[$convId] ?? 0) === 0,
+            'the sender has no unread count for their own message');
 
         actAs($counterpart);
-        check($messages->totalUnreadFor() >= 1, 'the recipient has an unread message');
+        check(($messages->unreadCountsFor()[$convId] ?? 0) >= 1, 'the recipient has an unread message');
         $messages->markReadUpTo($convId);
-        check($messages->totalUnreadFor() === 0, 'opening the thread clears it');
+        check(($messages->unreadCountsFor()[$convId] ?? 0) === 0, 'opening the thread clears it');
 
         // Archiving is one-sided.
         $conversations->setArchived($convId, true);

@@ -381,7 +381,7 @@ class CommunicationController
             'earlierUrl'   => $earlierUrl,
             'canSend'      => canSendToConversation($conversationId),
             'isArchived'   => !empty($mine['archived_at']),
-            'contextLinks' => $this->contextLinks($conversation),
+            'contextBlocks' => $this->conversationContext($conversation),
             'pageTitle'    => 'Messages',
             'breadcrumbs'  => [
                 ['label' => 'Messages', 'url' => APP_URL . '/index.php?page=messages'],
@@ -391,50 +391,126 @@ class CommunicationController
     }
 
     /**
-     * Links to the records a conversation is about — but only the ones this
-     * user may actually open.
+     * The business records a conversation is about, as the thread header
+     * renders them.
      *
-     * A context is shown because the conversation carries it; a *link* is
-     * offered only where the underlying page will not refuse them. Offering a
-     * link to a 403 is worse than offering no link.
+     * Two rules govern this, and they pull in opposite directions:
      *
-     * @return array<int, array{label:string, url:?string, icon:string}>
+     *   The correspondence is history. What was said stays said, and stays
+     *   readable, whatever happens to the property afterwards.
+     *
+     *   The context is not. A property that has since been sold, archived or
+     *   reassigned must be shown as it is *now* — an interface that keeps
+     *   insisting a sold flat is "Available" because that was true when the
+     *   thread started is worse than one that shows no status at all.
+     *
+     * So every field here is read live, from Conversation::findById()'s joins
+     * to the current rows. Nothing is snapshotted, and there is nowhere to
+     * snapshot it to: the conversations table holds ids, not descriptions.
+     *
+     * A link is offered only where the destination page will actually open —
+     * both halves, the module permission *and* the record scope, using the
+     * same canViewProperty()/canViewLease()/canViewMaintenanceRequest() those
+     * pages enforce for themselves. Offering a link to a 403 is worse than
+     * offering no link.
+     *
+     * @return array<int, array<string, mixed>>
      */
-    private function contextLinks(array $conversation): array
+    private function conversationContext(array $conversation): array
     {
-        $links = [];
+        $db     = getDBConnection();
+        $blocks = [];
 
-        if (!empty($conversation['property_id'])) {
-            $links[] = [
-                'label' => trim(($conversation['property_code'] ?? '') . ' · ' . ($conversation['property_title'] ?? ''), ' ·'),
-                'url'   => can('properties.show')
-                    ? APP_URL . '/index.php?page=properties&action=show&id=' . (int) $conversation['property_id']
+        if (!empty($conversation['maintenance_request_id'])) {
+            $id   = (int) $conversation['maintenance_request_id'];
+            $stmt = $db->prepare("
+                SELECT m.*, p.owner_id AS property_owner_id, p.agent_id AS property_agent_id
+                FROM maintenance_requests m
+                JOIN properties p ON m.property_id = p.id
+                WHERE m.id = ?
+            ");
+            $stmt->execute([$id]);
+            $row = $stmt->fetch();
+
+            $blocks[] = [
+                'kind'      => 'maintenance',
+                'icon'      => 'bi-wrench-adjustable',
+                'eyebrow'   => 'Maintenance request',
+                'title'     => $conversation['issue_type'] ?: 'Maintenance request',
+                'reference' => (string) ($conversation['request_code'] ?? ''),
+                'status'    => (string) ($conversation['maintenance_status'] ?? ''),
+                'priority'  => (string) ($conversation['maintenance_priority'] ?? ''),
+                'image'     => null,
+                'url'       => ($row && can('maintenance.show') && canViewMaintenanceRequest($row))
+                    ? APP_URL . '/index.php?page=maintenance&action=show&id=' . $id
                     : null,
-                'icon'  => 'bi-building',
+                'gone'      => $row === false,
             ];
         }
 
         if (!empty($conversation['lease_id'])) {
-            $links[] = [
-                'label' => (string) ($conversation['lease_code'] ?? 'Lease'),
-                'url'   => can('leases.show')
-                    ? APP_URL . '/index.php?page=leases&action=show&id=' . (int) $conversation['lease_id']
+            $id   = (int) $conversation['lease_id'];
+            $stmt = $db->prepare("
+                SELECT l.*, p.owner_id AS property_owner_id, p.agent_id AS property_agent_id
+                FROM leases l
+                JOIN properties p ON l.property_id = p.id
+                WHERE l.id = ?
+            ");
+            $stmt->execute([$id]);
+            $row = $stmt->fetch();
+
+            $blocks[] = [
+                'kind'      => 'lease',
+                'icon'      => 'bi-file-earmark-text',
+                'eyebrow'   => 'Tenancy',
+                'title'     => (string) ($conversation['lease_code'] ?? 'Lease'),
+                'reference' => ($conversation['lease_start'] ?? '') && ($conversation['lease_end'] ?? '')
+                    ? formatDate($conversation['lease_start']) . ' – ' . formatDate($conversation['lease_end'])
+                    : '',
+                'status'    => (string) ($conversation['lease_status'] ?? ''),
+                'priority'  => '',
+                'image'     => null,
+                'url'       => ($row && can('leases.show') && canViewLease($row))
+                    ? APP_URL . '/index.php?page=leases&action=show&id=' . $id
                     : null,
-                'icon'  => 'bi-file-earmark-text',
+                'gone'      => $row === false,
             ];
         }
 
-        if (!empty($conversation['maintenance_request_id'])) {
-            $links[] = [
-                'label' => trim(($conversation['request_code'] ?? '') . ' · ' . ($conversation['issue_type'] ?? ''), ' ·'),
-                'url'   => can('maintenance.show')
-                    ? APP_URL . '/index.php?page=maintenance&action=show&id=' . (int) $conversation['maintenance_request_id']
+        if (!empty($conversation['property_id'])) {
+            $id   = (int) $conversation['property_id'];
+            $stmt = $db->prepare("SELECT * FROM properties WHERE id = ?");
+            $stmt->execute([$id]);
+            $row = $stmt->fetch();
+
+            // Archived is a state the register hides, so it is worth saying
+            // rather than showing the status the property carried on its way
+            // in — the reader would otherwise see "Available" for something
+            // nobody can rent.
+            $status = !empty($conversation['property_archived'])
+                ? 'archived'
+                : (string) ($conversation['property_status'] ?? '');
+
+            $blocks[] = [
+                'kind'      => 'property',
+                'icon'      => 'bi-building',
+                'eyebrow'   => 'Property',
+                'title'     => (string) ($conversation['property_title'] ?? 'Property'),
+                'reference' => trim(implode(' · ', array_filter([
+                    $conversation['property_code'] ?? '',
+                    $conversation['property_location'] ?? '',
+                ]))),
+                'status'    => $status,
+                'priority'  => '',
+                'image'     => $conversation['property_image'] ?? null,
+                'url'       => ($row && can('properties.show') && canViewProperty($row))
+                    ? APP_URL . '/index.php?page=properties&action=show&id=' . $id
                     : null,
-                'icon'  => 'bi-wrench-adjustable',
+                'gone'      => $row === false,
             ];
         }
 
-        return $links;
+        return $blocks;
     }
 
     /**
@@ -462,36 +538,91 @@ class CommunicationController
             return [];
         }
 
-        $db    = getDBConnection();
-        $type  = 'direct';
-        $label = '';
+        // A conversation is attached to one record. When a maintenance
+        // request is named, the property behind it is implied rather than
+        // stored a second time — the request already knows its address, and
+        // storing both would let the two disagree.
+        $type = 'direct';
+        if ($maintenanceId > 0)  { $type = 'maintenance'; }
+        elseif ($leaseId > 0)    { $type = 'rental'; }
+        elseif ($propertyId > 0) { $type = 'property'; }
 
-        if ($maintenanceId > 0) {
-            $type = 'maintenance';
-            $stmt = $db->prepare("SELECT request_code, issue_type FROM maintenance_requests WHERE id = ?");
-            $stmt->execute([$maintenanceId]);
-            $row   = $stmt->fetch() ?: [];
-            $label = trim(($row['issue_type'] ?? 'Request') . ' · ' . ($row['request_code'] ?? ''), ' ·');
-        } elseif ($leaseId > 0) {
-            $type = 'rental';
-            $stmt = $db->prepare("SELECT lease_code FROM leases WHERE id = ?");
-            $stmt->execute([$leaseId]);
-            $label = (string) ($stmt->fetchColumn() ?: 'Lease');
-        } elseif ($propertyId > 0) {
-            $type = 'property';
-            $stmt = $db->prepare("SELECT property_code, title FROM properties WHERE id = ?");
-            $stmt->execute([$propertyId]);
-            $row   = $stmt->fetch() ?: [];
-            $label = trim(($row['property_code'] ?? '') . ' · ' . ($row['title'] ?? ''), ' ·');
-        }
+        // Described through exactly the same resolver the thread header uses,
+        // so "Regarding: Villa V-102 · Available" on the compose screen and
+        // the card in the thread afterwards cannot describe the record
+        // differently. The shape it expects is a conversation row, so one is
+        // assembled from the ids and handed over.
+        $blocks = $this->conversationContext($this->contextRowFor($propertyId, $leaseId, $maintenanceId));
 
         return [
             'type'                   => $type,
             'property_id'            => $propertyId,
             'lease_id'               => $leaseId,
             'maintenance_request_id' => $maintenanceId,
-            'label'                  => $label,
+            'blocks'                 => $blocks,
         ];
+    }
+
+    /**
+     * The columns conversationContext() reads, fetched for a set of ids that
+     * has no conversation behind it yet.
+     *
+     * Exists so the compose screen and the thread header share one describer
+     * rather than keeping two that drift. Reads only; every id has already
+     * been through canCreateContextConversation() by the time this is called.
+     *
+     * @return array<string, mixed>
+     */
+    private function contextRowFor(int $propertyId, int $leaseId, int $maintenanceId): array
+    {
+        $db  = getDBConnection();
+        $row = [
+            'property_id'            => $propertyId ?: null,
+            'lease_id'               => $leaseId ?: null,
+            'maintenance_request_id' => $maintenanceId ?: null,
+        ];
+
+        if ($maintenanceId > 0) {
+            $stmt = $db->prepare("SELECT request_code, issue_type, status, priority
+                                  FROM maintenance_requests WHERE id = ?");
+            $stmt->execute([$maintenanceId]);
+            $m = $stmt->fetch() ?: [];
+            $row['request_code']         = $m['request_code'] ?? null;
+            $row['issue_type']           = $m['issue_type'] ?? null;
+            $row['maintenance_status']   = $m['status'] ?? null;
+            $row['maintenance_priority'] = $m['priority'] ?? null;
+        }
+
+        if ($leaseId > 0) {
+            $stmt = $db->prepare("SELECT lease_code, status, start_date, end_date FROM leases WHERE id = ?");
+            $stmt->execute([$leaseId]);
+            $l = $stmt->fetch() ?: [];
+            $row['lease_code']   = $l['lease_code'] ?? null;
+            $row['lease_status'] = $l['status'] ?? null;
+            $row['lease_start']  = $l['start_date'] ?? null;
+            $row['lease_end']    = $l['end_date'] ?? null;
+        }
+
+        if ($propertyId > 0) {
+            $stmt = $db->prepare("
+                SELECT p.property_code, p.title, p.status, p.location, p.is_archived,
+                       (SELECT pi.file_path FROM property_images pi
+                         WHERE pi.property_id = p.id
+                         ORDER BY pi.is_cover DESC, pi.sort_order ASC, pi.id ASC
+                         LIMIT 1) AS cover
+                FROM properties p WHERE p.id = ?
+            ");
+            $stmt->execute([$propertyId]);
+            $p = $stmt->fetch() ?: [];
+            $row['property_code']     = $p['property_code'] ?? null;
+            $row['property_title']    = $p['title'] ?? null;
+            $row['property_status']   = $p['status'] ?? null;
+            $row['property_location'] = $p['location'] ?? null;
+            $row['property_archived'] = $p['is_archived'] ?? 0;
+            $row['property_image']    = $p['cover'] ?? null;
+        }
+
+        return $row;
     }
 
     /** The canonical URL for a conversation. One spelling, used everywhere. */

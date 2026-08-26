@@ -71,8 +71,19 @@ class Conversation
         $stmt = $this->db->prepare("
             SELECT c.*,
                    p.title AS property_title, p.property_code, p.status AS property_status,
+                   p.location AS property_location, p.is_archived AS property_archived,
                    p.owner_id AS property_owner_id, p.agent_id AS property_agent_id,
+                   /* The cover photograph for the thread's context card. A
+                      correlated subquery rather than a join, so a property
+                      with twelve photographs still contributes one row and
+                      the LEFT JOINs below cannot multiply. Falls back to
+                      whichever image sorts first when none is marked cover. */
+                   (SELECT pi.file_path FROM property_images pi
+                     WHERE pi.property_id = p.id
+                     ORDER BY pi.is_cover DESC, pi.sort_order ASC, pi.id ASC
+                     LIMIT 1) AS property_image,
                    l.lease_code, l.status AS lease_status,
+                   l.start_date AS lease_start, l.end_date AS lease_end,
                    m.request_code, m.issue_type, m.priority AS maintenance_priority,
                    m.status AS maintenance_status,
                    u.full_name AS created_by_name

@@ -13,7 +13,7 @@
  * distinguish the two tints.
  *
  * Expects: $conversation $participants $counterpart $thread $earlierUrl
- *          $canSend $isArchived $contextLinks $draft $base $listSuffix
+ *          $canSend $isArchived $contextBlocks $draft $base $listSuffix
  */
 $me   = (int) ($_SESSION['user_id'] ?? 0);
 $name = (string) ($counterpart['full_name'] ?? 'Former user');
@@ -56,33 +56,17 @@ $conversationId = (int) $conversation['id'];
     </div>
 </header>
 
-<?php if (!empty($contextLinks)): ?>
-    <?php /* What the conversation is about. A context is shown because the
-             conversation carries it; a link is offered only where the page
-             behind it will not refuse this user — an offer of a 403 is worse
-             than no offer. */ ?>
-    <div class="msg__context">
-        <?php foreach ($contextLinks as $ctx): ?>
-            <?php if (!empty($ctx['url'])): ?>
-                <a class="msg__context-tag" href="<?= sanitize($ctx['url']) ?>">
-                    <i class="bi <?= sanitize($ctx['icon']) ?>" aria-hidden="true"></i>
-                    <?= sanitize($ctx['label']) ?>
-                    <i class="bi bi-box-arrow-up-right msg__context-out" aria-hidden="true"></i>
-                </a>
-            <?php else: ?>
-                <span class="msg__context-tag msg__context-tag--plain">
-                    <i class="bi <?= sanitize($ctx['icon']) ?>" aria-hidden="true"></i>
-                    <?= sanitize($ctx['label']) ?>
-                </span>
-            <?php endif; ?>
-        <?php endforeach; ?>
+<?php /* What the conversation is about, read live from the current records.
+         A link is offered only where the destination will actually open —
+         both the module permission and the record scope — because an offer
+         of a 403 is worse than no offer. */ ?>
+<?php require __DIR__ . '/_context_card.php'; ?>
 
-        <?php if (($conversation['status'] ?? '') === 'closed'): ?>
-            <span class="msg__context-tag msg__context-tag--closed">
-                <i class="bi bi-lock" aria-hidden="true"></i> Closed
-            </span>
-        <?php endif; ?>
-    </div>
+<?php if (($conversation['status'] ?? '') === 'closed'): ?>
+    <p class="msg__closed-note">
+        <i class="bi bi-lock" aria-hidden="true"></i>
+        This conversation is closed. The history stays available to read.
+    </p>
 <?php endif; ?>
 
 <div class="msg__stream" id="msgStream" tabindex="0" role="log" aria-label="Message history">

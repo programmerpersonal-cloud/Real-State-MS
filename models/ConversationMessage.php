@@ -180,6 +180,13 @@ class ConversationMessage
             // for their own words.
             $this->markReadUpTo($conversationId, $messageId);
 
+            // Who is genuinely owed this message, decided live rather than
+            // from the participant rows alone.
+            $recipients = conversationDeliverableRecipients($conversationId, $actor['id']);
+
+            $this->unarchiveFor($conversationId, array_merge($recipients, [$actor['id']]));
+            $this->notifyRecipients($conversationId, $recipients, $actor['full_name']);
+
             $this->db->commit();
 
             return $messageId;
@@ -189,6 +196,74 @@ class ConversationMessage
             }
             error_log('Conversation message error: ' . $e->getMessage());
             return 0;
+        }
+    }
+
+    /**
+     * Return a conversation to these participants' active inboxes.
+     *
+     * The archive rule, stated once: a conversation with new activity is not
+     * filed away. It is applied per participant row and to nobody else —
+     *
+     *   recipients  because a message arrived for them;
+     *   the sender  because they just wrote in it, and a thread that vanishes
+     *               from your own inbox the moment you reply is a bug wearing
+     *               the costume of a preference.
+     *
+     * No other participant, conversation or account is touched. A third party
+     * who filed this thread away and was not part of this exchange keeps it
+     * filed away.
+     *
+     * @param int[] $userIds
+     */
+    private function unarchiveFor(int $conversationId, array $userIds): void
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        if (!$userIds) {
+            return;
+        }
+
+        $in = implode(',', array_fill(0, count($userIds), '?'));
+        $stmt = $this->db->prepare("
+            UPDATE conversation_participants
+               SET archived_at = NULL
+             WHERE conversation_id = ? AND archived_at IS NOT NULL AND user_id IN ({$in})
+        ");
+        $stmt->execute(array_merge([$conversationId], $userIds));
+    }
+
+    /**
+     * Tell each recipient there is a new message.
+     *
+     * Uses the application's existing notify(), which writes to the same
+     * `notifications` table the bell already reads — there is no second
+     * notification system here. Because notify() borrows the same PDO
+     * connection, these INSERTs join the transaction this method is called
+     * from: the message, the conversation pointer, the watermarks, the
+     * un-archiving and the notifications all land together or not at all.
+     * That is what makes a duplicate or an orphan impossible.
+     *
+     * The body is deliberately NOT included. A notification outlives the
+     * access that produced it — a row in `notifications` has no relationship
+     * to revoke — so a preview would leave a copy of private correspondence
+     * readable by someone the access layer has since shut out. The title names
+     * the sender; the message itself is one authorised click away.
+     *
+     * @param int[] $recipients
+     */
+    private function notifyRecipients(int $conversationId, array $recipients, string $senderName): void
+    {
+        $senderName = trim($senderName) !== '' ? $senderName : 'a colleague';
+
+        foreach ($recipients as $userId) {
+            notify(
+                (int) $userId,
+                'New message from ' . $senderName,
+                '',
+                'info',
+                'conversation',
+                $conversationId
+            );
         }
     }
 

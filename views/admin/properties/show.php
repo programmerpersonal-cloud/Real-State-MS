@@ -134,6 +134,17 @@ $tabs = array_values(array_filter([
                 <i class="bi bi-pencil" aria-hidden="true"></i> Edit
             </a>
         <?php endif ?>
+
+        <?php /* Contextual messaging. The partial draws nothing unless this
+                 user may attach a conversation to this property *and* has
+                 someone reachable — an owner sees "Message your agent", or
+                 "Contact managing office" when no agent is assigned, and a
+                 browsing customer with no relationship to the listing sees
+                 nothing at all. */ ?>
+        <?php
+        $messageContext = ['property_id' => (int) $p['id']];
+        require VIEWS_PATH . '/components/ui/message_action.php';
+        ?>
         <?php
         /* Every state change below is a signed POST, not a link. Approving
            publishes a listing to the public site and archiving takes one off

@@ -48,14 +48,20 @@ $ctx    = $composeContext ?? [];
         <?= csrfField() ?>
 
         <?php if (!empty($ctx)): ?>
+            <?php /* The ids travel as hidden fields, but they are a hint and
+                     nothing more: start() puts every one of them back through
+                     canCreateContextConversation() before a row exists. What
+                     is rendered here has already been validated once, which is
+                     why an unauthorised id never reaches this markup. */ ?>
             <input type="hidden" name="property_id" value="<?= (int) $ctx['property_id'] ?>">
             <input type="hidden" name="lease_id" value="<?= (int) $ctx['lease_id'] ?>">
             <input type="hidden" name="maintenance_request_id" value="<?= (int) $ctx['maintenance_request_id'] ?>">
 
-            <p class="msg__compose-context">
-                <i class="bi bi-paperclip" aria-hidden="true"></i>
-                About <strong><?= sanitize($ctx['label']) ?></strong>
-            </p>
+            <?php
+            $contextBlocks  = $ctx['blocks'] ?? [];
+            $contextEyebrow = 'Regarding';
+            require __DIR__ . '/_context_card.php';
+            ?>
         <?php endif; ?>
 
         <div class="msg__compose-scroll">
@@ -81,9 +87,12 @@ $ctx    = $composeContext ?? [];
 
                         /* What this person is to the reader, told honestly. The
                            only thing known for certain is the resolution source
-                           and the two roles, so nothing beyond that is claimed. */
+                           and the two roles, so nothing beyond that is claimed.
+                           The two staff cases come from the access layer, so
+                           the wording for "why this administrator" lives beside
+                           the rule that produced them. */
                         if ($role === ROLE_ADMIN && $source === 'admin') {
-                            $relation = 'Managing office · no agent assigned to you yet';
+                            $relation = communicationCounterpartReason($role);
                         } elseif ($role === ROLE_ADMIN) {
                             $relation = 'Administration';
                         } elseif ($role === ROLE_AGENT) {

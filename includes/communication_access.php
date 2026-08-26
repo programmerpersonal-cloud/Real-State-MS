@@ -207,8 +207,33 @@ function communicationMaintenanceAgentEdge(string $subject, string $agentMatch):
 }
 
 /**
- * "This user reaches at least one live agent" — the three edges above, chosen
- * by the user's own current role.
+ * The one edge belonging to a given portal role, or null for a role that has
+ * none (staff reach people through the mirror image, not through an edge of
+ * their own).
+ *
+ * Every caller that needs "does this role reach an agent" goes through here,
+ * so the mapping from role to relationship exists once. Three callers rely on
+ * it — the signed-in user's own scope, the administrator scope's search for
+ * accounts with nobody, and the pairwise check used when deciding who to
+ * notify — and before this they would have been three copies free to drift.
+ */
+function communicationAgentEdgeForRole(string $role, string $subject, string $agentMatch): ?string
+{
+    switch ($role) {
+        case ROLE_OWNER:
+            return communicationOwnerAgentEdge($subject, $agentMatch);
+        case ROLE_CUSTOMER:
+            return communicationCustomerAgentEdge($subject, $agentMatch);
+        case ROLE_MAINTENANCE:
+            return communicationMaintenanceAgentEdge($subject, $agentMatch);
+    }
+
+    return null;
+}
+
+/**
+ * "This user reaches at least one live agent" — the edges above, chosen by the
+ * user's own current role.
  *
  * Written from the perspective of a `users` row aliased $u joined to `roles`
  * aliased $r, so it can be dropped into the administrator scope to find the
@@ -219,11 +244,17 @@ function communicationMaintenanceAgentEdge(string $subject, string $agentMatch):
  */
 function communicationHasAgentEdge(string $u = 'u', string $r = 'r'): string
 {
-    $any = 'IN ' . communicationLiveAgentIds();
+    $any   = 'IN ' . communicationLiveAgentIds();
+    $arms  = [];
 
-    return "(({$r}.name = '" . ROLE_OWNER . "' AND " . communicationOwnerAgentEdge("{$u}.id", $any) . ")
-          OR ({$r}.name = '" . ROLE_CUSTOMER . "' AND " . communicationCustomerAgentEdge("{$u}.id", $any) . ")
-          OR ({$r}.name = '" . ROLE_MAINTENANCE . "' AND " . communicationMaintenanceAgentEdge("{$u}.id", $any) . "))";
+    foreach (communicationFallbackRoles() as $role) {
+        $edge = communicationAgentEdgeForRole($role, "{$u}.id", $any);
+        if ($edge !== null) {
+            $arms[] = "({$r}.name = '" . $role . "' AND " . $edge . ")";
+        }
+    }
+
+    return '(' . implode("\n          OR ", $arms) . ')';
 }
 
 // ─── Step 1 of the resolution: the real agent relationship ─────────────
@@ -253,17 +284,17 @@ function messageAgentScope(string $u = 'u', string $r = 'r'): array
 
     switch ($actor['role']) {
 
-        // An owner reaches the agents managing the properties they own. The
-        // counterpart's role is checked live in the outer query, so an agent
-        // account that has since been demoted stops matching.
+        // A portal user reaches the agents on the other end of their own
+        // edge. The counterpart's role is checked live in the outer query, so
+        // an agent account that has since been demoted stops matching.
         case ROLE_OWNER:
-            return ["{$r}.name = '" . ROLE_AGENT . "' AND " . communicationOwnerAgentEdge($me, $agent), $params];
-
         case ROLE_CUSTOMER:
-            return ["{$r}.name = '" . ROLE_AGENT . "' AND " . communicationCustomerAgentEdge($me, $agent), $params];
-
         case ROLE_MAINTENANCE:
-            return ["{$r}.name = '" . ROLE_AGENT . "' AND " . communicationMaintenanceAgentEdge($me, $agent), $params];
+            return [
+                "{$r}.name = '" . ROLE_AGENT . "' AND "
+                    . communicationAgentEdgeForRole($actor['role'], $me, $agent),
+                $params,
+            ];
 
         // The mirror image: the people on the other end of the same edges,
         // seen from the agent's side. Administrators are included here as a
@@ -271,13 +302,14 @@ function messageAgentScope(string $u = 'u', string $r = 'r'): array
         // office they work for are colleagues, and the brief names Admins as
         // an agent counterpart outright.
         case ROLE_AGENT:
-            return [
-                "({$r}.name = '" . ROLE_ADMIN . "'
-                  OR ({$r}.name = '" . ROLE_OWNER . "' AND " . communicationOwnerAgentEdge("{$u}.id", "= {$me}") . ")
-                  OR ({$r}.name = '" . ROLE_CUSTOMER . "' AND " . communicationCustomerAgentEdge("{$u}.id", "= {$me}") . ")
-                  OR ({$r}.name = '" . ROLE_MAINTENANCE . "' AND " . communicationMaintenanceAgentEdge("{$u}.id", "= {$me}") . "))",
-                $params,
-            ];
+            $mirror = ["{$r}.name = '" . ROLE_ADMIN . "'"];
+            foreach (communicationFallbackRoles() as $role) {
+                $edge = communicationAgentEdgeForRole($role, "{$u}.id", "= {$me}");
+                if ($edge !== null) {
+                    $mirror[] = "({$r}.name = '" . $role . "' AND " . $edge . ")";
+                }
+            }
+            return ['(' . implode("\n                  OR ", $mirror) . ')', $params];
 
         // An administrator reaches the staff, plus exactly the people who have
         // nobody else — the population the fallback in step 3 sends to them.
@@ -583,13 +615,26 @@ function conversationCounterpartStillReachable(int $conversationId): bool
  * the visibility of the thing it discusses, which is the property of a
  * business communication system that a chat application does not have.
  *
- * A direct conversation has no context and passes trivially. A conversation
- * whose context row has been deleted (the FK sets the column NULL) is treated
- * as contextless rather than refused: the correspondence outlives the record.
+ * A direct conversation has no context and passes trivially.
  *
- * @param array $conversation A row from the conversations table.
+ * $mustExist is the difference between the two callers, and it matters:
+ *
+ *   false (reading)  A conversation whose context row has since been deleted
+ *                    is treated as contextless rather than refused. The
+ *                    correspondence outlives the record — the FK sets the
+ *                    column NULL and the thread stays readable.
+ *
+ *   true (creating)  A record that does not exist cannot be discussed. Without
+ *                    this an id typed into the query string sails through
+ *                    every check here, gets rendered into the compose form as
+ *                    a hidden field, and fails only at the foreign key — where
+ *                    the user is told the conversation "could not be started"
+ *                    with no idea why.
+ *
+ * @param array $conversation A row from the conversations table, or the ids
+ *                            a conversation is about to be created with.
  */
-function canAccessConversationContext(array $conversation): bool
+function canAccessConversationContext(array $conversation, bool $mustExist = false): bool
 {
     $db = getDBConnection();
 
@@ -606,6 +651,9 @@ function canAccessConversationContext(array $conversation): bool
         ");
         $stmt->execute([$maintenanceId]);
         $row = $stmt->fetch();
+        if (!$row && $mustExist) {
+            return false;
+        }
         if ($row && !canViewMaintenanceRequest($row)) {
             return false;
         }
@@ -620,6 +668,9 @@ function canAccessConversationContext(array $conversation): bool
         ");
         $stmt->execute([$leaseId]);
         $row = $stmt->fetch();
+        if (!$row && $mustExist) {
+            return false;
+        }
         if ($row && !canViewLease($row)) {
             return false;
         }
@@ -629,6 +680,9 @@ function canAccessConversationContext(array $conversation): bool
         $stmt = $db->prepare("SELECT * FROM properties WHERE id = ?");
         $stmt->execute([$propertyId]);
         $row = $stmt->fetch();
+        if (!$row && $mustExist) {
+            return false;
+        }
         if ($row && !canViewProperty($row)) {
             return false;
         }
@@ -702,11 +756,315 @@ function canCreateContextConversation(int $propertyId = 0, int $leaseId = 0, int
         return false;
     }
 
+    // $mustExist: a record that is not there cannot be discussed, and saying
+    // so here is what turns a mistyped id into "that record is not available
+    // to you" instead of a foreign-key failure two steps later.
     return canAccessConversationContext([
         'property_id'            => $propertyId ?: null,
         'lease_id'               => $leaseId ?: null,
         'maintenance_request_id' => $maintenanceId ?: null,
+    ], true);
+}
+
+// ─── Asking about two people who are not the signed-in user ────────────
+
+/**
+ * May these two accounts communicate right now?
+ *
+ * Everything above answers for the *signed-in* user, because that is what a
+ * request needs. Deciding who to notify is the one question that is not about
+ * the signed-in user: the sender is asking, but the answer is about each
+ * recipient. This is that answer, and it is deliberately built from the same
+ * edge builders rather than a second copy of the rules — see
+ * communicationAgentEdgeForRole().
+ *
+ * The order mirrors §3a exactly:
+ *
+ *   1. both accounts must be live, and neither may be the other;
+ *   2. staff reach staff — an agent and the office are colleagues;
+ *   3. a portal user reaches an agent through their real edge;
+ *   4. a portal user reaches an administrator only when they have no agent —
+ *      the fallback, and only then;
+ *   5. two portal users never reach each other.
+ */
+function canUsersCommunicate(int $subjectId, int $otherId): bool
+{
+    if ($subjectId <= 0 || $otherId <= 0 || $subjectId === $otherId) {
+        return false;
+    }
+
+    $db = getDBConnection();
+
+    $stmt = $db->prepare("
+        SELECT u.id, r.name AS role
+        FROM users u JOIN roles r ON u.role_id = r.id
+        WHERE u.id IN (:a, :b) AND u.is_active = 1
+    ");
+    $stmt->execute([':a' => $subjectId, ':b' => $otherId]);
+
+    $roles = array_column($stmt->fetchAll(), 'role', 'id');
+    if (count($roles) !== 2) {
+        return false;                       // one of them is gone or disabled
+    }
+
+    $subjectRole = $roles[$subjectId];
+    $otherRole   = $roles[$otherId];
+    $staff       = [ROLE_ADMIN, ROLE_AGENT];
+
+    // 2. Colleagues.
+    if (in_array($subjectRole, $staff, true) && in_array($otherRole, $staff, true)) {
+        return true;
+    }
+
+    // Work out which side is the portal user. Two portal users never reach
+    // each other, so a pair with no staff member in it is refused outright.
+    if (in_array($subjectRole, $staff, true)) {
+        $portalId = $otherId;    $portalRole = $otherRole;
+        $staffId  = $subjectId;  $staffRole  = $subjectRole;
+    } elseif (in_array($otherRole, $staff, true)) {
+        $portalId = $subjectId;  $portalRole = $subjectRole;
+        $staffId  = $otherId;    $staffRole  = $otherRole;
+    } else {
+        return false;                       // 5.
+    }
+
+    // 3. The real agent edge, asked of this exact pair.
+    if ($staffRole === ROLE_AGENT) {
+        $edge = communicationAgentEdgeForRole($portalRole, ':ca_portal', '= :ca_staff');
+        if ($edge === null) {
+            return false;
+        }
+        $stmt = $db->prepare("SELECT 1 WHERE " . $edge . " LIMIT 1");
+        $stmt->execute([':ca_portal' => $portalId, ':ca_staff' => $staffId]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    // 4. The administrator fallback — available only to a portal user who
+    //    resolves no agent at all. An administrator does not become a valid
+    //    correspondent for someone who already has one.
+    $edge = communicationAgentEdgeForRole($portalRole, ':ca_portal', 'IN ' . communicationLiveAgentIds());
+    if ($edge === null) {
+        return false;
+    }
+    $stmt = $db->prepare("SELECT 1 WHERE " . $edge . " LIMIT 1");
+    $stmt->execute([':ca_portal' => $portalId]);
+
+    return !$stmt->fetchColumn();
+}
+
+/**
+ * Who should actually be told about a new message in this conversation.
+ *
+ * Historical participation is not delivery. A participant row survives a
+ * revoked relationship on purpose — it is what lets an old thread name its
+ * authors honestly — so it cannot be the thing that decides who gets post.
+ * Four conditions, all live:
+ *
+ *   · not the sender          nobody is notified of their own message
+ *   · still an active participant
+ *   · account still active
+ *   · still able to communicate with the sender  (canUsersCommunicate)
+ *
+ * The last one is what stops a technician whose job was reassigned, or an
+ * owner whose agent was unassigned, from continuing to receive mail about a
+ * relationship that has ended.
+ *
+ * @return array<int, int> user ids
+ */
+function conversationDeliverableRecipients(int $conversationId, int $senderId): array
+{
+    if ($conversationId <= 0 || $senderId <= 0) {
+        return [];
+    }
+
+    $stmt = getDBConnection()->prepare("
+        SELECT cp.user_id
+        FROM conversation_participants cp
+        JOIN users u ON cp.user_id = u.id
+        WHERE cp.conversation_id = :conv
+          AND cp.user_id <> :sender
+          AND cp.is_active = 1
+          AND u.is_active = 1
+    ");
+    $stmt->execute([':conv' => $conversationId, ':sender' => $senderId]);
+
+    $recipients = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $userId) {
+        if (canUsersCommunicate((int) $userId, $senderId)) {
+            $recipients[] = (int) $userId;
+        }
+    }
+
+    return $recipients;
+}
+
+// ─── Counting unread, for the navigation badge ─────────────────────────
+
+/**
+ * How many conversations hold something this user has not read.
+ *
+ * Conversations, not messages — deliberately, and it is worth being precise
+ * about why there are two counts rather than two sources of truth:
+ *
+ *   ConversationMessage::totalUnreadFor()   counts unread MESSAGE ROWS. The
+ *                                           inbox header uses it, because
+ *                                           "17 unread messages" is what a
+ *                                           person wants to know before
+ *                                           opening the module.
+ *   this function                           counts unread CONVERSATIONS. The
+ *                                           navigation badge uses it, because
+ *                                           the inbox is a list of
+ *                                           conversations and a badge should
+ *                                           count the rows it will land on.
+ *
+ * Both read the same watermark — conversation_participants.last_read_message_id
+ * — so they cannot disagree about what "unread" means. There is one unread
+ * model and two ways of totting it up.
+ *
+ * Archived conversations are excluded, matching the inbox: filing a thread
+ * away and then being counted for it is what makes people stop trusting a
+ * badge.
+ */
+function messagesUnreadConversationCount(): int
+{
+    $actor = communicationActor();
+    if ($actor === null || !can('messages.view')) {
+        return 0;
+    }
+
+    try {
+        $stmt = getDBConnection()->prepare("
+            SELECT COUNT(DISTINCT cm.conversation_id)
+            FROM conversation_messages cm
+            JOIN conversation_participants cp
+              ON cp.conversation_id = cm.conversation_id
+             AND cp.user_id = :ca_me AND cp.is_active = 1 AND cp.archived_at IS NULL
+            WHERE cm.deleted_at IS NULL
+              AND cm.sender_id <> :ca_me
+              AND (cp.last_read_message_id IS NULL OR cm.id > cp.last_read_message_id)
+        ");
+        $stmt->execute([':ca_me' => $actor['id']]);
+
+        return (int) $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        // A badge that fails is a badge that shows nothing, not a page that
+        // dies — the same bargain notificationBell() makes.
+        error_log('Messages unread count error: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+// ─── Reaching the module from a business record ────────────────────────
+
+/**
+ * The "Message…" action for a property, lease or maintenance page — or null
+ * when there is nobody to offer.
+ *
+ * Three things have to be true before a button is worth drawing, and this
+ * asks all three rather than the first one:
+ *
+ *   1. the role holds `messages.create`;
+ *   2. this user may attach a conversation to *this* record, which is
+ *      canCreateContextConversation() and therefore the same
+ *      canViewProperty()/canViewLease()/canViewMaintenanceRequest() the rest
+ *      of the application uses;
+ *   3. somebody is actually reachable — an entry point that opens a compose
+ *      screen with an empty recipient list is a dead end wearing a button.
+ *
+ * The label is resolved from the real relationship, never hard-coded. An
+ * owner whose property has no agent is offered the managing office, and is
+ * told so: calling head office "your agent" would be the interface telling a
+ * lie on the system's behalf.
+ *
+ * This is a display decision. The URL it produces is a request hint like any
+ * other — CommunicationController::start() re-validates the context and the
+ * recipient before a row is written.
+ *
+ * @param array{property_id?:int, lease_id?:int, maintenance_request_id?:int} $context
+ * @return array{label:string, short:string, url:string, icon:string, source:string}|null
+ */
+function communicationEntryPoint(array $context = []): ?array
+{
+    if (!canUseCommunication() || !can('messages.create')) {
+        return null;
+    }
+
+    $propertyId    = (int) ($context['property_id'] ?? 0);
+    $leaseId       = (int) ($context['lease_id'] ?? 0);
+    $maintenanceId = (int) ($context['maintenance_request_id'] ?? 0);
+
+    if (!canCreateContextConversation($propertyId, $leaseId, $maintenanceId)) {
+        return null;
+    }
+
+    // The expensive half, asked last: is there anyone on the other end?
+    if (messageContacts() === []) {
+        return null;
+    }
+
+    $source = communicationContactSource();
+
+    // Staff reach a mixed list — an owner, a tenant, a technician, a
+    // colleague — so the button cannot name one of them. Portal users reach
+    // exactly one kind of counterpart, so theirs can and should.
+    switch ($source) {
+        case 'admin':
+            $label = 'Contact managing office';
+            $short = 'Contact office';
+            $icon  = 'bi-building-gear';
+            break;
+        case 'agent':
+            $label = 'Message your agent';
+            $short = 'Message agent';
+            $icon  = 'bi-chat-dots';
+            break;
+        default:
+            $label = 'Message';
+            $short = 'Message';
+            $icon  = 'bi-chat-dots';
+    }
+
+    $query = array_filter([
+        'page'                   => 'messages',
+        'compose'                => '1',
+        'property_id'            => $propertyId ?: null,
+        'lease_id'               => $leaseId ?: null,
+        'maintenance_request_id' => $maintenanceId ?: null,
     ]);
+
+    return [
+        'label'  => $label,
+        'short'  => $short,
+        'icon'   => $icon,
+        'source' => $source,
+        'url'    => APP_URL . '/index.php?' . http_build_query($query),
+    ];
+}
+
+/**
+ * Why this counterpart, in one line, for the compose screen.
+ *
+ * Says the quiet part out loud where it matters: an administrator offered
+ * through the fallback is offered *because* no agent is assigned, and the
+ * person writing to them should know that rather than wonder why head office
+ * is answering their question about a leaking tap.
+ */
+function communicationCounterpartReason(string $role): string
+{
+    $source = communicationContactSource();
+
+    if ($role === ROLE_ADMIN && $source === 'admin') {
+        return 'No agent is assigned to this record yet, so your message goes to the managing office.';
+    }
+    if ($role === ROLE_AGENT) {
+        return 'The agent responsible for this record.';
+    }
+    if ($role === ROLE_ADMIN) {
+        return 'Agency administration.';
+    }
+
+    return '';
 }
 
 // ─── Explaining an empty scope ─────────────────────────────────────────

@@ -76,7 +76,7 @@ class ReportController
         'sales' => [
             'label' => 'Sales',
             'icon'  => 'bi-tag',
-            'blurb' => 'Completed sales, contract value, collections and pipeline.',
+            'blurb' => 'The deal book: pipeline, completed sales, and the holds on property.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'payments' => [
@@ -99,7 +99,7 @@ class ReportController
         'maintenance' => [
             'label' => 'Maintenance',
             'icon'  => 'bi-tools',
-            'blurb' => 'Open work, resolution times, costs and the priority mix.',
+            'blurb' => 'The work queue: what is open, how long it has waited, and what it costs.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'performance' => [
@@ -118,7 +118,7 @@ class ReportController
      * coming is navigation, and a tab that appears later without warning is a
      * surprise. Nothing in either case shows a number that is not real.
      */
-    private const BUILT = ['overview', 'financial', 'properties', 'rentals', 'payments', 'performance'];
+    private const BUILT = ['overview', 'financial', 'properties', 'rentals', 'sales', 'payments', 'maintenance', 'performance'];
 
     /**
      * The request's tab, resolved to a controller method.
@@ -235,6 +235,8 @@ class ReportController
             'financial'   => $this->financialData($analytics, $compare),
             'properties'  => $this->propertiesData($analytics, $compare),
             'rentals'     => $this->rentalsData($analytics),
+            'sales'       => $this->salesData($analytics, $compare),
+            'maintenance' => $this->maintenanceData($analytics, $compare),
             'payments'    => $this->paymentsData($analytics, $compare),
             'performance' => $this->performanceData($analytics),
             default       => [],
@@ -1036,6 +1038,332 @@ class ReportController
                     (int) $ended['count'],
                     (int) $ended['count'] === 1 ? 'tenancy' : 'tenancies',
                     formatCurrency((float) $ended['arrears'])
+                ),
+            ];
+        }
+
+        usort($out, static fn(array $a, array $b): int => ($a['rank'] ?? 50) <=> ($b['rank'] ?? 50));
+
+        return array_slice($out, 0, 5);
+    }
+
+    /**
+     * The sales report.
+     *
+     * Four things are kept apart here that everyday language runs together:
+     * a property listed for sale, a pending sale, a completed sale, and a
+     * reservation. Only the third is a transaction that happened; the first
+     * is inventory intent, the second is an intention, and the fourth is a
+     * hold with a deposit against it.
+     *
+     * Comparison applies to the period figures — deals recorded, completed
+     * count and completed value, all on the sale_date axis. Reservations are
+     * current-state and carry no comparison: a hold either stands today or it
+     * does not, and the table keeps no history of when it stood.
+     *
+     * @return array<string,mixed>
+     */
+    private function salesData(CoreAnalytics $analytics, bool $compare): array
+    {
+        $summary  = $analytics->salesSummary();
+        $pipeline = $analytics->salesPipeline();
+        $resv     = $analytics->reservationSummary();
+        $flags    = $analytics->salesIntegrityFlags();
+
+        $perPage = 25;
+        $total   = $analytics->salesRegisterCount();
+        $pages   = max(1, (int) ceil($total / $perPage));
+        $page    = max(1, min($pages, (int) ($_GET['p'] ?? 1)));
+
+        return [
+            'summary'       => $summary,
+            'previous'      => $compare ? $analytics->salesSummary(true) : null,
+            'pipeline'      => $pipeline,
+            'byCategory'    => $analytics->salesByCategory(),
+            'salesSeries'   => $analytics->salesSeries(),
+            'register'      => $analytics->salesRegister($perPage, ($page - 1) * $perPage),
+            'registerTotal' => $total,
+            'registerPage'  => $page,
+            'registerPages' => $pages,
+            'reservations'  => $resv,
+            'resvQueue'     => $analytics->reservationQueue(25),
+            'salesFlags'    => $flags,
+            'unattributed'  => $analytics->unattributedRevenue(),
+            'ledger'        => null,
+            'dataQuality'   => reportDataQuality(),
+            'insights'      => $this->salesInsights($analytics, $summary, $pipeline, $resv, $flags),
+        ];
+    }
+
+    /**
+     * Sales insights, derived rather than written.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function salesInsights(
+        CoreAnalytics $analytics,
+        array $summary,
+        array $pipeline,
+        array $resv,
+        array $flags
+    ): array {
+        $out    = [];
+        $window = $analytics->window();
+        $filter = $analytics->filters();
+
+        // A pipeline with nothing closing in it is the finding, and it is
+        // easily missed because every other number on the page looks healthy.
+        if ((int) $summary['pending'] > 0 && (int) $summary['completed'] === 0) {
+            $out[] = [
+                'rank' => 5, 'tone' => 'warning', 'icon' => 'bi-hourglass-split',
+                'label' => 'Pipeline',
+                'metric' => formatCurrency((float) $summary['pending_value']),
+                'text' => sprintf(
+                    '%d %s worth %s %s pending, and nothing completed in this period.',
+                    (int) $summary['pending'],
+                    (int) $summary['pending'] === 1 ? 'sale' : 'sales',
+                    formatCurrency((float) $summary['pending_value']),
+                    (int) $summary['pending'] === 1 ? 'is' : 'are'
+                ),
+            ];
+        } elseif ((int) $summary['completed'] > 0) {
+            $out[] = [
+                'rank' => 10, 'tone' => 'success', 'icon' => 'bi-check-circle',
+                'label' => 'Completed',
+                'metric' => formatCurrency((float) $summary['completed_value']),
+                'text' => sprintf(
+                    '%d %s completed in this period, worth %s in contract value.',
+                    (int) $summary['completed'],
+                    (int) $summary['completed'] === 1 ? 'sale' : 'sales',
+                    formatCurrency((float) $summary['completed_value'])
+                ),
+            ];
+        }
+
+        // Lapsed holds: property still marked reserved, deposit still held,
+        // and nobody has decided what happens next.
+        $lapsed = $flags['lapsed_reservations'] ?? null;
+        if ($lapsed && (int) $lapsed['count'] > 0) {
+            $out[] = [
+                'rank' => 15, 'tone' => 'danger', 'icon' => 'bi-bookmark-x',
+                'label' => 'Lapsed holds',
+                'metric' => formatCurrency((float) $lapsed['amount']),
+                'text' => sprintf(
+                    '%d %s past its expiry date but still marked active, holding %s in deposits.',
+                    (int) $lapsed['count'],
+                    (int) $lapsed['count'] === 1 ? 'reservation is' : 'reservations are',
+                    formatCurrency((float) $lapsed['amount'])
+                ),
+            ];
+        }
+
+        if ((int) $resv['live'] > 0) {
+            $out[] = [
+                'rank' => 20, 'tone' => 'info', 'icon' => 'bi-bookmark-check',
+                'label' => 'Live holds',
+                'metric' => number_format((int) $resv['live']),
+                'text' => sprintf(
+                    '%d %s currently held under an unexpired reservation.',
+                    (int) $resv['live'],
+                    (int) $resv['live'] === 1 ? 'property is' : 'properties are'
+                ),
+            ];
+        }
+
+        // Which kind of stock the book is made of, where there is a mix.
+        $cats = $analytics->salesByCategory();
+        if (count($cats) > 1 && (float) $summary['total_value'] > 0) {
+            $top = $cats[0];
+            $out[] = [
+                'rank' => 30, 'tone' => 'primary', 'icon' => 'bi-pie-chart',
+                'label' => 'Deal mix',
+                'metric' => reportPercent(reportShare((float) $top['value'], (float) $summary['total_value'])),
+                'text' => sprintf(
+                    '%s account for the largest share of deal value in this period.',
+                    categoryLabel((string) $top['category'])
+                ),
+            ];
+        }
+
+        // A property whose record claims a sale nobody completed.
+        $soldNoSale = $flags['sold_no_sale'] ?? null;
+        if ($soldNoSale && (int) $soldNoSale['count'] > 0) {
+            $out[] = [
+                'rank' => 25, 'tone' => 'warning', 'icon' => 'bi-house-exclamation',
+                'label' => 'Recorded sold',
+                'metric' => number_format((int) $soldNoSale['count']),
+                'text' => sprintf(
+                    '%d %s marked sold on the register with no completed sale behind it, so %s not counted here.',
+                    (int) $soldNoSale['count'],
+                    (int) $soldNoSale['count'] === 1 ? 'property is' : 'properties are',
+                    (int) $soldNoSale['count'] === 1 ? 'it is' : 'they are'
+                ),
+                'url' => reportUrl($window, $filter, ['tab' => 'properties']),
+            ];
+        }
+
+        usort($out, static fn(array $a, array $b): int => ($a['rank'] ?? 50) <=> ($b['rank'] ?? 50));
+
+        return array_slice($out, 0, 5);
+    }
+
+    /**
+     * The maintenance report.
+     *
+     * The split between current state and period is sharper here than
+     * anywhere else in the module, because a backlog is the most tempting
+     * thing to compare and the least possible. Nothing records what was open
+     * in July: `maintenance_requests` holds one status per row and no history
+     * of it. So the workload, its age and its priority mix describe today and
+     * carry no comparison, while requests raised and requests completed are
+     * period figures and do.
+     *
+     * Resolution time is offered only when the data can support it. The
+     * measurement is created_at to completion_date; where no completed
+     * request carries a completion date, maintenanceResolution() reports
+     * itself unavailable and the view prints that rather than an average of
+     * nothing.
+     *
+     * @return array<string,mixed>
+     */
+    private function maintenanceData(CoreAnalytics $analytics, bool $compare): array
+    {
+        $summary    = $analytics->maintenanceSummary();
+        $ageing     = $analytics->maintenanceAgeing();
+        $resolution = $analytics->maintenanceResolution();
+        $priority   = $analytics->maintenancePriorityBreakdown();
+        $flags      = $analytics->maintenanceIntegrityFlags();
+
+        $perPage = 25;
+        $total   = $analytics->maintenanceTableCount('open');
+        $pages   = max(1, (int) ceil($total / $perPage));
+        $page    = max(1, min($pages, (int) ($_GET['p'] ?? 1)));
+
+        return [
+            'summary'      => $summary,
+            'previous'     => $compare ? $analytics->maintenanceSummary(true) : null,
+            'statusMix'    => $analytics->maintenanceStatusBreakdown(),
+            'priorityMix'  => $priority,
+            'ageing'       => $ageing,
+            'maintSeries'  => $analytics->maintenanceSeries(),
+            'resolution'   => $resolution,
+            'costs'        => $analytics->maintenanceCosts(),
+            'queue'        => $analytics->maintenanceTable('open', $perPage, ($page - 1) * $perPage),
+            'queueTotal'   => $total,
+            'queuePage'    => $page,
+            'queuePages'   => $pages,
+            'done'         => $analytics->maintenanceTable('completed', 25, 0),
+            'doneTotal'    => $analytics->maintenanceTableCount('completed'),
+            'byProperty'   => $analytics->maintenanceByProperty(10),
+            'issueTypes'   => $analytics->maintenanceIssueTypes(15),
+            'maintFlags'   => $flags,
+            'unattributed' => $analytics->unattributedRevenue(),
+            'ledger'       => null,
+            'dataQuality'  => reportDataQuality(),
+            'insights'     => $this->maintenanceInsights($summary, $ageing, $resolution, $priority, $flags),
+        ];
+    }
+
+    /**
+     * Maintenance insights, derived rather than written.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function maintenanceInsights(
+        array $summary,
+        array $ageing,
+        array $resolution,
+        array $priority,
+        array $flags
+    ): array {
+        $out = [];
+
+        // Urgent work still open leads whenever it exists.
+        if ((int) $summary['open_urgent'] > 0) {
+            $out[] = [
+                'rank' => 5, 'tone' => 'danger', 'icon' => 'bi-exclamation-octagon',
+                'label' => 'Urgent open',
+                'metric' => number_format((int) $summary['open_urgent']),
+                'text' => sprintf(
+                    '%d high or urgent %s still open.',
+                    (int) $summary['open_urgent'],
+                    (int) $summary['open_urgent'] === 1 ? 'request is' : 'requests are'
+                ),
+            ];
+        }
+
+        // Age. Not an SLA breach — this system defines no target response
+        // time — but an age worth stating.
+        $old = 0;
+        foreach ($ageing['buckets'] as $b) {
+            if ($b['key'] === 'd15') { $old = (int) $b['requests']; }
+        }
+        if ($old > 0) {
+            $out[] = [
+                'rank' => 10, 'tone' => 'warning', 'icon' => 'bi-clock-history',
+                'label' => 'Waiting',
+                'metric' => $ageing['oldest'] . ' days oldest',
+                'text' => sprintf(
+                    '%d open %s been waiting more than a fortnight, averaging %s days across the queue.',
+                    $old,
+                    $old === 1 ? 'request has' : 'requests have',
+                    number_format((float) $ageing['average'], 1)
+                ),
+            ];
+        }
+
+        if ((int) $summary['open_unassigned'] > 0) {
+            $out[] = [
+                'rank' => 15, 'tone' => 'warning', 'icon' => 'bi-person-dash',
+                'label' => 'Unassigned',
+                'metric' => number_format((int) $summary['open_unassigned']),
+                'text' => sprintf(
+                    '%d open %s nobody assigned to it.',
+                    (int) $summary['open_unassigned'],
+                    (int) $summary['open_unassigned'] === 1 ? 'request has' : 'requests have'
+                ),
+            ];
+        }
+
+        // A queue with intake and no output is the finding, and it is easy to
+        // miss when every individual number looks small.
+        if ((int) $summary['raised'] > 0 && (int) $summary['completed'] === 0) {
+            $out[] = [
+                'rank' => 20, 'tone' => 'warning', 'icon' => 'bi-arrow-down-up',
+                'label' => 'Throughput',
+                'metric' => number_format((int) $summary['raised']) . ' in, 0 out',
+                'text' => sprintf(
+                    '%d %s raised in this period and none completed, so the queue only grew.',
+                    (int) $summary['raised'],
+                    (int) $summary['raised'] === 1 ? 'request was' : 'requests were'
+                ),
+            ];
+        } elseif ((int) $summary['completed'] > 0) {
+            $out[] = [
+                'rank' => 20, 'tone' => 'success', 'icon' => 'bi-check2-circle',
+                'label' => 'Throughput',
+                'metric' => number_format((int) $summary['completed']) . ' completed',
+                'text' => sprintf(
+                    '%d %s raised and %d completed in this period.',
+                    (int) $summary['raised'],
+                    (int) $summary['raised'] === 1 ? 'request was' : 'requests were',
+                    (int) $summary['completed']
+                ),
+            ];
+        }
+
+        if (!empty($resolution['available'])) {
+            $out[] = [
+                'rank' => 25, 'tone' => 'info', 'icon' => 'bi-stopwatch',
+                'label' => 'Resolution',
+                'metric' => number_format((float) $resolution['average'], 1) . ' days',
+                'text' => sprintf(
+                    'Across %d completed %s, resolution has taken %s days on average, between %d and %d.',
+                    (int) $resolution['resolved'],
+                    (int) $resolution['resolved'] === 1 ? 'request' : 'requests',
+                    number_format((float) $resolution['average'], 1),
+                    (int) $resolution['fastest'],
+                    (int) $resolution['slowest']
                 ),
             ];
         }

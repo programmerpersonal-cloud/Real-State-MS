@@ -888,6 +888,961 @@ class CoreAnalytics extends Analytics
         ", $scopeParams + $filterParams + $this->periodParams());
     }
 
+    // ─── Maintenance · the work queue ──────────────────────────────────
+    //
+    // Two clocks again, and here they matter more than anywhere else. How
+    // many requests came in during a period is a period figure. What is open
+    // *now*, and how long it has been open, is current state — a backlog is
+    // not something the database records the history of, so a backlog cannot
+    // be compared with last month's.
+    //
+    // "Open" means a request nobody has closed: new, under review, assigned
+    // or in progress. Completed, rejected and cancelled are all finished, and
+    // only the first of those three is a resolution.
+
+    /** The statuses that mean somebody still has work to do. */
+    private const MAINTENANCE_OPEN = ['new', 'under_review', 'assigned', 'in_progress'];
+
+    /** Every status the schema declares, in workflow order. */
+    private const MAINTENANCE_STATUSES = [
+        'new', 'under_review', 'assigned', 'in_progress', 'completed', 'rejected', 'cancelled',
+    ];
+
+    /**
+     * Requests raised in the window, plus the open workload as it stands.
+     *
+     * The two halves are labelled apart in the return value because they
+     * answer different questions and only the first responds to the date
+     * picker.
+     *
+     * @return array<string,mixed>
+     */
+    public function maintenanceSummary(bool $previous = false): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        $open = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+
+        // Period half: what came in and what was finished, on created_at and
+        // completion_date respectively.
+        $period = $this->row("
+            SELECT COUNT(*) AS raised,
+                   COALESCE(SUM(m.priority IN ('high','urgent')), 0) AS raised_urgent
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE {$this->withinPeriod('DATE(m.created_at)')}
+              AND ({$scope}) {$filterSql}
+        ", $params + $filterParams + $this->periodParams($previous));
+
+        $completedInWindow = $this->row("
+            SELECT COUNT(*) AS completed,
+                   COALESCE(SUM(m.actual_cost), 0) AS cost
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE m.status = 'completed'
+              AND m.completion_date IS NOT NULL
+              AND m.completion_date <= :w_today
+              AND {$this->withinPeriod('m.completion_date')}
+              AND ({$scope}) {$filterSql}
+        ", $params + $filterParams + $this->periodParams($previous));
+
+        // Current half: the workload, unbounded by any window.
+        $now = $this->row("
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(m.status IN ({$open})), 0) AS open,
+                   COALESCE(SUM(m.status = 'in_progress'), 0) AS in_progress,
+                   COALESCE(SUM(m.status IN ('new','under_review')), 0) AS awaiting,
+                   COALESCE(SUM(m.status = 'assigned'), 0) AS assigned,
+                   COALESCE(SUM(m.status = 'completed'), 0) AS completed_ever,
+                   COALESCE(SUM(m.status IN ({$open}) AND m.priority IN ('high','urgent')), 0) AS open_urgent,
+                   COALESCE(SUM(m.status IN ({$open}) AND m.assigned_to IS NULL), 0) AS open_unassigned
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+        ", $params + $filterParams);
+
+        return [
+            // Period
+            'raised'           => (int) ($period['raised'] ?? 0),
+            'raised_urgent'    => (int) ($period['raised_urgent'] ?? 0),
+            'completed'        => (int) ($completedInWindow['completed'] ?? 0),
+            'completed_cost'   => (float) ($completedInWindow['cost'] ?? 0),
+            // Current state
+            'total'            => (int) ($now['total'] ?? 0),
+            'open'             => (int) ($now['open'] ?? 0),
+            'awaiting'         => (int) ($now['awaiting'] ?? 0),
+            'assigned'         => (int) ($now['assigned'] ?? 0),
+            'in_progress'      => (int) ($now['in_progress'] ?? 0),
+            'completed_ever'   => (int) ($now['completed_ever'] ?? 0),
+            'open_urgent'      => (int) ($now['open_urgent'] ?? 0),
+            'open_unassigned'  => (int) ($now['open_unassigned'] ?? 0),
+        ];
+    }
+
+    /**
+     * Every request by status, in workflow order, zeros kept.
+     *
+     * The zeros are the point on a workflow: three requests all sitting at
+     * "assigned" with nothing before or after them is a queue that has
+     * stalled, and a chart that dropped the empty stages would show one bar
+     * and say nothing.
+     *
+     * Current state, not window-bounded — a status is what a request is now.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function maintenanceStatusBreakdown(): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $rows = $this->rows("
+            SELECT m.status, COUNT(*) AS requests
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+            GROUP BY m.status
+        ", $params + $filterParams);
+
+        $found = [];
+        foreach ($rows as $r) {
+            $found[(string) $r['status']] = (int) $r['requests'];
+        }
+
+        $tones = [
+            'new' => '--info', 'under_review' => '--info', 'assigned' => '--warning',
+            'in_progress' => '--primary', 'completed' => '--success',
+            'rejected' => '--text-subtle', 'cancelled' => '--text-subtle',
+        ];
+
+        $out = [];
+        foreach (self::MAINTENANCE_STATUSES as $status) {
+            $out[] = [
+                'status'   => $status,
+                'label'    => uiLabel($status),
+                'tone'     => $tones[$status] ?? '--primary',
+                'requests' => $found[$status] ?? 0,
+                'is_open'  => in_array($status, self::MAINTENANCE_OPEN, true),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Open requests by priority.
+     *
+     * Priority on a closed request is history; on an open one it is a
+     * decision about what to do next, which is the only reason to chart it.
+     * Every level the schema declares is returned, including the empty ones —
+     * "no urgent work outstanding" is worth being able to see.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function maintenancePriorityBreakdown(): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        $open = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+
+        $rows = $this->rows("
+            SELECT m.priority, COUNT(*) AS requests
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE m.status IN ({$open}) AND ({$scope}) {$filterSql}
+            GROUP BY m.priority
+        ", $params + $filterParams);
+
+        $found = [];
+        foreach ($rows as $r) {
+            $found[(string) $r['priority']] = (int) $r['requests'];
+        }
+
+        $levels = ['urgent' => '--danger', 'high' => '--orange', 'medium' => '--warning', 'low' => '--info'];
+
+        $out = [];
+        foreach ($levels as $level => $tone) {
+            $out[] = [
+                'priority' => $level,
+                'label'    => uiLabel($level),
+                'tone'     => $tone,
+                'requests' => $found[$level] ?? 0,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * How long the open requests have been waiting.
+     *
+     * Age is measured from `created_at` to today, which the schema fully
+     * supports. It is emphatically *not* an SLA breach: this system records
+     * no target response time and no due date for maintenance, so nothing
+     * here is "overdue" — it is simply old, and how old is a decision for
+     * whoever reads it.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function maintenanceAgeing(): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        $open = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+
+        $age = "DATEDIFF(:w_today, DATE(m.created_at))";
+
+        $row = $this->row("
+            SELECT COALESCE(SUM({$age} BETWEEN 0 AND 3), 0)   AS d3,
+                   COALESCE(SUM({$age} BETWEEN 4 AND 7), 0)   AS d7,
+                   COALESCE(SUM({$age} BETWEEN 8 AND 14), 0)  AS d14,
+                   COALESCE(SUM({$age} > 14), 0)              AS d15,
+                   COALESCE(MAX({$age}), 0)                   AS oldest,
+                   COALESCE(ROUND(AVG({$age}), 1), 0)         AS average
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE m.status IN ({$open}) AND ({$scope}) {$filterSql}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+
+        return [
+            'buckets' => [
+                ['key' => 'd3',  'label' => '0–3 days',    'requests' => (int) ($row['d3'] ?? 0),  'tone' => '--success'],
+                ['key' => 'd7',  'label' => '4–7 days',    'requests' => (int) ($row['d7'] ?? 0),  'tone' => '--info'],
+                ['key' => 'd14', 'label' => '8–14 days',   'requests' => (int) ($row['d14'] ?? 0), 'tone' => '--warning'],
+                ['key' => 'd15', 'label' => '15+ days',    'requests' => (int) ($row['d15'] ?? 0), 'tone' => '--danger'],
+            ],
+            'oldest'  => (int) ($row['oldest'] ?? 0),
+            'average' => (float) ($row['average'] ?? 0),
+        ];
+    }
+
+    /**
+     * Requests raised and completed over time.
+     *
+     * Raised is dated by `created_at`, completed by `completion_date` — two
+     * different events on two different columns, drawn together because the
+     * gap between them is the backlog forming or clearing.
+     *
+     * @return array{raised:array,completed:array}
+     */
+    public function maintenanceSeries(): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $raisedBucket = $this->bucket('DATE(m.created_at)');
+        $raised = $this->rows("
+            SELECT {$raisedBucket} AS bucket, COUNT(*) AS n
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE {$this->withinPeriod('DATE(m.created_at)')}
+              AND ({$scope}) {$filterSql}
+            GROUP BY bucket ORDER BY bucket
+        ", $params + $filterParams + $this->periodParams());
+
+        $doneBucket = $this->bucket('m.completion_date');
+        $done = $this->rows("
+            SELECT {$doneBucket} AS bucket, COUNT(*) AS n
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE m.status = 'completed'
+              AND m.completion_date IS NOT NULL
+              AND m.completion_date <= :w_today
+              AND {$this->withinPeriod('m.completion_date')}
+              AND ({$scope}) {$filterSql}
+            GROUP BY bucket ORDER BY bucket
+        ", $params + $filterParams + $this->periodParams());
+
+        return [
+            'raised'    => $this->fillSeries($raised, 'bucket', 'n'),
+            'completed' => $this->fillSeries($done, 'bucket', 'n'),
+        ];
+    }
+
+    /**
+     * Resolution time, or an honest refusal.
+     *
+     * Measured from `created_at` to `completion_date`, which is the only pair
+     * of columns in this table that means what it needs to mean. `updated_at`
+     * is deliberately not used: it moves on any edit, so a request touched
+     * yesterday would report as resolved yesterday whatever actually
+     * happened.
+     *
+     * `available` is false when no completed request carries a completion
+     * date, and every caller must respect it. On the current data that is
+     * every request — nothing has ever been completed — so the report shows
+     * "not available" rather than a fabricated average.
+     *
+     * @return array<string,mixed>
+     */
+    public function maintenanceResolution(): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $days = "DATEDIFF(m.completion_date, DATE(m.created_at))";
+
+        $row = $this->row("
+            SELECT COUNT(*) AS resolved,
+                   COALESCE(ROUND(AVG({$days}), 1), 0) AS average,
+                   COALESCE(MIN({$days}), 0) AS fastest,
+                   COALESCE(MAX({$days}), 0) AS slowest
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE m.status = 'completed'
+              AND m.completion_date IS NOT NULL
+              AND m.completion_date >= DATE(m.created_at)
+              AND ({$scope}) {$filterSql}
+        ", $params + $filterParams);
+
+        $resolved = (int) ($row['resolved'] ?? 0);
+
+        return [
+            'available' => $resolved > 0,
+            'resolved'  => $resolved,
+            'average'   => $resolved > 0 ? (float) $row['average'] : null,
+            'fastest'   => $resolved > 0 ? (int) $row['fastest'] : null,
+            'slowest'   => $resolved > 0 ? (int) $row['slowest'] : null,
+        ];
+    }
+
+    /**
+     * Cost recorded against maintenance.
+     *
+     * Estimate and actual are kept apart and never netted. A request with an
+     * estimate and no actual has not been paid for yet; one with an actual and
+     * no estimate was never costed in advance. Both are common and neither is
+     * an error.
+     *
+     * @return array<string,mixed>
+     */
+    public function maintenanceCosts(): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $row = $this->row("
+            SELECT COALESCE(SUM(m.cost_estimate), 0) AS estimate,
+                   COALESCE(SUM(m.actual_cost), 0) AS actual,
+                   COALESCE(SUM(m.cost_estimate > 0), 0) AS with_estimate,
+                   COALESCE(SUM(m.actual_cost > 0), 0) AS with_actual
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+        ", $params + $filterParams);
+
+        return [
+            'estimate'      => (float) ($row['estimate'] ?? 0),
+            'actual'        => (float) ($row['actual'] ?? 0),
+            'with_estimate' => (int) ($row['with_estimate'] ?? 0),
+            'with_actual'   => (int) ($row['with_actual'] ?? 0),
+        ];
+    }
+
+    /**
+     * The open queue: urgency first, then longest waiting.
+     *
+     * @param string $mode 'open' for the queue, 'completed' for finished work
+     * @return array<int,array<string,mixed>>
+     */
+    public function maintenanceTable(string $mode = 'open', int $limit = 25, int $offset = 0): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $limit  = max(1, min(100, $limit));
+        $offset = max(0, min(100000, $offset));
+        $open   = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+
+        // Literals this class chose; the request supplies only the tab name,
+        // which the controller resolved through its own allowlist.
+        if ($mode === 'completed') {
+            $where = "m.status = 'completed'";
+            $order = "m.completion_date DESC, m.id DESC";
+        } else {
+            $where = "m.status IN ({$open})";
+            // FIELD() puts urgent first and low last, then oldest first
+            // inside each level — the order somebody working the queue wants.
+            $order = "FIELD(m.priority,'urgent','high','medium','low'), m.created_at ASC";
+        }
+
+        return $this->rows("
+            SELECT m.id, m.request_code, m.issue_type, m.priority, m.status,
+                   DATE(m.created_at) AS raised_on, m.completion_date,
+                   m.cost_estimate, m.actual_cost, m.assigned_to,
+                   DATEDIFF(:w_today, DATE(m.created_at)) AS age_days,
+                   CASE WHEN m.completion_date IS NOT NULL
+                        THEN DATEDIFF(m.completion_date, DATE(m.created_at)) END AS resolution_days,
+                   p.id AS property_id, p.title AS property_title, p.property_code, p.category,
+                   staff.full_name AS assigned_name,
+                   reporter.full_name AS reported_by_name
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            LEFT JOIN users staff ON m.assigned_to = staff.id
+            LEFT JOIN users reporter ON m.reported_by = reporter.id
+            WHERE {$where} AND ({$scope}) {$filterSql}
+            ORDER BY {$order}
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+    }
+
+    /** How many rows the queue or the completed list holds. */
+    public function maintenanceTableCount(string $mode = 'open'): int
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        $open = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+        $where = $mode === 'completed' ? "m.status = 'completed'" : "m.status IN ({$open})";
+
+        return $this->count("
+            SELECT COUNT(*) FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE {$where} AND ({$scope}) {$filterSql}
+        ", $params + $filterParams);
+    }
+
+    /**
+     * Properties by how much maintenance they generate.
+     *
+     * A count, not a score. With three requests across two properties this is
+     * a short list rather than a ranking, and the view says so instead of
+     * dressing it up as a league table.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function maintenanceByProperty(int $limit = 10): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        $limit = max(1, min(50, $limit));
+        $open  = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+
+        return $this->rows("
+            SELECT p.id, p.title, p.property_code, p.category,
+                   COUNT(*) AS requests,
+                   COALESCE(SUM(m.status IN ({$open})), 0) AS open_requests,
+                   COALESCE(SUM(m.status = 'completed'), 0) AS completed_requests,
+                   COALESCE(SUM(m.priority IN ('high','urgent')), 0) AS urgent_requests,
+                   COALESCE(SUM(m.actual_cost), 0) AS cost
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+            GROUP BY p.id, p.title, p.property_code, p.category
+            ORDER BY requests DESC, open_requests DESC, p.property_code ASC
+            LIMIT {$limit}
+        ", $params + $filterParams);
+    }
+
+    /**
+     * How consistent the issue-type text is.
+     *
+     * `issue_type` is a free-text VARCHAR with no vocabulary behind it. The
+     * same measurement the location analysis uses decides whether it is worth
+     * charting: near one distinct value per request means it is prose, not a
+     * dimension. It currently holds three values for three requests, two of
+     * which are test noise, so the report lists them and does not chart them.
+     *
+     * @return array<string,mixed>
+     */
+    public function maintenanceIssueTypes(int $limit = 15): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        $limit = max(1, min(50, $limit));
+
+        $summary = $this->row("
+            SELECT COUNT(*) AS total,
+                   COUNT(DISTINCT m.issue_type) AS distinct_values,
+                   COALESCE(SUM(m.issue_type IS NULL OR TRIM(m.issue_type) = ''), 0) AS blank
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+        ", $params + $filterParams);
+
+        $rows = $this->rows("
+            SELECT m.issue_type, COUNT(*) AS requests,
+                   COALESCE(SUM(m.status IN ('new','under_review','assigned','in_progress')), 0) AS open_requests
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE m.issue_type IS NOT NULL AND TRIM(m.issue_type) <> ''
+              AND ({$scope}) {$filterSql}
+            GROUP BY m.issue_type
+            ORDER BY requests DESC, m.issue_type ASC
+            LIMIT {$limit}
+        ", $params + $filterParams);
+
+        $total    = (int) ($summary['total'] ?? 0);
+        $distinct = (int) ($summary['distinct_values'] ?? 0);
+
+        return [
+            'total'    => $total,
+            'distinct' => $distinct,
+            'blank'    => (int) ($summary['blank'] ?? 0),
+            'rows'     => $rows,
+            'spread'   => $total > 0 ? round($distinct / $total, 2) : null,
+            'usable'   => $total > 0 && ($distinct / $total) <= 0.5,
+        ];
+    }
+
+    /**
+     * Maintenance records that do not agree with themselves.
+     *
+     * @return array<string,array{count:int}>
+     */
+    public function maintenanceIntegrityFlags(): array
+    {
+        [$scope, $params]           = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        $open = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+
+        $row = $this->row("
+            SELECT COALESCE(SUM(m.status IN ({$open}) AND m.assigned_to IS NULL), 0) AS open_unassigned,
+                   COALESCE(SUM(m.status = 'assigned' AND m.assigned_to IS NULL), 0) AS assigned_no_staff,
+                   COALESCE(SUM(m.status = 'completed' AND m.completion_date IS NULL), 0) AS completed_no_date,
+                   COALESCE(SUM(m.status <> 'completed' AND m.completion_date IS NOT NULL), 0) AS open_with_date,
+                   COALESCE(SUM(m.completion_date IS NOT NULL AND m.completion_date < DATE(m.created_at)), 0) AS completed_before_raised,
+                   COALESCE(SUM(m.issue_type IS NULL OR TRIM(m.issue_type) = ''), 0) AS no_type,
+                   COALESCE(SUM(m.actual_cost < 0 OR m.cost_estimate < 0), 0) AS negative_cost,
+                   COALESCE(SUM(m.status = 'completed' AND m.actual_cost = 0 AND m.cost_estimate > 0), 0) AS completed_no_cost
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+        ", $params + $filterParams);
+
+        // A request whose property row has gone. The JOIN above hides these,
+        // so it is asked with a LEFT JOIN instead.
+        $orphan = $this->count("
+            SELECT COUNT(*) FROM maintenance_requests m
+            LEFT JOIN properties p ON m.property_id = p.id
+            WHERE p.id IS NULL
+        ");
+
+        $n = static fn($v): array => ['count' => (int) $v];
+
+        return [
+            'open_unassigned'         => $n($row['open_unassigned'] ?? 0),
+            'assigned_no_staff'       => $n($row['assigned_no_staff'] ?? 0),
+            'completed_no_date'       => $n($row['completed_no_date'] ?? 0),
+            'open_with_date'          => $n($row['open_with_date'] ?? 0),
+            'completed_before_raised' => $n($row['completed_before_raised'] ?? 0),
+            'no_type'                 => $n($row['no_type'] ?? 0),
+            'negative_cost'           => $n($row['negative_cost'] ?? 0),
+            'completed_no_cost'       => $n($row['completed_no_cost'] ?? 0),
+            'orphan_property'         => $n($orphan),
+        ];
+    }
+
+    // ─── Sales · the deal book and the holds on it ─────────────────────
+    //
+    // The distinction this section exists to hold: a property listed for sale
+    // is not a pending sale, a pending sale is not a completed one, and a
+    // reservation is none of the three. The schema offers exactly three sale
+    // statuses — pending, completed, cancelled — and no more are invented.
+    //
+    // Money follows the same rule as everywhere else in the module. A
+    // completed sale's `sale_amount` is contract value, not cash; cash is
+    // whatever `payments` recorded against it under the approved revenue
+    // definition. The two are reported side by side and never added.
+
+    /**
+     * The sale book for the window, by status, in one pass.
+     *
+     * Bounded on `sale_date`, and completed sales additionally capped at
+     * today: a sale dated next month has not completed yet, whatever its
+     * status column says. Same rule the revenue definition applies to
+     * payments, for the same reason.
+     *
+     * @return array<string,mixed>
+     */
+    public function salesSummary(bool $previous = false): array
+    {
+        [$scope, $params]           = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $row = $this->row("
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(s.sale_amount), 0) AS total_value,
+
+                   COALESCE(SUM(s.status = 'completed' AND s.sale_date <= :w_today), 0) AS completed,
+                   COALESCE(SUM(CASE WHEN s.status = 'completed' AND s.sale_date <= :w_today
+                                     THEN s.sale_amount END), 0) AS completed_value,
+                   COALESCE(SUM(CASE WHEN s.status = 'completed' AND s.sale_date <= :w_today
+                                     THEN s.commission_amount END), 0) AS commission,
+
+                   COALESCE(SUM(s.status = 'pending'), 0) AS pending,
+                   COALESCE(SUM(CASE WHEN s.status = 'pending' THEN s.sale_amount END), 0) AS pending_value,
+
+                   COALESCE(SUM(s.status = 'cancelled'), 0) AS cancelled,
+                   COALESCE(SUM(CASE WHEN s.status = 'cancelled' THEN s.sale_amount END), 0) AS cancelled_value,
+
+                   COALESCE(SUM(s.status = 'completed' AND s.sale_date > :w_today), 0) AS future_completed
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            WHERE s.sale_date IS NOT NULL
+              AND {$this->withinPeriod('s.sale_date')}
+              AND ({$scope})
+              {$filterSql}
+        ", $params + $filterParams + $this->periodParams($previous));
+
+        $completed = (int) ($row['completed'] ?? 0);
+
+        return [
+            'total'            => (int) ($row['total'] ?? 0),
+            'total_value'      => (float) ($row['total_value'] ?? 0),
+            'completed'        => $completed,
+            'completed_value'  => (float) ($row['completed_value'] ?? 0),
+            'commission'       => (float) ($row['commission'] ?? 0),
+            'pending'          => (int) ($row['pending'] ?? 0),
+            'pending_value'    => (float) ($row['pending_value'] ?? 0),
+            'cancelled'        => (int) ($row['cancelled'] ?? 0),
+            'cancelled_value'  => (float) ($row['cancelled_value'] ?? 0),
+            'future_completed' => (int) ($row['future_completed'] ?? 0),
+            // Only where something completed. An average over no sales is not
+            // a small average, it is no average at all.
+            'average'          => $completed > 0 ? (float) $row['completed_value'] / $completed : null,
+        ];
+    }
+
+    /**
+     * The pipeline: the three real statuses, including the empty ones.
+     *
+     * Zeros are kept here rather than dropped, because on a pipeline they are
+     * the finding. "Nothing completed this period" is a statement worth
+     * printing; a chart that quietly omits the completed bar leaves the
+     * reader to notice an absence, which nobody does.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function salesPipeline(): array
+    {
+        [$scope, $params]           = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $rows = $this->rows("
+            SELECT s.status, COUNT(*) AS deals, COALESCE(SUM(s.sale_amount), 0) AS value
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            WHERE s.sale_date IS NOT NULL
+              AND {$this->withinPeriod('s.sale_date')}
+              AND ({$scope})
+              {$filterSql}
+            GROUP BY s.status
+        ", $params + $filterParams + $this->periodParams());
+
+        $found = [];
+        foreach ($rows as $r) {
+            $found[(string) $r['status']] = $r;
+        }
+
+        $out = [];
+        foreach (['pending' => '--warning', 'completed' => '--success', 'cancelled' => '--text-subtle'] as $status => $tone) {
+            $out[] = [
+                'status' => $status,
+                'label'  => uiLabel($status),
+                'tone'   => $tone,
+                'deals'  => (int) ($found[$status]['deals'] ?? 0),
+                'value'  => (float) ($found[$status]['value'] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Deal value by property category.
+     *
+     * All statuses, because the question is what kind of stock the sale book
+     * is made of — a half-million-pound apartment still pending is the
+     * dominant thing in the pipeline whether or not it closes. The completed
+     * split rides alongside so the two are never confused.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function salesByCategory(): array
+    {
+        [$scope, $params]           = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        return $this->rows("
+            SELECT p.category,
+                   COUNT(*) AS deals,
+                   COALESCE(SUM(s.sale_amount), 0) AS value,
+                   COALESCE(SUM(s.status = 'completed' AND s.sale_date <= :w_today), 0) AS completed,
+                   COALESCE(SUM(CASE WHEN s.status = 'completed' AND s.sale_date <= :w_today
+                                     THEN s.sale_amount END), 0) AS completed_value
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            WHERE s.sale_date IS NOT NULL
+              AND {$this->withinPeriod('s.sale_date')}
+              AND ({$scope})
+              {$filterSql}
+            GROUP BY p.category
+            ORDER BY value DESC
+        ", $params + $filterParams + $this->periodParams());
+    }
+
+    /**
+     * Sale value over time, on the sale_date axis.
+     *
+     * Two series: everything recorded, and the completed subset. Drawn
+     * together they answer the only question a sales trend is ever asked —
+     * how much is moving, and how much of it actually closed.
+     *
+     * @return array{recorded:array,completed:array}
+     */
+    public function salesSeries(): array
+    {
+        [$scope, $params]           = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $bucket = $this->bucket('s.sale_date');
+
+        $rows = $this->rows("
+            SELECT {$bucket} AS bucket,
+                   COALESCE(SUM(s.sale_amount), 0) AS recorded,
+                   COALESCE(SUM(CASE WHEN s.status = 'completed' AND s.sale_date <= :w_today
+                                     THEN s.sale_amount END), 0) AS completed
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            WHERE s.sale_date IS NOT NULL
+              AND {$this->withinPeriod('s.sale_date')}
+              AND ({$scope})
+              {$filterSql}
+            GROUP BY bucket
+            ORDER BY bucket
+        ", $params + $filterParams + $this->periodParams());
+
+        return [
+            'recorded'  => $this->fillSeries($rows, 'bucket', 'recorded'),
+            'completed' => $this->fillSeries($rows, 'bucket', 'completed'),
+        ];
+    }
+
+    /**
+     * The sale register: one row per deal.
+     *
+     * `collected` is cash actually received against the sale, under the
+     * approved revenue definition — not the contract value. On the current
+     * data every deal shows zero collected, which is correct: no payment has
+     * ever been recorded with a sale reference.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function salesRegister(int $limit = 25, int $offset = 0): array
+    {
+        [$scope, $params]           = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        [$payScope, $payParams]     = $this->scope('payment', 'py', 'pp');
+        $types = $this->revenueTypeList();
+
+        $limit  = max(1, min(100, $limit));
+        $offset = max(0, min(100000, $offset));
+
+        // Correlated rather than joined: a sale with three payments must not
+        // become three rows in a register that promises one row per deal.
+        $collected = "(SELECT COALESCE(SUM(py.amount), 0)
+                         FROM payments py
+                         LEFT JOIN properties pp ON py.property_id = pp.id
+                        WHERE py.reference_type = 'sale'
+                          AND py.reference_id = s.id
+                          AND py.status = 'paid'
+                          AND py.payment_date IS NOT NULL
+                          AND py.payment_date <= :w_today
+                          AND py.payment_type IN ({$types})
+                          AND ({$payScope}))";
+
+        return $this->rows("
+            SELECT s.id, s.sale_code, s.sale_date, s.sale_amount, s.commission_amount,
+                   s.payment_type, s.status,
+                   p.id AS property_id, p.title AS property_title, p.property_code, p.category,
+                   c.full_name AS buyer_name,
+                   u.full_name AS agent_name, s.agent_id,
+                   {$collected} AS collected
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            LEFT JOIN customers c ON s.customer_id = c.id
+            LEFT JOIN users u ON s.agent_id = u.id
+            WHERE s.sale_date IS NOT NULL
+              AND {$this->withinPeriod('s.sale_date')}
+              AND ({$scope})
+              {$filterSql}
+            ORDER BY s.sale_date DESC, s.id DESC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params + $filterParams + $payParams + $this->periodParams()
+           + [':w_today' => $this->window['today']]);
+    }
+
+    /** How many deals the register pages through. */
+    public function salesRegisterCount(): int
+    {
+        [$scope, $params]           = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        return $this->count("
+            SELECT COUNT(*) FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            WHERE s.sale_date IS NOT NULL
+              AND {$this->withinPeriod('s.sale_date')}
+              AND ({$scope}) {$filterSql}
+        ", $params + $filterParams + $this->periodParams());
+    }
+
+    /**
+     * Reservations: holds on property, counted by whether they still stand.
+     *
+     * An expired hold is not an active one however its status column reads,
+     * and the two are never added. `deposit_amount` is the only money a
+     * reservation carries and it is a deposit — held, not earned, and never
+     * folded into sales value.
+     *
+     * Deliberately not window-bounded: a hold is a current-state fact.
+     *
+     * @return array<string,mixed>
+     */
+    public function reservationSummary(): array
+    {
+        [$scope, $params]           = $this->scope('reservation', 'r', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $row = $this->row("
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(r.status IN ('active','confirmed') AND r.expiry_date >= :w_today), 0) AS live,
+                   COALESCE(SUM(CASE WHEN r.status IN ('active','confirmed') AND r.expiry_date >= :w_today
+                                     THEN r.deposit_amount END), 0) AS live_deposits,
+                   COALESCE(SUM(r.status = 'confirmed' AND r.expiry_date >= :w_today), 0) AS confirmed_live,
+                   COALESCE(SUM(r.status IN ('active','confirmed') AND r.expiry_date < :w_today), 0) AS lapsed,
+                   COALESCE(SUM(CASE WHEN r.status IN ('active','confirmed') AND r.expiry_date < :w_today
+                                     THEN r.deposit_amount END), 0) AS lapsed_deposits,
+                   COALESCE(SUM(r.status = 'expired'), 0) AS marked_expired,
+                   COALESCE(SUM(r.status = 'cancelled'), 0) AS cancelled
+            FROM reservations r
+            JOIN properties p ON r.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+
+        return [
+            'total'           => (int) ($row['total'] ?? 0),
+            'live'            => (int) ($row['live'] ?? 0),
+            'live_deposits'   => (float) ($row['live_deposits'] ?? 0),
+            'confirmed_live'  => (int) ($row['confirmed_live'] ?? 0),
+            // Still flagged active or confirmed, but past their expiry date.
+            'lapsed'          => (int) ($row['lapsed'] ?? 0),
+            'lapsed_deposits' => (float) ($row['lapsed_deposits'] ?? 0),
+            'marked_expired'  => (int) ($row['marked_expired'] ?? 0),
+            'cancelled'       => (int) ($row['cancelled'] ?? 0),
+        ];
+    }
+
+    /**
+     * The reservation queue, soonest to expire first.
+     *
+     * Lapsed holds sort to the top because they are the ones needing a
+     * decision: either the deposit is returned and the property released, or
+     * the hold is renewed.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function reservationQueue(int $limit = 25): array
+    {
+        [$scope, $params]           = $this->scope('reservation', 'r', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $limit = max(1, min(100, $limit));
+
+        return $this->rows("
+            SELECT r.id, r.reservation_code, r.reservation_date, r.expiry_date,
+                   r.deposit_amount, r.status,
+                   DATEDIFF(r.expiry_date, :w_today) AS days_left,
+                   p.id AS property_id, p.title AS property_title, p.property_code,
+                   c.full_name AS customer_name
+            FROM reservations r
+            JOIN properties p ON r.property_id = p.id
+            LEFT JOIN customers c ON r.customer_id = c.id
+            WHERE r.status IN ('active','confirmed')
+              AND ({$scope})
+              {$filterSql}
+            ORDER BY r.expiry_date ASC, r.id ASC
+            LIMIT {$limit}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+    }
+
+    /**
+     * Sale and reservation records that do not agree with themselves.
+     *
+     * Not window-bounded: a bad record is a bad record whichever period is on
+     * screen.
+     *
+     * @return array<string,array{count:int,amount:float}>
+     */
+    public function salesIntegrityFlags(): array
+    {
+        [$scope, $params]           = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        [$rScope, $rParams]         = $this->scope('reservation', 'r', 'p');
+
+        $sale = $this->row("
+            SELECT COALESCE(SUM(s.sale_amount <= 0), 0) AS bad_amount,
+                   COALESCE(SUM(s.sale_date IS NULL), 0) AS no_date,
+                   COALESCE(SUM(s.status = 'completed' AND s.sale_date > :w_today), 0) AS future_completed,
+                   COALESCE(SUM(s.agent_id IS NULL), 0) AS no_agent
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            WHERE ({$scope}) {$filterSql}
+        ", $params + $filterParams + [':w_today' => $this->window['today']]);
+
+        // A sale whose property row has gone. The JOIN above would hide these,
+        // so it is asked separately with a LEFT JOIN.
+        $orphan = $this->count("
+            SELECT COUNT(*) FROM sales s
+            LEFT JOIN properties p ON s.property_id = p.id
+            WHERE p.id IS NULL
+        ");
+
+        // More than one completed sale on the same property.
+        $dup = $this->count("
+            SELECT COUNT(*) FROM (
+                SELECT s.property_id FROM sales s
+                JOIN properties p ON s.property_id = p.id
+                WHERE s.status = 'completed' AND ({$scope}) {$filterSql}
+                GROUP BY s.property_id HAVING COUNT(*) > 1
+            ) d
+        ", $params + $filterParams);
+
+        // Properties whose record claims a sale that never completed.
+        [$pScope, $pParams] = $this->scope('property', 'p');
+        [$pFilterSql, $pFilterParams] = $this->propertyFilters('p');
+        $soldNoSale = $this->count("
+            SELECT COUNT(*) FROM properties p
+            WHERE p.is_archived = 0 AND p.status = 'sold'
+              AND NOT EXISTS (SELECT 1 FROM sales sn WHERE sn.property_id = p.id AND sn.status = 'completed')
+              AND ({$pScope}) {$pFilterSql}
+        ", $pParams + $pFilterParams);
+
+        $resv = $this->row("
+            SELECT COALESCE(SUM(r.status IN ('active','confirmed') AND r.expiry_date < :w_today), 0) AS lapsed,
+                   COALESCE(SUM(CASE WHEN r.status IN ('active','confirmed') AND r.expiry_date < :w_today
+                                     THEN r.deposit_amount END), 0) AS lapsed_deposits,
+                   COALESCE(SUM(r.expiry_date < r.reservation_date), 0) AS expiry_before_start
+            FROM reservations r
+            JOIN properties p ON r.property_id = p.id
+            WHERE ({$rScope}) {$pFilterSql}
+        ", $rParams + $pFilterParams + [':w_today' => $this->window['today']]);
+
+        $n = static fn($v, float $amt = 0.0): array => ['count' => (int) $v, 'amount' => $amt];
+
+        return [
+            'bad_amount'          => $n($sale['bad_amount'] ?? 0),
+            'no_date'             => $n($sale['no_date'] ?? 0),
+            'future_completed'    => $n($sale['future_completed'] ?? 0),
+            'no_agent'            => $n($sale['no_agent'] ?? 0),
+            'orphan_property'     => $n($orphan),
+            'duplicate_completed' => $n($dup),
+            'sold_no_sale'        => $n($soldNoSale),
+            'lapsed_reservations' => $n($resv['lapsed'] ?? 0, (float) ($resv['lapsed_deposits'] ?? 0)),
+            'expiry_before_start' => $n($resv['expiry_before_start'] ?? 0),
+        ];
+    }
+
     // ─── Rentals · tenancies and the rent roll ─────────────────────────
     //
     // The rental report reuses the approved rent ledger wholesale — expected,

@@ -32,6 +32,14 @@ $page = $_GET['page'] ?? 'dashboard';
 // The bell count is already fetched for the topbar; the rail borrows it so the
 // Notifications row can carry a number without a second query.
 $railUnread = (int) ($notif['count'] ?? 0);
+
+// Unread conversations, for the Messages row. A separate figure from the bell
+// above and deliberately so: the bell counts unread *notifications* across
+// every module, this counts conversations holding something unread. One query,
+// and only for a role that can open the module at all — see
+// messagesUnreadConversationCount() for why the badge counts conversations
+// rather than messages.
+$railMessages = canAccessPage('messages') ? messagesUnreadConversationCount() : 0;
 ?>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
@@ -105,6 +113,17 @@ $railUnread = (int) ($notif['count'] ?? 0);
                             <span class="sidebar__link-text"><?= sanitize($label) ?></span>
                             <?php if ($slug === 'notifications' && $railUnread > 0): ?>
                                 <span class="sidebar__link-count"><?= $railUnread > 99 ? '99+' : $railUnread ?></span>
+                            <?php elseif ($slug === 'messages' && $railMessages > 0): ?>
+                                <?php /* Conversations, not messages — the badge counts the
+                                         rows the inbox will show. The number is announced as
+                                         a phrase because "3" on its own tells a screen reader
+                                         nothing, and it carries no live region: this page does
+                                         not update on its own, and claiming otherwise would
+                                         promise a freshness the module does not have. */ ?>
+                                <span class="sidebar__link-count">
+                                    <span aria-hidden="true"><?= $railMessages > 99 ? '99+' : $railMessages ?></span>
+                                    <span class="sr-only"><?= $railMessages ?> unread conversation<?= $railMessages === 1 ? '' : 's' ?></span>
+                                </span>
                             <?php endif ?>
                         </a>
                     <?php endforeach ?>

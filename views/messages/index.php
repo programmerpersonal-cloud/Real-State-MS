@@ -19,7 +19,7 @@
  *   $conversations $totalCount $page $perPage $filter $filters $search
  *   $contacts $contactSource $scopeHint $emptyMessage $composing $unreadTotal
  *   $conversation $participants $counterpart $thread $earlierUrl $canSend
- *   $isArchived $draft  and, when a conversation is open, $contextLinks
+ *   $isArchived $draft  and, when a conversation is open, $contextBlocks
  */
 $pageStyles   = ['pages/messages'];
 $extraScripts = ['messages'];

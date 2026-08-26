@@ -70,6 +70,17 @@
                     <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Your contract
                 </a>
             <?php endif ?>
+
+            <?php /* Contextual messaging about this tenancy. A tenant reaches
+                     their tenancy here rather than through the agency's lease
+                     register — `leases.show` is staff-only — so this is where
+                     the entry point belongs for them. The partial resolves the
+                     counterpart itself: their agent, or the managing office
+                     when the property has none. */ ?>
+            <?php
+            $messageContext = ['lease_id' => (int) $l['id']];
+            require VIEWS_PATH . '/components/ui/message_action.php';
+            ?>
         </div>
     </div>
 

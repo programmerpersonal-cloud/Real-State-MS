@@ -39,6 +39,7 @@ $searchIndexJson = json_encode(
 $notifTargets = [
     'property' => 'properties', 'lease' => 'leases', 'payment' => 'payments',
     'maintenance' => 'maintenance', 'inquiry' => 'inquiries',
+    'conversation' => 'messages',
     'reservation' => 'reservations', 'sale' => 'sales', 'document' => 'documents',
 ];
 $notifLook = [

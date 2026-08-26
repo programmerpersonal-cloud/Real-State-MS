@@ -108,6 +108,8 @@ abstract class Analytics
             case 'lease':    $scope = leaseViewScope($a ?: 'l', $b ?: 'p'); break;
             case 'payment':  $scope = paymentViewScope($a ?: 'py', $b ?: 'p'); break;
             case 'sale':     $scope = saleViewScope($a ?: 's', $b ?: 'p'); break;
+            case 'reservation': $scope = reservationViewScope($a ?: 'r', $b ?: 'p'); break;
+            case 'maintenance': $scope = maintenanceViewScope($a ?: 'm', $b ?: 'p'); break;
             case 'customer': $scope = customerViewScope($a ?: 'c'); break;
             case 'owner':    $scope = ownerViewScope($a ?: 'o'); break;
 

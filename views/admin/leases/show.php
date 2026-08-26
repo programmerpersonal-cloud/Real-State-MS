@@ -73,6 +73,15 @@ $pageEyebrow       = 'Lease ' . $l['lease_code'];
                 <i class="bi bi-cash" aria-hidden="true"></i> Record payment
             </a>
         <?php endif ?>
+
+        <?php /* Contextual messaging about this tenancy. `leases` is the
+                 access anchor the whole communication layer scopes tenants on,
+                 so the conversation is attached by lease_id — the downstream
+                 `rentals` row carries no relationship this one does not. */ ?>
+        <?php
+        $messageContext = ['lease_id' => $id];
+        require VIEWS_PATH . '/components/ui/message_action.php';
+        ?>
         <?= uiRowActions(array_merge(
             $l['contract_file'] ? [[
                 'label' => 'Open the contract', 'icon' => 'bi-file-earmark-pdf',

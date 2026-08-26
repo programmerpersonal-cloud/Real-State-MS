@@ -290,43 +290,108 @@
 .msg__head-flag { color: var(--warning); font-weight: 600; }
 .msg__head-actions { flex: 0 0 auto; }
 
-/* ─── Thread: business context ───────────────────────────────── */
-.msg__context {
+/* ─── Business context card ──────────────────────────────────── */
+/* Deliberately small. The thread is the content and this is the
+   label on the folder it lives in — a listing-sized property card
+   here would push the first message below the fold. One row per
+   record: thumbnail, two lines of text, live status. */
+.msg__ctx {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   flex: 0 0 auto;
 }
-.msg__context-tag {
+.msg__ctx-lead {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.msg__ctx-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  min-width: 0;
+}
+.msg__ctx-card--link { transition: border-color .15s ease, background .15s ease; }
+.msg__ctx-card--link:hover { border-color: var(--primary-border); background: var(--primary-tint); }
+.msg__ctx-card--link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.msg__ctx-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--surface-3);
+}
+/* No photograph — or a record that never has one, like a repair job. */
+.msg__ctx-thumb--glyph {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  padding: 4px 10px;
-  border: 1px solid var(--primary-border);
-  border-radius: var(--radius-pill);
-  background: var(--primary-light);
+  justify-content: center;
   color: var(--primary-ink);
+  background: var(--primary-light);
+  font-size: 1.05rem;
+}
+
+.msg__ctx-text { min-width: 0; }
+.msg__ctx-eyebrow {
+  display: block;
   font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: .05em;
   font-weight: 600;
+}
+.msg__ctx-title {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-a.msg__context-tag:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
-.msg__context-out { font-size: .8em; opacity: .75; }
-.msg__context-tag--plain {
-  border-color: var(--border-strong);
-  background: var(--surface);
+.msg__ctx-ref {
+  display: block;
+  font-size: var(--fs-2xs);
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.msg__context-tag--closed {
-  border-color: var(--border-strong);
+.msg__ctx-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+.msg__ctx-go { color: var(--text-subtle); font-size: .9em; }
+
+.msg__closed-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  flex: 0 0 auto;
 }
 
 /* ─── Thread: the message stream ─────────────────────────────── */
@@ -454,14 +519,6 @@ a.msg__context-tag:hover { background: var(--primary); color: #fff; border-color
   min-height: 0;
   overflow-y: auto;
   padding: var(--space-4);
-}
-.msg__compose-context {
-  margin: 0;
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  background: var(--primary-tint);
-  color: var(--primary-ink);
-  font-size: var(--fs-xs);
 }
 .msg__compose-label {
   display: block;
@@ -640,6 +697,14 @@ a.msg__context-tag:hover { background: var(--primary); color: #fff; border-color
   .msg__stream { padding: var(--space-3); }
   .msg__head { padding: var(--space-3); }
   .msg__msg-inner { max-width: 92%; }
+  /* The context card keeps its thumbnail and title but drops the
+     secondary reference line and the chevron: on a 360px screen
+     those are what push a long property name into a second row. */
+  .msg__ctx { padding: var(--space-2) var(--space-3); }
+  .msg__ctx-card { gap: var(--space-2); padding: var(--space-2); }
+  .msg__ctx-thumb { width: 34px; height: 34px; }
+  .msg__ctx-ref { display: none; }
+  .msg__ctx-go { display: none; }
   /* Send collapses to its icon; the label stays for screen readers. */
   .msg__send span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }
@@ -660,5 +725,5 @@ a.msg__context-tag:hover { background: var(--primary); color: #fff; border-color
   .msg__item-link,
   .msg__contact-label,
   .msg__filter,
-  .msg__context-tag { transition: none; }
+  .msg__ctx-card--link { transition: none; }
 }
