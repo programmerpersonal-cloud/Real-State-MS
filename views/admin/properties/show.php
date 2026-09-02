@@ -269,19 +269,76 @@ if ($isArchived) {
     <div class="detail-cols">
         <div class="detail-cols__main">
             <?php if (count($images) > 1): ?>
+                <?php
+                /* The gallery, as a viewer rather than a contact sheet.
+
+                   A grid of eight equal thumbnails is the right shape for the
+                   editor — there the photographs are objects being managed, and
+                   the cover badge and the remove button need somewhere to sit.
+                   It is the wrong shape here: on the page where somebody is
+                   deciding whether this is the right building, the picture is
+                   the content, and 140px of it is a stamp.
+
+                   So this is one large stage with the rest as a rail beneath it.
+                   Every thumbnail is a real link to the full-size file, which is
+                   exactly what the grid offered before — script only intercepts
+                   the click and swaps the stage instead of opening a tab. With
+                   scripting off the whole thing degrades to the links it is
+                   built from, and nothing is unreachable. */
+                $viewerCount = count($images);
+                ?>
                 <div class="card mb-3">
                     <div class="card__header"><h2 class="card__title">Gallery</h2>
-                        <span class="text-subtle"><?= count($images) ?> photos</span>
+                        <span class="text-subtle"><?= $viewerCount ?> photos</span>
                     </div>
                     <div class="card__body">
-                        <div class="gallery">
-                            <?php foreach ($images as $img): ?>
-                                <a class="gallery__item" href="<?= APP_URL . '/' . sanitize($img['file_path']) ?>"
-                                   target="_blank" rel="noopener">
-                                    <img src="<?= APP_URL . '/' . sanitize($img['file_path']) ?>"
-                                         alt="" loading="lazy" width="180" height="120">
+                        <div class="viewer" data-viewer>
+                            <div class="viewer__stage">
+                                <?php /* The stage starts on the first photograph and is
+                                         swapped in place, so the position in the set is
+                                         announced rather than left to the picture. */ ?>
+                                <a class="viewer__frame"
+                                   href="<?= APP_URL . '/' . sanitize($images[0]['file_path']) ?>"
+                                   target="_blank" rel="noopener"
+                                   data-viewer-frame
+                                   aria-label="Open this photo at full size in a new tab">
+                                    <img src="<?= APP_URL . '/' . sanitize($images[0]['file_path']) ?>"
+                                         alt="Photograph of <?= sanitize($p['title']) ?>"
+                                         width="900" height="600" data-viewer-image>
                                 </a>
-                            <?php endforeach ?>
+
+                                <?php /* Shown only once script has taken the rail over —
+                                         a previous/next control that cannot move anything
+                                         is worse than no control. */ ?>
+                                <button type="button" class="viewer__nav viewer__nav--prev"
+                                        data-viewer-step="-1" aria-label="Previous photo" hidden>
+                                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" class="viewer__nav viewer__nav--next"
+                                        data-viewer-step="1" aria-label="Next photo" hidden>
+                                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                                </button>
+
+                                <p class="viewer__counter" data-viewer-counter hidden>
+                                    <span data-viewer-position>1</span> / <?= $viewerCount ?>
+                                </p>
+                            </div>
+
+                            <ul class="viewer__rail" data-viewer-rail>
+                                <?php foreach ($images as $i => $img): ?>
+                                    <li>
+                                        <a class="viewer__thumb<?= $i === 0 ? ' is-current' : '' ?>"
+                                           href="<?= APP_URL . '/' . sanitize($img['file_path']) ?>"
+                                           target="_blank" rel="noopener"
+                                           data-viewer-thumb="<?= $i ?>"
+                                           <?= $i === 0 ? 'aria-current="true"' : '' ?>>
+                                            <img src="<?= APP_URL . '/' . sanitize($img['file_path']) ?>"
+                                                 alt="Photo <?= $i + 1 ?> of <?= $viewerCount ?>"
+                                                 loading="lazy" width="120" height="90">
+                                        </a>
+                                    </li>
+                                <?php endforeach ?>
+                            </ul>
                         </div>
                     </div>
                 </div>

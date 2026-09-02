@@ -60,6 +60,29 @@ function permissionMatrix(): array
         // includes/communication_access.php, which resolves the agency team
         // plus the clients who have no agent to fall back on. Reading `*` as
         // a licence to message anyone would make that file decorative.
+        //
+        // The wildcard is also what grants the backup module. Its six
+        // permissions are named here rather than left implicit, because
+        // nothing else in the codebase mentions them and a permission nobody
+        // can find is a permission nobody reviews:
+        //
+        //   backup.view      open the dashboard and read the history
+        //   backup.create    start a manual backup
+        //   backup.verify    re-verify an existing archive
+        //   backup.restore   restore the database, the files, or everything
+        //   backup.delete    delete an archive permanently
+        //   backup.manage    edit schedules, retention and backup settings
+        //
+        // No other role holds any of them, and there is no `page.*` grant for
+        // `backup` anywhere below — which is what makes administrator the only
+        // answer to "who may restore this system". can() fails closed for
+        // everyone else, in the menu and at authorize() alike.
+        //
+        // Restore and delete carry a second gate on top of the permission, in
+        // BackupController: a typed confirmation phrase and the operator's own
+        // password. That is not a permission check and does not belong in this
+        // matrix — it is a re-authentication, and it exists because `*` cannot
+        // express "an administrator, deliberately, right now".
         ROLE_ADMIN => ['*'],
 
         // ─── Agent ─────────────────────────────────────────────────────

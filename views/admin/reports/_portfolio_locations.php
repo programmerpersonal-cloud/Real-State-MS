@@ -35,7 +35,7 @@ $plUsable = !empty($plData['usable']);
 <section class="card rcard" aria-labelledby="ploc-title">
     <div class="card__header">
         <div class="rcard__titles">
-            <h3 class="card__title" id="ploc-title">Location</h3>
+            <h4 class="card__title" id="ploc-title">Location</h4>
             <p class="card__subtitle">Where the portfolio sits, as recorded</p>
         </div>
     </div>

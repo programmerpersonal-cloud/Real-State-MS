@@ -65,6 +65,19 @@ require_once __DIR__ . '/record_access.php';
 // the business context a conversation carries, rather than restating them.
 require_once __DIR__ . '/communication_access.php';
 
+// Stamp that this user was here, at most once a minute. It is the only thing
+// behind the presence label in the chat header, and the label says no more
+// than this can support — see communicationPresence().
+touchPresence();
+
+// Backup storage, locking, retention and health. After functions.php because
+// it reads setting(), formatBytes() and notifyAdmins(), and before the router
+// because the Backup model and the dashboard views both call into it. The
+// engine (includes/backup_engine.php) is deliberately NOT loaded here — it is
+// required by the controller and the CLI runner, so a page that only reads
+// backup state never pulls in the code that can write over a database.
+require_once __DIR__ . '/backup.php';
+
 // The reporting vocabulary — what a period is, what the period before it is,
 // which filters are real, and which rows already contradict each other. After
 // record_access.php because the data-quality checks read the same scopes the

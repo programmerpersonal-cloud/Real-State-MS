@@ -2251,3 +2251,274 @@ body.has-drawer{overflow:hidden}
   .navmenu__link{min-height:48px}
   .searchbar select,.filters select{background-position:right 14px center}
 }
+
+/* ================================================================
+   PREMIUM MARKETING PASS
+   Appended last, so it settles the public components on source order.
+   Structure, copy and behaviour are untouched — this is weight, depth
+   and rhythm only.
+   ================================================================ */
+
+/* ── Property card ────────────────────────────────────────────────
+   The single most repeated object on the public site, and the one that
+   has to look expensive. The photograph gets a slow scale on approach —
+   the card itself barely moves, because a grid where every tile leaps is
+   a grid nobody can read. */
+.prop-card,.listing-card{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-xs);
+  overflow:hidden;
+  transition:box-shadow var(--transition),transform var(--transition),border-color var(--transition);
+}
+.prop-card:hover,.listing-card:hover{
+  box-shadow:var(--shadow-lg);
+  transform:translateY(-3px);
+  border-color:var(--border-strong);
+}
+.prop-card__cover,.listing-card__cover{overflow:hidden}
+.prop-card__cover img,.listing-card__cover img{
+  transition:transform var(--dur-slow) var(--ease-standard);
+}
+.prop-card:hover .prop-card__cover img,
+.listing-card:hover .listing-card__cover img{transform:scale(1.05)}
+.prop-card__price,.listing-card__price{letter-spacing:-.025em}
+
+/* ── Hero ─────────────────────────────────────────────────────────  */
+.hero h1,.hero__title{letter-spacing:-.035em}
+/* The search panel sits over the photograph and has to read as a control
+   surface rather than as a translucent box. */
+.hero__search,.search-panel{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lg);
+}
+
+/* ── Section rhythm ───────────────────────────────────────────────  */
+.section-head h2,.section-head__title{letter-spacing:-.03em}
+
+/* ── Trust figures ────────────────────────────────────────────────  */
+.stat-tile,.trust-bar__value{letter-spacing:-.03em}
+
+/* ── Public navbar ────────────────────────────────────────────────  */
+.site-header{transition:box-shadow var(--transition),background var(--transition)}
+.site-header.is-stuck{box-shadow:0 6px 24px -14px rgba(15,32,51,.30)}
+
+@media (prefers-reduced-motion:reduce){
+  .prop-card,.listing-card,.prop-card__cover img,.listing-card__cover img{transition:none}
+  .prop-card:hover,.listing-card:hover{transform:none}
+  .prop-card:hover .prop-card__cover img,
+  .listing-card:hover .listing-card__cover img{transform:none}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PHASE 2 — PROPERTY EXPERIENCE POLISH (public site)
+   The listing grid and the property detail page, pushed to marketplace
+   quality. Markup, routes and data are untouched.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Property gallery (detail page) ───────────────────────────────────
+   The stage was taking two thirds of the first screen, which pushed the
+   price — the thing a buyer is actually here for — below the fold on a
+   laptop. 16:10 is generous enough for architecture and still leaves the
+   price card in view. */
+.pgallery__stage{
+  aspect-ratio:16/10;
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  background:var(--surface-3);
+  box-shadow:var(--shadow-sm);
+}
+.pgallery__slide img{width:100%;height:100%;object-fit:cover}
+
+/* The step controls: a real disc with a scrim, so a white chevron is
+   readable over a bright sky and a dark one over a shaded facade. */
+.pgallery__nav{
+  width:42px;height:42px;border-radius:50%;
+  background:rgba(255,255,255,.92);
+  color:var(--ink);
+  box-shadow:0 2px 10px -2px rgba(9,25,42,.34);
+  border:0;
+  transition:background var(--transition),transform var(--transition),box-shadow var(--transition);
+}
+.pgallery__nav:hover{background:#fff;transform:scale(1.06);box-shadow:0 4px 16px -3px rgba(9,25,42,.42)}
+.pgallery__nav:active{transform:scale(.98)}
+
+.pgallery__counter{
+  border-radius:var(--radius-pill);
+  background:rgba(16,34,44,.66);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  font-weight:600;letter-spacing:.02em;font-variant-numeric:tabular-nums;
+}
+.pgallery__badges{gap:8px}
+
+/* The filmstrip. Dimmed at rest so the chosen frame is unmistakable, and
+   the ring is a second channel on top of the brightness. */
+.pgallery__thumbs{gap:10px}
+.pgallery__thumb{
+  border-radius:var(--radius);
+  overflow:hidden;
+  opacity:.66;
+  border:2px solid transparent;
+  transition:opacity var(--transition),border-color var(--transition),transform var(--transition);
+}
+.pgallery__thumb:hover{opacity:1;transform:translateY(-2px)}
+.pgallery__thumb.is-active,
+.pgallery__thumb[aria-current="true"]{
+  opacity:1;border-color:var(--primary);
+  box-shadow:0 0 0 3px var(--primary-ring);
+}
+
+/* ── The price card ───────────────────────────────────────────────────
+   The one element on the page that has to win. The figure takes the
+   display face and the tightest tracking in the system, and the card
+   sits on a stronger shadow than anything around it. */
+.sidecard{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-md);
+  border:1px solid var(--border);
+  overflow:hidden;
+}
+.sidecard__price{
+  font-family:var(--font-display);
+  letter-spacing:-.035em;line-height:1.05;
+  color:var(--text);font-variant-numeric:tabular-nums;
+}
+.sidecard__price-row{align-items:center;gap:var(--space-3)}
+.sidecard__row{padding-block:9px;border-bottom:1px solid var(--border)}
+.sidecard__row:last-child{border-bottom:0}
+.sidecard__divider{background:var(--border)}
+.sidecard__agent{
+  border-radius:var(--radius);background:var(--surface-2);
+  border:1px solid var(--border);
+}
+.sidecard__avatar{border-radius:50%;border:2px solid var(--surface);box-shadow:var(--shadow-xs)}
+
+/* ── Detail typography ────────────────────────────────────────────────  */
+.detail-title{letter-spacing:-.035em;line-height:1.08;text-wrap:balance}
+.detail-loc{color:var(--text-muted);font-size:var(--fs-body)}
+
+/* ── Specification rail and facts ─────────────────────────────────────
+   A spec sheet, not a paragraph: the label is quiet and the value is the
+   thing, and the rows line up down a single column so they can be
+   compared between two properties in two tabs. */
+.spec-rail{gap:var(--space-3)}
+.facts__row{
+  display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-4);
+  padding-block:9px;border-bottom:1px solid var(--border);
+}
+.facts__row:last-child{border-bottom:0}
+.facts__label{
+  font-size:var(--fs-xs);color:var(--text-muted);font-weight:500;
+}
+.facts__value{
+  font-weight:650;color:var(--text);text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ── Info tiles (bed / bath / area / type) ────────────────────────────  */
+.info-card{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition),transform var(--transition);
+}
+.info-card:hover{box-shadow:var(--shadow-sm);border-color:var(--border-strong);transform:translateY(-2px)}
+.info-card__icon{border-radius:var(--radius);display:grid;place-items:center}
+.info-card__label{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-subtle);
+}
+.info-card__value{
+  font-family:var(--font-display);font-weight:700;letter-spacing:-.025em;
+  color:var(--text);font-variant-numeric:tabular-nums;
+}
+
+/* ── Amenities ────────────────────────────────────────────────────────  */
+.amenity-list li{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 0;color:var(--text-body);
+}
+
+/* ── Listing grid cards ───────────────────────────────────────────────
+   The card barely moves; the photograph does. A grid where every tile
+   jumps is a grid nobody can scan. */
+.pcard{
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),transform var(--transition),border-color var(--transition);
+}
+.pcard:hover{
+  box-shadow:var(--shadow-lg);
+  transform:translateY(-4px);
+  border-color:var(--border-strong);
+}
+.pcard__media{overflow:hidden;position:relative;background:var(--surface-3)}
+.pcard__media img{transition:transform var(--dur-slow) var(--ease-standard)}
+.pcard:hover .pcard__media img{transform:scale(1.06)}
+.pcard__price{
+  font-family:var(--font-display);font-weight:700;
+  letter-spacing:-.03em;color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+.pcard__title{letter-spacing:-.015em;line-height:1.3}
+.pcard__title a{color:var(--text)}
+.pcard:hover .pcard__title a{color:var(--primary)}
+.pcard__loc{color:var(--text-muted);font-size:var(--fs-xs)}
+.pcard__specs{
+  border-top:1px solid var(--border);
+  padding-top:10px;margin-top:10px;
+  color:var(--text-muted);font-size:var(--fs-xs);
+}
+/* The favourite control sits on the photograph, so it carries its own
+   surface rather than relying on whatever is behind it. */
+.pcard__fav{
+  background:rgba(255,255,255,.92);
+  box-shadow:0 2px 8px -2px rgba(9,25,42,.30);
+  transition:background var(--transition),transform var(--transition),color var(--transition);
+}
+.pcard__fav:hover{background:#fff;transform:scale(1.08)}
+.pcard__count{
+  border-radius:var(--radius-pill);
+  background:rgba(16,34,44,.62);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+}
+/* The tag on the cover — For Sale / For Rent — is the first thing read,
+   so it holds its edge against any photograph. */
+.pcard__tags .tag{box-shadow:0 2px 8px -2px rgba(9,25,42,.40)}
+
+/* ── Filters panel ────────────────────────────────────────────────────  */
+.filters{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-xs);
+}
+.filters__label{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.075em;
+  text-transform:uppercase;color:var(--text-subtle);
+}
+.filters__control{border-radius:var(--radius-sm)}
+.filters__control:focus{border-color:var(--primary);box-shadow:var(--ring);outline:none}
+
+/* ── Applied filter chips ─────────────────────────────────────────────  */
+.chip{border-radius:var(--radius-pill);font-weight:600}
+
+/* ── Pager ────────────────────────────────────────────────────────────  */
+.pager__link{
+  border-radius:var(--radius-sm);font-weight:600;
+  transition:background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast);
+}
+
+/* ── Empty state on the public side ───────────────────────────────────  */
+.state__icon{
+  width:56px;height:56px;border-radius:var(--radius-lg);
+  display:grid;place-items:center;margin:0 auto var(--space-4);
+  background:var(--surface-3);border:1px solid var(--border);
+  color:var(--text-subtle);font-size:1.5rem;
+}
+.state__title{font-family:var(--font-display);letter-spacing:-.02em}
+.state__desc{max-width:46ch;margin-inline:auto;text-wrap:pretty}
+
+@media (prefers-reduced-motion:reduce){
+  .pcard,.pcard__media img,.info-card,.pgallery__nav,.pgallery__thumb,.pcard__fav{transition:none}
+  .pcard:hover,.info-card:hover,.pgallery__thumb:hover{transform:none}
+  .pcard:hover .pcard__media img{transform:none}
+  .pgallery__nav:hover,.pcard__fav:hover{transform:none}
+}

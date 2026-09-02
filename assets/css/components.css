@@ -385,6 +385,108 @@ select.form-control:has(option[value=""]:checked){color:var(--text-subtle)}
 .gallery__remove{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(15,23,42,.65);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.78rem;border:none}
 .gallery__remove:hover{background:var(--danger)}
 
+/* ── Photo viewer ───────────────────────────────────────────────────
+   The property detail page's gallery: one stage carrying the photograph at
+   a size worth looking at, and the set beneath it as a rail.
+
+   Distinct from .gallery above, which stays exactly as it is. That grid is
+   the *editor's* view — equal tiles, a cover badge, a remove button — and
+   the two have opposite jobs: one manages the photographs, this one shows
+   the building.
+
+   Everything here is built from links to the full-size files. The stage and
+   the rail work with no script at all; initPropertyViewer() only intercepts
+   the click so the picture swaps in place instead of opening a tab, and
+   reveals the controls it is able to drive. */
+.viewer{display:flex;flex-direction:column;gap:10px}
+
+/* 3:2 is the shape a property photograph is usually taken in, and reserving
+   it means the card does not resize under the reader when the first image
+   decodes. */
+.viewer__stage{
+  position:relative;aspect-ratio:3/2;border-radius:var(--radius);
+  overflow:hidden;background:var(--surface-3);border:1px solid var(--border);
+}
+.viewer__frame{display:block;width:100%;height:100%}
+.viewer__frame img{width:100%;height:100%;object-fit:cover}
+/* Swapped rather than reloaded, so the change reads as the same frame
+   showing something else. Skipped entirely under reduced motion. */
+.viewer__frame img{transition:opacity var(--dur-fast) var(--ease-standard)}
+.viewer.is-swapping .viewer__frame img{opacity:.35}
+
+/* The step controls sit over the picture, so they carry their own scrim —
+   a chevron alone is invisible over a bright facade and unreadable over a
+   dark one. */
+.viewer__nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:36px;height:36px;border-radius:50%;border:0;
+  display:grid;place-items:center;
+  background:rgba(16,34,44,.55);color:#fff;font-size:1rem;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;transition:opacity var(--transition),background var(--transition);
+}
+.viewer__nav--prev{left:10px}
+.viewer__nav--next{right:10px}
+.viewer__stage:hover .viewer__nav,
+.viewer__nav:focus-visible{opacity:1}
+.viewer__nav:hover{background:rgba(16,34,44,.78)}
+.viewer__nav:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+/* Where you are in the set, in text. The rail says the same thing by
+   highlighting a thumbnail; this says it for anyone the highlight fails. */
+.viewer__counter{
+  position:absolute;right:10px;bottom:10px;
+  padding:3px 9px;border-radius:var(--radius-pill);
+  background:rgba(16,34,44,.62);color:#fff;
+  font-size:var(--fs-2xs);font-weight:600;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+}
+
+/* A single row that scrolls rather than a grid that wraps: the rail is a
+   filmstrip, and a strip that reflows into three ragged rows stops reading
+   as the order the photographs are in. */
+.viewer__rail{
+  display:flex;gap:8px;list-style:none;margin:0;padding:2px;
+  overflow-x:auto;scroll-snap-type:x proximity;
+  scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+}
+.viewer__rail::-webkit-scrollbar{height:6px}
+.viewer__rail::-webkit-scrollbar-track{background:transparent}
+.viewer__rail::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+.viewer__thumb{
+  display:block;width:96px;flex:0 0 96px;aspect-ratio:4/3;
+  border-radius:var(--radius-sm);overflow:hidden;
+  border:1px solid var(--border);background:var(--surface-3);
+  scroll-snap-align:start;
+  transition:border-color var(--transition),box-shadow var(--transition),opacity var(--transition);
+  opacity:.72;
+}
+.viewer__thumb img{width:100%;height:100%;object-fit:cover}
+.viewer__thumb:hover{opacity:1;border-color:var(--border-strong)}
+/* The one on the stage. Two channels, not one: the ring names it and the
+   full opacity separates it from the dimmed rest, so it survives being read
+   by someone who cannot pick the brand blue out of the row. */
+.viewer__thumb.is-current{
+  opacity:1;border-color:var(--primary);
+  box-shadow:0 0 0 2px var(--primary-ring);
+}
+
+@media (max-width:560px){
+  /* The stage takes the width it can get and the rail comes down with it:
+     a 96px thumbnail on a 360px screen leaves room for three, which reads
+     as a strip; 72px leaves room for four and still shows what it is. */
+  .viewer__thumb{width:72px;flex-basis:72px}
+  /* Nothing to hover on a touchscreen, so the step controls simply stay. */
+  .viewer__nav{opacity:1}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .viewer__frame img,.viewer__nav,.viewer__thumb{transition:none}
+  .viewer.is-swapping .viewer__frame img{opacity:1}
+  .viewer__rail{scroll-behavior:auto}
+}
+
 .upload-zone{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:28px;border:1.5px dashed var(--border-strong);border-radius:var(--radius);
@@ -878,6 +980,12 @@ a.person:hover .person__name{color:var(--primary)}
   justify-content:flex-end;white-space:nowrap;
 }
 
+/* A cell built around a photograph needs the width the thumbnail occupies on
+   top of the width the title already needed. Left on the shared per-column
+   cap it pays for the picture out of the title's allowance, and every listing
+   in the register breaks across two lines with its location ellipsed. */
+.table td:has(> .media-cell){max-width:calc(var(--cell-max,220px) + 96px)}
+
 @media (max-width:560px){
   /* The photograph is the first thing to go: at this width the title needs
      the room more than the row needs a thumbnail. */
@@ -1242,27 +1350,6 @@ a.segmented__btn.is-active{color:var(--text)}
 .confirm__footer{justify-content:flex-end}
 
 /* ════════════════════════════════════════════════════════════
-   LOADING STATES
-   ════════════════════════════════════════════════════════════ */
-/* A button mid-submit. The label is kept and dimmed rather than swapped for
-   a spinner alone: replacing the text makes the button resize and the row
-   jump, and the user loses the word that told them what they clicked. */
-.btn.is-loading{position:relative;pointer-events:none;opacity:.75}
-.btn.is-loading > *{visibility:hidden}
-.btn.is-loading::after{
-  content:'';position:absolute;inset:0;margin:auto;
-  width:15px;height:15px;border-radius:50%;
-  border:2px solid currentColor;border-right-color:transparent;
-  animation:spin 700ms linear infinite;
-}
-
-/* Reduced motion: the spinner keeps turning, slowly, rather than freezing —
-   a frozen spinner reads as a hung request rather than a quiet one. */
-@media(prefers-reduced-motion:reduce){
-  .btn.is-loading::after{animation-duration:1.6s}
-}
-
-/* ════════════════════════════════════════════════════════════
    DETAIL HEADER — the record header on every show page
    ════════════════════════════════════════════════════════════ */
 .detail-header{
@@ -1494,29 +1581,6 @@ a.segmented__btn.is-active{color:var(--text)}
 @media (max-width:520px){
   .form-actions{flex-direction:column-reverse;align-items:stretch}
   .form-actions .btn{width:100%}
-}
-
-/* ── Button loading ─────────────────────────────────────────────────
-   The label stays in the flow at zero opacity rather than being replaced,
-   so the button keeps its exact width and the row does not reflow the
-   moment someone commits to it. */
-.btn.is-loading{position:relative;pointer-events:none;color:transparent!important}
-.btn.is-loading > *{opacity:0}
-.btn.is-loading::after{
-  content:"";position:absolute;top:50%;left:50%;
-  width:15px;height:15px;margin:-7.5px 0 0 -7.5px;
-  border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
-  color:#fff;
-  animation:btnSpin 640ms linear infinite;
-}
-.btn--outline.is-loading::after,
-.btn--ghost.is-loading::after{color:var(--primary)}
-@keyframes btnSpin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){
-  /* A spinner is a progress report, so it is not removed — only slowed to
-     something that does not strobe. */
-  .btn.is-loading::after{animation-duration:1.6s}
-  .btn:active{transform:none}
 }
 
 /* ── Navigation progress ────────────────────────────────────────────
@@ -1953,6 +2017,139 @@ a.segmented__btn.is-active{color:var(--text)}
 .table-card.is-cols-min .table .col-lo,
 .table-card.is-cols-min .table .col-mid{display:none}
 
+/* ── Stacked cards: the register on a phone ─────────────────────────
+   Hiding columns has a floor. Below roughly 620px of table width there
+   is no arrangement of "customer, amount, received, status, actions"
+   that fits, and what shipped instead was a row scrolling sideways with
+   the status pill sliced in half at the edge — the two columns people
+   actually came for.
+
+   So past that floor the table stops being a table and becomes one card
+   per record: the identity as a headline, every remaining column as a
+   labelled line under it, and the row's action menu pinned to the card's
+   top-right where a thumb reaches it.
+
+   Nothing is removed and nothing is duplicated. This is the same <table>,
+   the same cells, the same links, sorting and permissions — laid out as
+   blocks. The labels come from the table's own <thead>, copied onto each
+   cell as data-label by initTableScroll(), which is also what decides when
+   this mode applies: it is measured per table, never assumed from the
+   viewport, and a table that still fits keeps its columns.
+
+   The class is applied by script alone. With scripting off the sideways
+   scroll it replaces is still there, so the data is never unreachable. */
+
+/* The scroller has nothing left to scroll, and clipping here would cut the
+   row menu's popup off at the card's edge. */
+.table-card.is-stacked > .table-wrap{overflow:visible}
+
+.table-card.is-stacked .table{display:block}
+/* The header row still exists for the accessibility tree and is still the
+   source of every label below — it is only taken off the screen. */
+.table-card.is-stacked .table thead{
+  position:absolute;width:1px;height:1px;
+  padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+.table-card.is-stacked .table tbody{display:block}
+
+/* One record, one card. The separator is the card's own bottom edge, so a
+   list of them reads as a stack rather than as a table missing its rules. */
+.table-card.is-stacked .table tbody tr{
+  display:block;position:relative;
+  padding:12px 14px 10px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.table-card.is-stacked .table tbody tr:last-child{border-bottom:0}
+.table-card.is-stacked .table tbody tr:hover{background:var(--surface-2)}
+.table-card.is-stacked .table tbody tr:hover td{background:transparent}
+/* The focus treatment the table version carries, moved to the card edge. */
+.table-card.is-stacked .table tbody tr:focus-within{background:var(--primary-tint)}
+.table-card.is-stacked .table tbody tr:has(:focus-visible){box-shadow:inset 3px 0 0 var(--primary)}
+
+/* Every cell but the headline: its column name on the left, its value on
+   the right. A fixed label column is what lets the values line up down the
+   card instead of starting at a different x on every line.
+
+   The label is positioned out of flow rather than made a grid or flex item,
+   and that is the whole reason this works on real cells. A cell here is very
+   often two elements — an amount and the penalty inside it, a date and the
+   due date under it, a payment type and its method — and under `display:grid`
+   each of those becomes a grid item of its own: the second value drops into
+   the label's narrow track on the next row and sets one letter per line. Out
+   of flow, the label costs the cell nothing but the inset it reserves, and
+   whatever the cell contains stays in ordinary block flow inside it. */
+.table-card.is-stacked .table td{
+  display:block;position:relative;
+  padding:5px 0 5px 9.75em;min-height:1.9em;
+  border:0;
+  /* The per-column width cap is what keeps a long value from stretching the
+     table wider than the page. In a card the value has already been given
+     the whole width, so the cap has nothing left to protect and would only
+     break "For Rent" across two lines inside a card 340px wide. */
+  max-width:none;
+}
+.table-card.is-stacked .table td::before{
+  content:attr(data-label);
+  position:absolute;left:0;top:5px;width:9.25em;
+  font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.5px;line-height:1.75;
+  /* A column name is one or two words. Clipping the rare long one keeps it
+     from running under the value it labels. */
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* The headline. No label — the first line of a card does not need to be
+   told it is the name — and the inset on the right is the room the action
+   menu is pinned into. */
+.table-card.is-stacked .table td[data-stack-head]{
+  display:block;padding:0 40px 6px 0;font-size:var(--fs-body);
+}
+.table-card.is-stacked .table td[data-stack-head]::before{content:none}
+
+/* A cell that spans the table — an inline empty state, a summary row —
+   is already full width and has no column to be labelled with. */
+.table-card.is-stacked .table td[colspan]{display:block;padding:4px 0}
+.table-card.is-stacked .table td[colspan]::before{content:none}
+
+/* The row menu, at the top-right corner of the card it belongs to. */
+.table-card.is-stacked .table td.cell-actions{
+  position:absolute;top:8px;right:8px;
+  display:block;width:auto;padding:0;text-align:right;
+}
+.table-card.is-stacked .table td.cell-actions::before{content:none}
+
+/* Constraints that exist to keep a column narrow have no column to keep
+   narrow here, and a value clipped to 22 characters inside a card that is
+   340px wide is clipped for nothing. */
+.table-card.is-stacked .table .cell-clip{max-width:none;white-space:normal;overflow:visible}
+.table-card.is-stacked .table .cell-tight{width:auto}
+.table-card.is-stacked .table .cell-num,
+.table-card.is-stacked .table .num{text-align:left}
+.table-card.is-stacked .table .person__name,
+.table-card.is-stacked .table .person__meta{white-space:normal;overflow:visible}
+
+/* Vertical room is the one thing a card has to spare, so the secondary
+   identity column comes back — it was hidden to buy horizontal width that
+   is no longer being fought over. The lowest tier stays out: a card with
+   nine lines in it is a table again. */
+.table-card.is-stacked .table td.col-mid,
+.table-card.is-stacked .table th.col-mid{display:block}
+.table-card.is-stacked .table .col-lo{display:none}
+
+/* The photograph comes back. It is dropped below 560px in the table layout
+   because the title needs the row's width more than the row needs a picture;
+   in a card the headline has the full width and the picture is the fastest
+   way to recognise which building a row is about. */
+.table-card.is-stacked .table .media-cell__thumb{display:block;width:64px;height:48px}
+
+/* Nothing is pinned or shadowed in this mode: there is no sideways scroll
+   for a frozen column to hold against. */
+.table-card.is-stacked::before,
+.table-card.is-stacked::after{content:none}
+.table-card.is-stacked .table tbody td:first-child{position:static;box-shadow:none}
+
 /* ── Scrolling, when it is genuinely needed ─────────────────────────
    Below the tablet breakpoint a seven-column table cannot be made to fit
    a phone by hiding columns — there is no honest arrangement of that
@@ -2158,4 +2355,626 @@ a.segmented__btn.is-active{color:var(--text)}
   /* The trigger is already narrow enough to keep the number readable at
      this width, so the two stay on one line where they used to stack. */
   .phone-menu{width:calc(100vw - 24px)}
+}
+
+/* ================================================================
+   PREMIUM COMPONENT PASS
+   ----------------------------------------------------------------
+   The last block in this file, so it settles the shared components on
+   source order. Nothing here changes a component's structure, its
+   markup contract or what it does — only the weight, depth and motion
+   it carries. Every colour comes from a token; there is not a literal
+   hue in this block that is not a measured alpha over one.
+   ================================================================ */
+
+/* ── Buttons ──────────────────────────────────────────────────────
+   A flat fill reads as a link with a background. What separates a
+   button on a premium product is that it looks like a physical thing:
+   a hairline of light along its top edge, a contact shadow underneath,
+   and a press that actually moves. */
+.btn{
+  border-radius:var(--radius);
+  font-weight:600;letter-spacing:-.005em;
+  transition:background var(--transition),border-color var(--transition),
+             box-shadow var(--transition),transform var(--dur-fast) var(--ease-standard),
+             color var(--transition);
+}
+.btn:active{transform:translateY(1px)}
+
+.btn--primary{
+  box-shadow:0 1px 2px rgba(6,63,109,.28),
+             0 4px 12px -4px rgba(10,99,168,.42),
+             inset 0 1px 0 rgba(255,255,255,.16);
+}
+.btn--primary:hover{
+  box-shadow:0 2px 4px rgba(6,63,109,.30),
+             0 8px 20px -6px rgba(10,99,168,.50),
+             inset 0 1px 0 rgba(255,255,255,.18);
+}
+.btn--primary:active{
+  box-shadow:0 1px 2px rgba(6,63,109,.30),inset 0 1px 2px rgba(6,63,109,.30);
+}
+
+/* The secondary button carried no elevation at all, which made a bar of
+   "Cancel / Save" read as one control beside a label. */
+.btn--outline,.btn--secondary{box-shadow:var(--shadow-xs)}
+.btn--outline:hover,.btn--secondary:hover{
+  box-shadow:var(--shadow-sm);border-color:var(--border-strong);
+}
+
+.btn--danger{
+  box-shadow:0 1px 2px rgba(140,20,20,.26),
+             0 4px 12px -4px rgba(200,30,30,.36),
+             inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+/* Working. The label stays put and legible — a spinner that replaces the
+   text leaves the reader with a button whose purpose they must remember —
+   and the control stops accepting a second click. */
+.btn.is-loading{position:relative;pointer-events:none;color:transparent!important}
+/* The label stays in the flow rather than being hidden, so the button keeps
+   its exact width and the action bar does not reflow the moment someone
+   commits to it. */
+.btn.is-loading > *{opacity:0}
+.btn.is-loading::after{
+  content:'';position:absolute;top:50%;left:50%;
+  width:15px;height:15px;margin:-7.5px 0 0 -7.5px;
+  border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
+  color:#fff;
+  animation:btn-spin .6s linear infinite;
+}
+.btn--outline.is-loading::after,
+.btn--ghost.is-loading::after,
+.btn--secondary.is-loading::after{color:var(--primary)}
+@keyframes btn-spin{to{transform:rotate(360deg)}}
+
+.btn:disabled,.btn[aria-disabled="true"]{
+  opacity:.55;cursor:not-allowed;box-shadow:none;transform:none;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .btn,.btn:active{transition:none;transform:none}
+  .btn.is-loading::after{animation-duration:1.6s}
+}
+
+/* ── Cards ────────────────────────────────────────────────────────
+   Depth from a contact shadow rather than from a heavier border, which
+   is what keeps a page of eight cards from reading as a page of eight
+   boxes. */
+.card{
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition);
+}
+/* A card that is a link, or holds one, earns a lift. A card that is only
+   a container must not move — a page where everything rises under the
+   cursor is a page with no hierarchy. */
+.card--interactive:hover,
+a.card:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+
+.card__header{border-bottom:1px solid var(--border)}
+.card__title{letter-spacing:-.015em}
+
+/* ── Table surfaces ───────────────────────────────────────────────  */
+.table-card{border-radius:var(--card-radius);box-shadow:var(--shadow-xs)}
+.table th{letter-spacing:.07em;font-weight:700}
+/* The row highlight reaches the card's edge instead of stopping at the
+   first and last cell's padding. */
+.table tbody tr{transition:background var(--dur-fast) var(--ease-standard)}
+
+/* ── Form controls ────────────────────────────────────────────────
+   An input is a surface being written on, so it is recessed rather than
+   raised, and the focus ring is the one place in the system where the
+   brand colour is allowed to be loud. */
+.form-control,.form-select,select.form-control,textarea.form-control{
+  border-radius:var(--radius);
+  background:var(--surface);
+  box-shadow:inset 0 1px 2px rgba(15,32,51,.045);
+  transition:border-color var(--transition),box-shadow var(--transition),background var(--transition);
+}
+.form-control:hover:not(:focus):not([disabled]){border-color:var(--border-strong)}
+.form-control:focus,.form-select:focus,textarea.form-control:focus{
+  border-color:var(--primary);
+  box-shadow:var(--ring),inset 0 1px 2px rgba(15,32,51,.04);
+  outline:none;
+}
+.form-control[disabled],.form-control:disabled{
+  background:var(--surface-3);color:var(--text-subtle);
+  box-shadow:none;cursor:not-allowed;
+}
+.form-label{font-weight:600;letter-spacing:-.005em}
+
+/* ── Modals ───────────────────────────────────────────────────────
+   The scrim is measured against the page it has to isolate, and the
+   dialog arrives from slightly below rather than fading in place — a
+   sheet that materialises has no relationship to what opened it. */
+.modal{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.modal__dialog{
+  border-radius:calc(var(--card-radius) + 2px);
+  box-shadow:var(--shadow-xl);
+  border:1px solid var(--border);
+}
+@media (prefers-reduced-motion:no-preference){
+  .modal.is-open .modal__dialog{animation:modal-in var(--dur-base) var(--ease-enter) both}
+}
+@keyframes modal-in{
+  from{opacity:0;transform:translateY(12px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+
+/* ── Dropdowns ────────────────────────────────────────────────────  */
+.dropdown__menu{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lg);
+  border:1px solid var(--border);
+  overflow:hidden;
+}
+.dropdown__item{border-radius:0}
+.row-menu__list{border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)}
+
+/* ── Status pills ─────────────────────────────────────────────────
+   The pill was a tinted rectangle. A true pill radius plus a hairline of
+   its own tone is what makes eight different states read as one family. */
+.status,.badge{border-radius:var(--radius-pill);font-weight:600;letter-spacing:.005em}
+
+/* ── Tabs ─────────────────────────────────────────────────────────  */
+.tabs__item{transition:color var(--transition),border-color var(--transition),background var(--transition)}
+
+/* ── Pagination ───────────────────────────────────────────────────  */
+.pagination__link{border-radius:var(--radius-sm);transition:all var(--transition)}
+.pagination__link:hover{box-shadow:var(--shadow-xs)}
+
+/* ── Empty states ─────────────────────────────────────────────────
+   The glyph tile is the only thing on an otherwise blank panel, so it is
+   worth making it look considered rather than like a missing image. */
+.empty-state__icon{
+  border-radius:var(--radius-lg);
+  background:linear-gradient(180deg,var(--surface-2),var(--surface-3));
+  border:1px solid var(--border);
+  box-shadow:inset 0 1px 0 #fff;
+}
+
+/* ── Skeletons ────────────────────────────────────────────────────
+   A shimmering placeholder that reserves the exact space the content
+   will take, so nothing on the page moves when it arrives. Available to
+   any view that wants it; nothing is forced to use it. */
+.skeleton{
+  position:relative;overflow:hidden;
+  background:var(--surface-3);border-radius:var(--radius-sm);
+  min-height:1em;
+}
+.skeleton::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.62),transparent);
+  transform:translateX(-100%);
+  animation:skeleton-sweep 1.25s ease-in-out infinite;
+}
+.skeleton--text{height:.8em;margin:.35em 0;border-radius:var(--radius-xs)}
+.skeleton--title{height:1.15em;width:42%;margin:.3em 0 .6em}
+.skeleton--line{width:100%}
+.skeleton--line-short{width:64%}
+.skeleton--block{height:120px;border-radius:var(--radius)}
+.skeleton--avatar{width:32px;height:32px;border-radius:50%}
+@keyframes skeleton-sweep{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){
+  .skeleton::after{animation:none;opacity:.4;transform:none}
+}
+
+/* ── Toasts ───────────────────────────────────────────────────────  */
+.toast{border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)}
+
+/* ── Alerts ───────────────────────────────────────────────────────  */
+.alert{border-radius:var(--radius-lg)}
+
+/* ── Property card (console grid view) ────────────────────────────
+   The console has its own .prop-card — the marketing site's lives in
+   public.css and the two bundles never meet. This gives the grid view
+   the same treatment the public cards get: the card barely moves, the
+   photograph does. A grid where every tile leaps is a grid nobody can
+   read, and a property is recognised by its picture. */
+.prop-card{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-xs);
+  overflow:hidden;
+  transition:box-shadow var(--transition),transform var(--transition),border-color var(--transition);
+}
+.prop-card:hover{
+  box-shadow:var(--shadow-lg);
+  transform:translateY(-3px);
+  border-color:var(--border-strong);
+}
+.prop-card__cover{overflow:hidden;position:relative}
+.prop-card__cover img{transition:transform var(--dur-slow) var(--ease-standard)}
+.prop-card:hover .prop-card__cover img{transform:scale(1.05)}
+/* The status pill sits on the photograph, so it carries a shadow to hold
+   its edge against whatever happens to be behind it. */
+.prop-card__cover .status{box-shadow:0 2px 8px -2px rgba(9,25,42,.45)}
+.prop-card__title{letter-spacing:-.015em}
+.prop-card__price{letter-spacing:-.025em}
+.prop-card__foot{border-top:1px solid var(--border);background:var(--surface-2)}
+
+@media (prefers-reduced-motion:reduce){
+  .prop-card,.prop-card__cover img{transition:none}
+  .prop-card:hover{transform:none}
+  .prop-card:hover .prop-card__cover img{transform:none}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PHASE 2 — PREMIUM POLISH
+   Appended last so it settles the shared components on source order.
+   Nothing here changes structure, markup or behaviour: it is the pass
+   that decides how heavy a border is, how far a card lifts, how a
+   badge sits on a baseline and how quickly a menu arrives.
+   responsive.css still loads after this file and still wins at narrow
+   widths, which is why nothing below touches a breakpoint the mobile
+   rules already own.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Cards ────────────────────────────────────────────────────────────
+   The single object the whole console is built out of. Three things were
+   fighting: the header's inset did not match the body's, the title sat a
+   hair off the vertical centre of its row, and the resting shadow was
+   heavy enough that a page of cards read as a pile rather than a page.
+
+   Depth now comes from the border, and the shadow only says "this is
+   above the page". That is what keeps eight cards on a dashboard calm. */
+.card{
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition);
+}
+.card__header{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);
+  padding:14px var(--card-pad-x) 12px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(to bottom,var(--surface),var(--surface-2));
+}
+.card__title{
+  font-size:var(--fs-title);font-weight:700;letter-spacing:-.018em;
+  line-height:1.3;color:var(--text);
+}
+.card__subtitle{
+  font-size:var(--fs-xs);color:var(--text-muted);
+  line-height:1.45;margin-top:2px;
+}
+.card__body{padding:var(--card-pad-y) var(--card-pad-x)}
+.card__footer{
+  padding:11px var(--card-pad-x);
+  border-top:1px solid var(--border);background:var(--surface-2);
+}
+/* A card that is a link. It lifts, but barely — the page must not move
+   under the cursor on the way to something else. */
+.card--interactive{cursor:pointer}
+.card--interactive:hover{
+  box-shadow:var(--shadow-md);border-color:var(--border-strong);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────
+   One hierarchy, stated once. Primary is the only filled control on a
+   screen; outline is the alternative; ghost is the thing you can do but
+   were not asked to. The press is 1px of travel, which is the smallest
+   movement that still reads as a button being pushed. */
+.btn{
+  font-weight:600;letter-spacing:-.006em;
+  border-radius:var(--radius-sm);
+  transition:background var(--transition-fast),border-color var(--transition-fast),
+             box-shadow var(--transition-fast),color var(--transition-fast),
+             transform var(--dur-fast) var(--ease-standard);
+}
+.btn:active{transform:translateY(1px)}
+.btn--primary{
+  box-shadow:0 1px 2px rgba(0,79,132,.24),0 2px 6px -2px rgba(0,117,192,.30);
+}
+.btn--primary:hover{
+  box-shadow:0 2px 4px rgba(0,79,132,.26),0 6px 14px -4px rgba(0,117,192,.36);
+}
+.btn--primary:active{box-shadow:0 1px 2px rgba(0,79,132,.28)}
+.btn--danger{box-shadow:0 1px 2px rgba(150,26,26,.22),0 2px 6px -2px rgba(200,30,30,.26)}
+.btn--outline:hover{border-color:var(--primary-border);background:var(--primary-tint)}
+.btn--ghost:hover{background:var(--surface-3)}
+/* An icon inside a label is a mark, not a second word: it sits with the
+   text rather than beside it at its own size. */
+.btn i{font-size:.95em;line-height:1}
+.btn--icon{border-radius:var(--radius-sm)}
+
+/* ── Status pills ─────────────────────────────────────────────────────
+   These are read in a column, at a glance, dozens at a time. So the pill
+   is tightened: less horizontal air, a dot that reads at a distance, and
+   a weight that survives being set at 11.8px. */
+.status{
+  padding:3px 9px 3px 7px;gap:5px;
+  font-size:.735rem;font-weight:650;letter-spacing:.004em;
+  line-height:1.5;white-space:nowrap;
+  border-radius:var(--radius-pill);
+}
+.status__dot{width:6px;height:6px;flex-shrink:0}
+
+/* ── Tables ───────────────────────────────────────────────────────────
+   The header row is the thing that makes a table read as a register
+   rather than a spreadsheet dump: it is quieter than the data, not
+   louder. And the row separator is a hairline — the eye tracks a row by
+   its rhythm, not by being fenced into it. */
+.table th{
+  font-size:.695rem;letter-spacing:.075em;font-weight:700;
+  color:var(--text-subtle);
+  background:var(--surface-2);
+  border-bottom:1px solid var(--border-strong);
+}
+.table td{border-bottom:1px solid var(--border)}
+.table tbody tr:hover td{background:var(--primary-tint)}
+.table-head{
+  padding:12px var(--card-pad-x);
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(to bottom,var(--surface),var(--surface-2));
+}
+.table-head__title{font-size:var(--fs-sm);font-weight:700;letter-spacing:-.01em}
+.table-foot{
+  padding:10px var(--card-pad-x);
+  border-top:1px solid var(--border);background:var(--surface-2);
+}
+
+/* ── Pagination ───────────────────────────────────────────────────────  */
+.pagination__link{
+  border-radius:var(--radius-sm);font-weight:600;
+  transition:background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast);
+}
+
+/* ── Row action menu ──────────────────────────────────────────────────  */
+.row-menu__trigger{border-radius:var(--radius-sm);transition:background var(--transition-fast),color var(--transition-fast)}
+.row-menu__list{
+  border-radius:var(--radius);box-shadow:var(--shadow-lg);
+  padding:5px;border:1px solid var(--border);
+  animation:menuIn var(--dur-fast) var(--ease-enter) both;
+}
+.row-menu__item{border-radius:var(--radius-xs);font-weight:500}
+
+@keyframes menuIn{from{opacity:0;transform:translateY(-4px) scale(.985)}to{opacity:1;transform:none}}
+
+/* ── Forms ────────────────────────────────────────────────────────────
+   The label is the question and the control is the answer, so the label
+   carries the weight and the control carries the space. The focus ring
+   is the brand's one moment of colour on a form — it is what tells you
+   the keyboard is where you think it is. */
+.form-label{
+  font-size:var(--fs-xs);font-weight:650;color:var(--text);
+  letter-spacing:.003em;margin-bottom:6px;display:block;
+}
+.form-control{
+  border-radius:var(--radius-sm);
+  box-shadow:inset 0 1px 1.5px rgba(15,32,51,.035);
+  transition:border-color var(--transition-fast),box-shadow var(--transition-fast),background var(--transition-fast);
+}
+.form-control:hover:not(:focus):not(:disabled){border-color:var(--border-strong)}
+.form-control:focus{
+  border-color:var(--primary);
+  box-shadow:var(--ring);
+  outline:none;
+}
+.form-control--error,.form-control[aria-invalid="true"]{
+  border-color:var(--danger);
+  box-shadow:0 0 0 3px rgba(200,30,30,.12);
+}
+.form-hint{font-size:var(--fs-2xs);color:var(--text-subtle);margin-top:5px;line-height:1.5}
+.form-error{
+  font-size:var(--fs-2xs);font-weight:600;color:var(--danger);
+  margin-top:5px;display:flex;align-items:flex-start;gap:5px;line-height:1.5;
+}
+/* A section inside a form is a group of questions about one thing, and
+   the heading is what says which thing. */
+.form-section{padding-top:var(--space-5);margin-top:var(--space-5);border-top:1px solid var(--border)}
+.form-section:first-child{padding-top:0;margin-top:0;border-top:0}
+.form-actions{
+  display:flex;align-items:center;gap:var(--space-3);
+  padding-top:var(--space-5);margin-top:var(--space-5);
+  border-top:1px solid var(--border);
+}
+/* The required mark is information, so it is not decoration: it keeps a
+   colour that means something and a size that can be seen. */
+.req{color:var(--danger);font-weight:700;margin-left:2px}
+
+/* ── File / image upload ──────────────────────────────────────────────  */
+.upload-zone{
+  border-radius:var(--radius-lg);
+  border-width:1.5px;
+  transition:border-color var(--transition),background var(--transition),box-shadow var(--transition);
+}
+.upload-zone:hover,.upload-zone:focus-within{
+  border-color:var(--primary);background:var(--primary-tint);
+  box-shadow:var(--shadow-xs);
+}
+.upload-zone i{transition:transform var(--transition),color var(--transition)}
+.upload-zone:hover i{transform:translateY(-2px);color:var(--primary)}
+
+/* ── Modals ───────────────────────────────────────────────────────────
+   A dialog arrives from slightly below and slightly small, which reads as
+   it coming forward out of the page rather than being pasted over it. The
+   backdrop is a measured scrim, not a wash: the form behind must stop
+   competing for attention entirely. */
+.modal__backdrop{
+  background:rgba(11,26,38,.52);
+  backdrop-filter:blur(2.5px);-webkit-backdrop-filter:blur(2.5px);
+}
+.modal__dialog{
+  border-radius:var(--radius-lg);
+  box-shadow:0 24px 60px -12px rgba(11,26,38,.32),0 8px 20px -8px rgba(11,26,38,.20);
+  animation:dialogIn var(--dur-base) var(--ease-enter) both;
+}
+.modal__header{
+  padding:16px var(--space-6) 13px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(to bottom,var(--surface),var(--surface-2));
+}
+.modal__title{font-size:1.0625rem;font-weight:700;letter-spacing:-.02em}
+.modal__subtitle{font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px}
+.modal__body{padding:var(--space-5) var(--space-6)}
+.modal__footer{
+  padding:13px var(--space-6);
+  border-top:1px solid var(--border);background:var(--surface-2);
+  display:flex;align-items:center;justify-content:flex-end;gap:var(--space-3);
+}
+.modal__close{border-radius:var(--radius-sm);transition:background var(--transition-fast),color var(--transition-fast)}
+
+@keyframes dialogIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+
+/* The confirmation dialog is the one place a colour carries meaning
+   before the text is read, so the glyph gets a tinted disc rather than
+   sitting loose above the sentence. */
+.confirm__icon{
+  width:44px;height:44px;border-radius:50%;
+  display:grid;place-items:center;font-size:1.15rem;flex-shrink:0;
+}
+.confirm__title{font-size:1.0625rem;letter-spacing:-.02em}
+.confirm__record{
+  font-family:var(--font-mono);font-size:var(--fs-xs);
+  background:var(--surface-3);border:1px solid var(--border);
+  border-radius:var(--radius-xs);padding:2px 7px;
+}
+
+/* ── Toasts ───────────────────────────────────────────────────────────  */
+.toast{
+  border-radius:var(--radius);
+  box-shadow:0 12px 32px -10px rgba(11,26,38,.30),0 2px 6px -2px rgba(11,26,38,.16);
+  animation:toastIn var(--dur-base) var(--ease-enter) both;
+}
+@keyframes toastIn{from{opacity:0;transform:translateX(14px) scale(.98)}to{opacity:1;transform:none}}
+
+/* ── Alerts / notices ─────────────────────────────────────────────────
+   A tone bar down the left rather than a tinted box: the message stays
+   readable, and a column of them stays scannable by severity. */
+.alert{
+  border-radius:var(--radius);
+  border-left-width:3px;
+  padding:12px var(--space-4);
+  line-height:1.55;
+}
+.notice{border-radius:var(--card-radius);box-shadow:var(--shadow-xs)}
+.notice__title{font-weight:700;letter-spacing:-.01em}
+
+/* ── Empty states ─────────────────────────────────────────────────────
+   The one screen a new install spends most of its time on, so it is
+   given real composition: a glyph with weight, a heading that is a
+   sentence, and a measure the eye can finish. */
+.empty-state{padding:var(--space-12) var(--space-6);text-align:center}
+.empty-state__icon{
+  width:56px;height:56px;margin:0 auto var(--space-4);
+  border-radius:var(--radius-lg);
+  display:grid;place-items:center;font-size:1.5rem;
+  background:var(--surface-3);color:var(--text-subtle);
+  border:1px solid var(--border);
+}
+.empty-state__title{
+  font-family:var(--font-display);font-size:1.0625rem;font-weight:700;
+  color:var(--text);letter-spacing:-.018em;margin-bottom:6px;
+}
+.empty-state__desc{
+  font-size:var(--fs-sm);color:var(--text-muted);
+  max-width:44ch;margin:0 auto;line-height:1.6;text-wrap:pretty;
+}
+.empty-state__actions{margin-top:var(--space-5);display:flex;gap:var(--space-3);justify-content:center;flex-wrap:wrap}
+
+/* ── Skeletons ────────────────────────────────────────────────────────
+   A sweep rather than a pulse. A pulsing block reads as something
+   broken; a sweep reads as something arriving. */
+.skeleton{
+  background:linear-gradient(90deg,var(--surface-3) 25%,var(--surface-2) 37%,var(--surface-3) 63%);
+  background-size:400% 100%;
+  animation:skeletonSweep 1.4s var(--ease-standard) infinite;
+  border-radius:var(--radius-xs);
+}
+@keyframes skeletonSweep{from{background-position:100% 50%}to{background-position:0 50%}}
+
+/* ── Tabs / segmented / status tabs ───────────────────────────────────  */
+.tabs__item{font-weight:600;letter-spacing:-.005em;transition:color var(--transition-fast),border-color var(--transition-fast),background var(--transition-fast)}
+.segmented{border-radius:var(--radius-sm);padding:3px;background:var(--surface-3)}
+.segmented__btn{border-radius:var(--radius-xs);font-weight:600;transition:background var(--transition-fast),color var(--transition-fast),box-shadow var(--transition-fast)}
+.status-tabs__item{border-radius:var(--radius-pill);font-weight:600;transition:background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast)}
+
+/* ── Detail header (every show page) ──────────────────────────────────  */
+.detail-header{
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-xs);
+}
+.detail-header__title{letter-spacing:-.028em;line-height:1.15}
+.detail-header__eyebrow{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-subtle);
+}
+.detail-stat__label{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.075em;
+  text-transform:uppercase;color:var(--text-subtle);
+}
+.detail-stat__value{
+  font-family:var(--font-display);font-weight:700;letter-spacing:-.025em;
+  font-variant-numeric:tabular-nums;color:var(--text);
+}
+
+/* ── Toolbar (search + filters above every register) ──────────────────  */
+.toolbar{border-radius:var(--card-radius)}
+.toolbar__search .form-control{border-radius:var(--radius-pill);padding-left:38px}
+.toolbar__filter-trigger{border-radius:var(--radius-sm);font-weight:600}
+/* The panel is only ever drawn while the disclosure is open, stated
+   explicitly rather than left to the browser's own <details> hiding.
+
+   It has to be: the panel is position:absolute inside the <details>, and
+   with an entrance animation filling on it Chromium kept painting it
+   after the element closed — so Escape set details.open to false, the
+   chevron rotated back, and the filter panel stayed on the screen over
+   the table with no way to dismiss it but a reload. Scoping both the
+   animation and the display to [open] fixes the state and the cause. */
+.toolbar__filters:not([open]) .toolbar__popover{display:none}
+.toolbar__popover{border-radius:var(--radius);box-shadow:var(--shadow-lg)}
+.toolbar__filters[open] .toolbar__popover{
+  animation:menuIn var(--dur-fast) var(--ease-enter) both;
+}
+
+/* ── Page entrance ────────────────────────────────────────────────────
+   One fade, on the content column only, at the shortest duration that
+   still registers. The rail and the topbar deliberately stay still:
+   they did not change, and animating them would make every navigation
+   look like a page load.
+
+   Opacity and nothing else, and that is not a stylistic preference. The
+   modals live inside this column, and an element carrying a transform —
+   including one that has merely *been* animated — becomes the
+   containing block for its position:fixed descendants. With a 6px
+   translateY here, every dialog stopped being pinned to the viewport
+   and started scrolling with the page behind it: open the Add Customer
+   sheet, watch the browser scroll to the first field, and the dialog's
+   header and its Save button had travelled 1,852px off the top of the
+   screen. A fade costs nothing and traps nothing. */
+@keyframes contentIn{from{opacity:0}to{opacity:1}}
+.app__content{animation:contentIn 220ms var(--ease-enter) both}
+
+/* ── The modal on a phone ─────────────────────────────────────────────
+   A full-screen sheet, and a sheet with its own scrolling body — which
+   is not what it was doing. The narrow-width rule above lifts the
+   dialog's max-height and gives it min-height:100%, so the dialog grew
+   to the height of its content: the Add Customer form came out 2,623px
+   tall on a 390px screen, the header scrolled away at the top, and
+   "Create Customer" sat at the bottom of nine screens of scrolling.
+   Nothing was broken and nothing was unreachable — it was just a very
+   long way to the only button anybody opened the sheet to press.
+
+   Pinning the sheet to the viewport hands the scrolling back to
+   .modal__body, which has been flex:1 / min-height:0 / overflow-y:auto
+   all along, and the header and the action bar stay where a thumb can
+   find them. 100dvh rather than 100vh because the mobile address bar
+   makes the visual viewport shorter than 100vh claims — and a footer
+   100vh down is a footer under the browser chrome. */
+@media (max-width:768px){
+  .modal__dialog{
+    height:100dvh;max-height:100dvh;min-height:0;
+  }
+  .modal__body{padding:var(--space-5)}
+  /* The action bar is the last thing in a flex column that is exactly
+     the height of the screen, so it stays put without being positioned. */
+  .modal__footer{flex-shrink:0}
+  .modal__header{flex-shrink:0}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .app__content,.modal__dialog,.toast,.row-menu__list,.toolbar__popover{animation:none}
+  .skeleton{animation:none;background:var(--surface-3)}
+  .btn:active{transform:none}
+  .upload-zone:hover i{transform:none}
 }

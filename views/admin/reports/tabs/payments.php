@@ -32,7 +32,11 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
 
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
 
-<!-- ── Row 1 · what the ledger recorded ──────────────────────────── -->
+<?php /* what the ledger recorded */ ?>
+<?php $section = [
+    'title' => 'Ledger summary',
+    'desc'  => 'What the payments ledger recorded in this period.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="kpis kpis--five">
     <?php
     $kpi = [
@@ -58,6 +62,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
        that arrived but is not earnings. */
     $kpi = [
         'label'   => 'Money received',
+        'good'    => 'up',
         'value'   => formatCurrency((float) $activity['received']),
         'icon'    => 'bi-inbox',
         'tone'    => 'info',
@@ -127,7 +132,11 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     <?php require dirname(__DIR__) . '/_payment_comparison.php'; ?>
 <?php endif ?>
 
-<!-- ── Row 2 · activity over time ────────────────────────────────── -->
+<?php /* activity over time */ ?>
+<?php $section = [
+    'title' => 'Transaction activity',
+    'desc'  => 'Amount taken and records written, over time.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     /* Amount and count are the same story told twice, and they are drawn as
@@ -159,7 +168,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'series'   => $pySeries,
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No payment was dated in this period.',
-        'height'   => 220,
+        'size'   => 'feature',
         'filtered' => $pyFiltered,
         'resetUrl' => $pyReset,
     ];
@@ -179,7 +188,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         ]],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No payment was dated in this period.',
-        'height'   => 220,
+        'size'   => 'feature',
         'filtered' => $pyFiltered,
         'resetUrl' => $pyReset,
         'footnote' => 'Read against the amount beside it. Volume rising while the amount '
@@ -190,7 +199,11 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     ?>
 </div>
 
-<!-- ── Row 3 · how transactions are stated ───────────────────────── -->
+<?php /* how transactions are stated */ ?>
+<?php $section = [
+    'title' => 'How transactions are stated',
+    'desc'  => 'Status and method across every record in scope.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     /* Statuses with no rows are dropped from the picture but kept in the
@@ -222,7 +235,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         ]],
         'label_heading' => 'Status',
         'empty'    => 'No payment was dated in this period.',
-        'height'   => 220,
+        'size'   => 'standard',
         'share'    => true,
         'filtered' => $pyFiltered,
         'resetUrl' => $pyReset,
@@ -252,7 +265,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         ]],
         'label_heading' => 'Method',
         'empty'    => 'No payment was dated in this period, so no method has been used.',
-        'height'   => 220,
+        'size'   => 'standard',
         'filtered' => $pyFiltered,
         'resetUrl' => $pyReset,
     ];
@@ -260,13 +273,21 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     ?>
 </div>
 
-<!-- ── Row 4 · classification, and the insights that follow ──────── -->
+<?php /* classification, and the insights that follow */ ?>
+<?php $section = [
+    'title' => 'Classification and attention',
+    'desc'  => 'How payments are filed, and what stands out.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php require dirname(__DIR__) . '/_payment_classification.php'; ?>
     <?php require dirname(__DIR__) . '/_insights.php'; ?>
 </div>
 
-<!-- ── Row 5 · records dated ahead ───────────────────────────────── -->
+<?php /* records dated ahead */ ?>
+<?php $section = [
+    'title' => 'Detailed records',
+    'desc'  => 'Records held out of the totals, then every transaction in scope.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <?php if ((int) $futureDated['count'] > 0): ?>
     <?php require dirname(__DIR__) . '/_future_dated.php'; ?>
 <?php endif ?>

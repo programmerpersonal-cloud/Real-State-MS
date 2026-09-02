@@ -115,13 +115,73 @@ if ($hostsAction('property')) {
    Glyphs match the module each figure belongs to, so the row and the rail
    name the same things the same way: Maintenance is the sidebar's wrench,
    Payments is money, Users is the shield. */
+/* One line of context per figure, because a bare count answers "how many"
+   and leaves "so what" on the table: three active rentals is a different
+   morning depending on whether two of them end this quarter, and an arrears
+   count of nine means nothing until it is read as money.
+
+   All six come from a single statement of scalar sub-selects. That is a
+   deliberate choice against the obvious six-COUNT version: this is the page
+   every role loads first, and each of these is an indexed aggregate over one
+   table with no dependence on a row above it — so the whole context row costs
+   one round trip and stays O(1) in the size of the portfolio.
+
+   Nothing here changes a figure. The numbers above are the same numbers from
+   the same queries; this is the sentence underneath them. */
+$ctx = $db->query("
+    SELECT
+      (SELECT COUNT(*) FROM properties
+        WHERE status = 'available' AND is_archived = 0 AND approval_status = 'approved') AS available,
+      (SELECT COUNT(*) FROM leases
+        WHERE status = 'active' AND end_date BETWEEN CURDATE() AND CURDATE() + INTERVAL 60 DAY) AS ending,
+      (SELECT COUNT(*) FROM customers
+        WHERE created_at >= CURDATE() - INTERVAL 30 DAY) AS new_customers,
+      (SELECT COUNT(*) FROM maintenance_requests
+        WHERE status IN ('new','under_review','assigned') AND priority IN ('high','urgent')) AS urgent,
+      (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'overdue') AS arrears,
+      (SELECT COUNT(*) FROM users
+        WHERE is_active = 1 AND last_seen_at >= NOW() - INTERVAL 7 DAY) AS seen_week
+")->fetch() ?: [];
+
+$ctxNum  = static fn (string $key): int => (int) ($ctx[$key] ?? 0);
+$arrears = (float) ($ctx['arrears'] ?? 0);
+
+/* The tone belongs to the line, not to the card. "9 overdue" is a problem and
+   says so; "3 ending within 60 days" is a diary entry and stays neutral. A row
+   where every line is coloured is a row where none of them mean anything —
+   and the colour is never the only channel, because each line spells out in
+   words what it is reporting. */
 $statCards = [
-    ['icon' => 'bi-buildings',         'tone' => 'primary', 'label' => 'Total Properties',    'value' => $totalProperties],
-    ['icon' => 'bi-key',               'tone' => 'success', 'label' => 'Active Rentals',      'value' => $activeRentals],
-    ['icon' => 'bi-people',            'tone' => 'info',    'label' => 'Customers',           'value' => $totalCustomers],
-    ['icon' => 'bi-wrench-adjustable', 'tone' => 'warning', 'label' => 'Pending Maintenance', 'value' => $pendingMaint],
-    ['icon' => 'bi-cash-stack',        'tone' => 'danger',  'label' => 'Overdue Payments',    'value' => $overduePayments],
-    ['icon' => 'bi-shield-check',      'tone' => 'purple',  'label' => 'Active Users',        'value' => $totalUsers],
+    ['icon' => 'bi-buildings', 'tone' => 'primary', 'label' => 'Total Properties', 'value' => $totalProperties,
+     'note' => $ctxNum('available') . ' available to let or sell'],
+
+    ['icon' => 'bi-key', 'tone' => 'success', 'label' => 'Active Rentals', 'value' => $activeRentals,
+     'note'     => $ctxNum('ending') > 0
+        ? $ctxNum('ending') . ' ending within 60 days'
+        : 'None ending within 60 days',
+     'noteIcon' => $ctxNum('ending') > 0 ? 'bi-calendar-event' : null,
+     'noteTone' => $ctxNum('ending') > 0 ? 'warn' : null],
+
+    ['icon' => 'bi-people', 'tone' => 'info', 'label' => 'Customers', 'value' => $totalCustomers,
+     'note'     => $ctxNum('new_customers') > 0
+        ? '+' . $ctxNum('new_customers') . ' in the last 30 days'
+        : 'None added in the last 30 days',
+     'noteIcon' => $ctxNum('new_customers') > 0 ? 'bi-arrow-up-short' : null,
+     'noteTone' => $ctxNum('new_customers') > 0 ? 'up' : null],
+
+    ['icon' => 'bi-wrench-adjustable', 'tone' => 'warning', 'label' => 'Pending Maintenance', 'value' => $pendingMaint,
+     'note'     => $ctxNum('urgent') > 0
+        ? $ctxNum('urgent') . ' high or urgent'
+        : 'Nothing urgent in the queue',
+     'noteIcon' => $ctxNum('urgent') > 0 ? 'bi-exclamation-triangle' : null,
+     'noteTone' => $ctxNum('urgent') > 0 ? 'warn' : null],
+
+    ['icon' => 'bi-cash-stack', 'tone' => 'danger', 'label' => 'Overdue Payments', 'value' => $overduePayments,
+     'note'     => $arrears > 0 ? formatCurrency($arrears) . ' outstanding' : 'Nothing outstanding',
+     'noteTone' => $arrears > 0 ? 'down' : null],
+
+    ['icon' => 'bi-shield-check', 'tone' => 'purple', 'label' => 'Active Users', 'value' => $totalUsers,
+     'note' => $ctxNum('seen_week') . ' signed in this week'],
 ];
 ?>
 <div class="stats">
@@ -133,6 +193,14 @@ $statCards = [
             <div class="stat-card__body">
                 <div class="stat-card__label"><?= sanitize($sc['label']) ?></div>
                 <div class="stat-card__value"><?= $sc['value'] ?></div>
+                <?php if (!empty($sc['note'])): ?>
+                    <div class="stat-card__trend<?= !empty($sc['noteTone']) ? ' stat-card__trend--' . $sc['noteTone'] : '' ?>">
+                        <?php if (!empty($sc['noteIcon'])): ?>
+                            <i class="bi <?= sanitize($sc['noteIcon']) ?>" aria-hidden="true"></i>
+                        <?php endif ?>
+                        <?= sanitize($sc['note']) ?>
+                    </div>
+                <?php endif ?>
             </div>
         </div>
     <?php endforeach ?>

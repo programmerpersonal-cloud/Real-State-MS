@@ -44,14 +44,14 @@ $muStatusTone = [
 ?>
 <div class="table-card<?= (!$muDone && $muRows) ? ' fd' : '' ?>">
     <div class="table-head">
-        <div class="table-head__title">
+        <h4 class="table-head__title">
             <?php if ($muDone): ?>
                 Completed maintenance
             <?php else: ?>
                 <i class="bi bi-list-check fd__icon" aria-hidden="true"></i>
                 Maintenance attention queue
             <?php endif ?>
-        </div>
+        </h4>
         <span class="table-head__note">
             <?php if ($muDone): ?>
                 <?= number_format((int) $doneTotal) ?> completed

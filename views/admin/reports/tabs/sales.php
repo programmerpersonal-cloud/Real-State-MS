@@ -27,7 +27,11 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
 <?php require dirname(__DIR__) . '/_sales_quality.php'; ?>
 
-<!-- ── Row 1 · the deal book in six figures ──────────────────────── -->
+<?php /* the deal book in six figures */ ?>
+<?php $section = [
+    'title' => 'Deal book summary',
+    'desc'  => 'Completed sales, pipeline and holds as they stand.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="kpis kpis--six">
     <?php
     $kpi = [
@@ -50,6 +54,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
        register carries the collected column for that. */
     $kpi = [
         'label'   => 'Completed value',
+        'good'    => 'up',
         'value'   => formatCurrency((float) $summary['completed_value']),
         'icon'    => 'bi-cash-stack',
         'tone'    => (float) $summary['completed_value'] > 0 ? 'success' : 'info',
@@ -66,6 +71,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
 
     $kpi = [
         'label'   => 'Completed sales',
+        'good'    => 'up',
         'value'   => number_format((int) $summary['completed']),
         'icon'    => 'bi-check-circle',
         'tone'    => (int) $summary['completed'] > 0 ? 'success' : 'info',
@@ -125,10 +131,10 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     ?>
 </div>
 
-<div class="notice notice--muted mb-3" role="note">
+<div class="rnote" role="note">
     <div class="notice__icon"><i class="bi bi-signpost-split" aria-hidden="true"></i></div>
-    <div class="notice__body">
-        <div class="notice__title">Four different things, kept apart</div>
+    <div class="rnote__body">
+        <p class="rnote__title">Four different things, kept apart</p>
         <strong>Listed for sale</strong> is inventory intent and lives on the Properties
         report. <strong>Pending</strong> is an intention with a price on it.
         <strong>Completed</strong> is a transaction that happened, measured in contract
@@ -138,7 +144,11 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     </div>
 </div>
 
-<!-- ── Row 2 · the pipeline and how it moved ─────────────────────── -->
+<?php /* the pipeline and how it moved */ ?>
+<?php $section = [
+    'title' => 'Pipeline',
+    'desc'  => 'How the deal book moved across the period.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     /* Zeros kept, deliberately. On a pipeline an empty stage is the finding —
@@ -159,7 +169,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         ]],
         'label_heading' => 'Status',
         'empty'      => 'No sale was recorded in this period.',
-        'height'     => 210,
+        'size'     => 'feature',
         'filtered'   => $slFiltered,
         'resetUrl'   => $slReset,
         'footnote'   => 'Pending, completed and cancelled are the only statuses this system '
@@ -183,7 +193,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         ],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No sale carries a date inside this period.',
-        'height'   => 210,
+        'size'   => 'feature',
         'filtered' => $slFiltered,
         'resetUrl' => $slReset,
         'footnote' => 'Recorded is every deal whatever its status; completed is the subset '
@@ -193,7 +203,11 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     ?>
 </div>
 
-<!-- ── Row 3 · what is being sold, and what is on hold ───────────── -->
+<?php /* what is being sold, and what is on hold */ ?>
+<?php $section = [
+    'title' => 'Composition and holds',
+    'desc'  => 'What is being sold, and what is reserved.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $chart = [
@@ -214,7 +228,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         ]],
         'label_heading' => 'Category',
         'empty'      => 'No sale was recorded in this period.',
-        'height'     => 210,
+        'size'     => 'standard',
         'share'      => true,
         'filtered'   => $slFiltered,
         'resetUrl'   => $slReset,
@@ -244,7 +258,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         ]],
         'label_heading' => 'State',
         'empty'    => 'No reservation has been recorded against a property in scope.',
-        'height'   => 210,
+        'size'   => 'standard',
         'share'    => true,
         'filtered' => $slFiltered,
         'resetUrl' => $slReset,
@@ -256,14 +270,18 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     ?>
 </div>
 
-<!-- ── Row 4 · insights ──────────────────────────────────────────── -->
+<?php /* insights */ ?>
+<?php $section = [
+    'title' => 'Attention',
+    'desc'  => 'What stands out in the deal book.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php require dirname(__DIR__) . '/_insights.php'; ?>
 
     <section class="card rcard" aria-labelledby="sl-hold-title">
         <div class="card__header">
             <div class="rcard__titles">
-                <h3 class="card__title" id="sl-hold-title">Money that is not sales revenue</h3>
+                <h4 class="card__title" id="sl-hold-title">Money that is not sales revenue</h4>
                 <p class="card__subtitle">Held against property, and excluded from every figure above</p>
             </div>
         </div>
@@ -292,6 +310,10 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
     </section>
 </div>
 
-<!-- ── Row 5 · the reservation queue, then the register ──────────── -->
+<?php /* the reservation queue, then the register */ ?>
+<?php $section = [
+    'title' => 'Detailed records',
+    'desc'  => 'The reservation queue, then the sales register.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <?php require dirname(__DIR__) . '/_reservation_queue.php'; ?>
 <?php require dirname(__DIR__) . '/_sales_register.php'; ?>

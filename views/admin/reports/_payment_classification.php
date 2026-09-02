@@ -35,7 +35,7 @@ foreach ($pcRows as $pcR) {
 <section class="card rcard" aria-labelledby="pclass-title">
     <div class="card__header">
         <div class="rcard__titles">
-            <h3 class="card__title" id="pclass-title">Classification</h3>
+            <h4 class="card__title" id="pclass-title">Classification</h4>
             <p class="card__subtitle">How each payment is typed, against the contract it names</p>
         </div>
     </div>

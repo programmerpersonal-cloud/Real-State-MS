@@ -13,6 +13,13 @@
  * already ended. It is not double-counted and it is not wrong — it is simply
  * easy to miss inside a single total, which is exactly why it is broken out.
  *
+ * On severity: a term whose end precedes its start, or two live tenancies on
+ * one property, is *critical* — those rows cannot be read correctly by
+ * anything, this report included, because the schedule and the occupancy they
+ * imply are both derived from dates that contradict each other. A lease still
+ * flagged active past its end date is a warning: the record is readable, it
+ * simply disagrees with the calendar, and somebody has to close it.
+ *
  * Nothing here is corrected. No record is written.
  *
  * Expects: $leaseFlags (from CoreAnalytics::leaseIntegrityFlags())
@@ -23,42 +30,43 @@
 $rqFlags = $leaseFlags ?? [];
 $rqRows  = [];
 
-$rqAdd = static function (string $rqLabel, int $rqCount, string $rqText, ?string $rqValue = null) use (&$rqRows): void {
+$rqAdd = static function (string $rqSev, string $rqLabel, int $rqCount, string $rqText, ?string $rqValue = null) use (&$rqRows): void {
     if ($rqCount > 0) {
-        $rqRows[] = ['label' => $rqLabel, 'count' => $rqCount, 'text' => $rqText, 'value' => $rqValue];
+        $rqRows[] = ['severity' => $rqSev, 'label' => $rqLabel, 'count' => $rqCount,
+                     'text' => $rqText, 'value' => $rqValue];
     }
 };
 
-$rqAdd(
+$rqAdd('warning',
     'Active past its end date',
     (int) ($rqFlags['active_past_end']['count'] ?? 0),
     'The tenancy is still flagged active although its end date has passed. Nothing rolls '
     . 'that status forward automatically, so it stays active until somebody closes it.'
 );
-$rqAdd(
+$rqAdd('warning',
     'Lease and property disagree',
     (int) ($rqFlags['status_disagrees']['count'] ?? 0),
     'An active tenancy whose property is not recorded as rented. Occupancy on this report '
     . 'is derived from the lease, so the figures above are unaffected.'
 );
-$rqAdd(
+$rqAdd('critical',
     'Two active tenancies on one property',
     (int) ($rqFlags['duplicate_active']['count'] ?? 0),
     'More than one lease is active against the same property at the same time. The schema '
-    . 'permits it and nothing checks for it.'
+    . 'permits it and nothing checks for it — only one of them can be the live tenancy.'
 );
-$rqAdd(
+$rqAdd('critical',
     'End date before start date',
     (int) ($rqFlags['end_before_start']['count'] ?? 0),
     'The tenancy ends before it begins, which makes its term and its schedule unreliable.'
 );
-$rqAdd(
+$rqAdd('critical',
     'Move-out before move-in',
     (int) ($rqFlags['moveout_before_movein']['count'] ?? 0),
     'The recorded move-out date precedes the move-in date, so the occupied period cannot be '
     . 'read from those two columns.'
 );
-$rqAdd(
+$rqAdd('warning',
     'Zero or negative rent',
     (int) ($rqFlags['zero_rent']['count'] ?? 0),
     'The tenancy contracts no rent, so it contributes nothing to the rent roll.'
@@ -67,6 +75,7 @@ $rqAdd(
 $rqEnded = $rqFlags['ended_with_balance'] ?? null;
 if ($rqEnded && (int) $rqEnded['count'] > 0 && (float) $rqEnded['amount'] > 0) {
     $rqRows[] = [
+        'severity' => 'warning',
         'label' => 'Ended tenancies still owing',
         'count' => (int) $rqEnded['count'],
         'text'  => sprintf(
@@ -80,42 +89,12 @@ if ($rqEnded && (int) $rqEnded['count'] > 0 && (float) $rqEnded['amount'] > 0) {
     ];
 }
 
-if (!$rqRows) {
-    return;
-}
-?>
-<details class="dq dq--rentals">
-    <summary class="dq__summary">
-        <span class="dq__icon" aria-hidden="true"><i class="bi bi-file-earmark-medical"></i></span>
-        <span class="dq__lead">
-            <strong>Tenancy data quality</strong>
-            <span class="dq__count">
-                <?= count($rqRows) === 1 ? '1 item needs attention' : count($rqRows) . ' items need attention' ?>
-            </span>
-        </span>
-        <span class="dq__note">Occupancy and the ledger are unaffected</span>
-        <i class="bi bi-chevron-down dq__chev" aria-hidden="true"></i>
-    </summary>
-
-    <ul class="dq__list">
-        <?php foreach ($rqRows as $rqRow): ?>
-            <li class="dq__row">
-                <span class="dq__row-icon" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span>
-                <div class="dq__row-body">
-                    <div class="dq__row-label">
-                        <?= sanitize($rqRow['label']) ?>
-                        <span class="dq__badge"><?= number_format((int) $rqRow['count']) ?></span>
-                    </div>
-                    <p class="dq__row-text"><?= sanitize($rqRow['text']) ?></p>
-                </div>
-                <?php if ($rqRow['value'] !== null): ?>
-                    <div class="dq__row-value"><?= sanitize((string) $rqRow['value']) ?></div>
-                <?php endif ?>
-            </li>
-        <?php endforeach ?>
-    </ul>
-
-    <p class="dq__foot">
-        Diagnostic only. No lease, schedule or property record is changed by this report.
-    </p>
-</details>
+$qualityPanel = [
+    'title'   => 'Tenancy data quality',
+    'icon'    => 'bi-file-earmark-medical',
+    'variant' => 'rentals',
+    'note'    => 'Occupancy and the ledger are unaffected',
+    'rows'    => $rqRows,
+    'foot'    => 'Diagnostic only. No lease, schedule or property record is changed by this report.',
+];
+require __DIR__ . '/_quality_panel.php';

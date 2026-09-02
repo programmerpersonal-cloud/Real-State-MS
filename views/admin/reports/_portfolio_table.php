@@ -65,7 +65,7 @@ $ptAgrees = static function (array $ptR, string $ptDerived): bool {
 ?>
 <div class="table-card">
     <div class="table-head">
-        <div class="table-head__title">Portfolio</div>
+        <h4 class="table-head__title">Portfolio</h4>
         <span class="table-head__note">
             <?= number_format((int) $portfolioTotal) ?>
             <?= (int) $portfolioTotal === 1 ? 'property' : 'properties' ?>
@@ -113,7 +113,7 @@ $ptAgrees = static function (array $ptR, string $ptDerived): bool {
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $ptR['id']) ?>">
                                     <?= sanitize((string) $ptR['title']) ?>
                                 </a>
-                                <div class="tp-code"><?= sanitize((string) $ptR['property_code']) ?></div>
+                                <div class="tp-code tp-code--id"><?= sanitize((string) $ptR['property_code']) ?></div>
                             </td>
                             <td class="col-mid">
                                 <i class="bi <?= sanitize(categoryIcon((string) $ptR['category'])) ?> tp-cat-icon" aria-hidden="true"></i>

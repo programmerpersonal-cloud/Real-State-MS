@@ -50,7 +50,7 @@ $prMismatch = static function (array $prR): bool {
 ?>
 <div class="table-card">
     <div class="table-head">
-        <div class="table-head__title">Payment records</div>
+        <h4 class="table-head__title">Payment records</h4>
         <span class="table-head__note">
             <?= number_format((int) $recordTotal) ?>
             <?= (int) $recordTotal === 1 ? 'transaction' : 'transactions' ?>

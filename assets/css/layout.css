@@ -763,3 +763,115 @@
   .app__footer{justify-content:center;text-align:center;gap:6px}
   .app__footer-slot--center{flex:0 0 100%;order:3}
 }
+
+/* ================================================================
+   PREMIUM SHELL PASS
+   ----------------------------------------------------------------
+   Loaded at the foot of this file, so it wins over the shell rules
+   above on source order without a specificity arms race. Everything
+   here is presentation: no element changes what it does, only how
+   substantial it looks doing it.
+   ================================================================ */
+
+/* ── The rail ─────────────────────────────────────────────────────
+   A single flat navy read as a panel bolted to the side of the page. A
+   very slight vertical fall — lighter at the brand, deeper at the account
+   card — gives the column a top and a bottom, which is what makes it read
+   as the product's own furniture. It is 4% of lightness across 100vh; the
+   point is that you cannot see it, only that the rail stops looking
+   printed on. */
+.app__sidebar{
+  background:linear-gradient(180deg,#132741 0%,var(--sidebar-bg) 46%,#0a1626 100%);
+  border-right:1px solid rgba(255,255,255,.06);
+  box-shadow:1px 0 0 rgba(15,32,51,.04);
+}
+
+/* The brand sits on its own band rather than floating above the first
+   group, so the eye has somewhere to start. */
+.sidebar__brand{
+  border-bottom:1px solid var(--sidebar-border);
+  background:rgba(255,255,255,.02);
+}
+
+/* The active row. It had a fill; now it has a fill, an edge and a shadow,
+   which is the difference between "this row is coloured" and "this row is
+   raised". The left indicator stays — colour is never the only channel. */
+.sidebar__link{border-radius:9px;font-weight:500;letter-spacing:-.005em}
+.sidebar__link--active{
+  background:var(--sidebar-active-bg);
+  box-shadow:0 2px 8px -2px rgba(24,119,201,.55),inset 0 1px 0 rgba(255,255,255,.14);
+  font-weight:600;
+}
+.sidebar__link:not(.sidebar__link--active):hover{
+  background:var(--sidebar-hover-bg);
+  transform:translateX(2px);
+}
+.sidebar__link{transition:background var(--transition),color var(--transition),transform var(--transition-fast)}
+
+/* Group headings: quieter and more spaced, so the rail reads as sections
+   with names rather than as a list with shouting in it. */
+.sidebar__label{letter-spacing:.09em;font-size:.665rem}
+
+/* The account card at the foot, given a real surface. */
+.sidebar__footer{border-top:1px solid var(--sidebar-border)}
+.sidebar__account{
+  border-radius:11px;
+  background:var(--sidebar-bg-soft);
+  border:1px solid var(--sidebar-border);
+  transition:background var(--transition),border-color var(--transition);
+}
+.sidebar__account:hover{
+  background:rgba(255,255,255,.09);
+  border-color:var(--sidebar-border-strong);
+}
+
+@media (prefers-reduced-motion:reduce){
+  .sidebar__link:not(.sidebar__link--active):hover{transform:none}
+}
+
+/* ── The topbar ───────────────────────────────────────────────────
+   More glass, less line. The bar is the one element on screen that never
+   moves, so it earns a slightly heavier blur and a hairline that fades in
+   only once the page beneath it has actually scrolled. */
+.app__header{
+  background:rgba(255,255,255,.82);
+  backdrop-filter:saturate(180%) blur(14px);
+  -webkit-backdrop-filter:saturate(180%) blur(14px);
+  border-bottom:1px solid transparent;
+  box-shadow:inset 0 -1px 0 var(--border);
+  transition:box-shadow var(--transition),background var(--transition);
+}
+body.is-condensed .app__header{
+  background:rgba(255,255,255,.92);
+  box-shadow:inset 0 -1px 0 var(--border),0 6px 20px -12px rgba(15,32,51,.24);
+}
+
+/* The command surface. It read as a form field in a bar full of buttons;
+   now it reads as a surface you press. */
+.header__search-input{border-radius:var(--radius-pill)}
+.header__search{border-radius:var(--radius-pill)}
+
+.header__icon-btn,.header__visit{border-radius:var(--radius-pill)}
+.header__user{border-radius:var(--radius-pill)}
+
+/* ── The page header ──────────────────────────────────────────────
+   The title had the size but not the weight of a page title. Tighter
+   tracking and a heavier stem is most of what separates a document from
+   a panel with a caption on it. */
+.page-header__title{letter-spacing:-.025em;font-weight:700}
+.page-header__subtitle{max-width:70ch}
+
+/* ── The content column ───────────────────────────────────────────
+   A page opens rather than appears. One transform, one opacity, 240ms,
+   and only on first paint — this is the only entrance animation in the
+   application and it is deliberately the only one. */
+@media (prefers-reduced-motion:no-preference){
+  .app__content{animation:app-enter var(--dur-slow) var(--ease-enter) both}
+}
+@keyframes app-enter{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+
+/* ── The footer ───────────────────────────────────────────────────  */
+.app__footer{background:transparent;border-top:1px solid var(--border)}

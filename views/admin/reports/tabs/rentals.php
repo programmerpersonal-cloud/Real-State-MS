@@ -38,7 +38,11 @@ $rnGone = $rnBucket($expiry, 'expired');
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
 <?php require dirname(__DIR__) . '/_rental_quality.php'; ?>
 
-<!-- ── Row 1 · the tenancy book and what it is owed ──────────────── -->
+<?php /* the tenancy book and what it is owed */ ?>
+<?php $section = [
+    'title' => 'Occupancy and rent roll',
+    'desc'  => 'The tenancy book and what it is owed.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="kpis kpis--six">
     <?php
     $kpi = [
@@ -121,10 +125,10 @@ $rnGone = $rnBucket($expiry, 'expired');
     ?>
 </div>
 
-<div class="notice notice--muted mb-3" role="note">
-    <div class="notice__icon"><i class="bi bi-clock-history" aria-hidden="true"></i></div>
-    <div class="notice__body">
-        <div class="notice__title">Two clocks on this report</div>
+<div class="rnote" role="note">
+    <span class="rnote__icon" aria-hidden="true"><i class="bi bi-clock-history"></i></span>
+    <div class="rnote__body">
+        <p class="rnote__title">Two clocks on this report</p>
         Lease counts, occupancy, the rent roll and expiry describe the book
         <strong>as it stands today</strong> and do not move with the period.
         Expected, settled and the collection rate are bounded by
@@ -133,7 +137,11 @@ $rnGone = $rnBucket($expiry, 'expired');
     </div>
 </div>
 
-<!-- ── Row 2 · the rent ledger over time ─────────────────────────── -->
+<?php /* the rent ledger over time */ ?>
+<?php $section = [
+    'title' => 'Collection performance',
+    'desc'  => 'Rent falling due against rent settled, on the date it was due.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $rnExpectedSeries = array_map(static fn(array $p): float => (float) $p['total'], $ledgerSeries['expected']);
@@ -152,7 +160,7 @@ $rnGone = $rnBucket($expiry, 'expired');
         ],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent was scheduled to fall due in this period.',
-        'height'   => 220,
+        'size'   => 'feature',
         'filtered' => $rnFiltered,
         'resetUrl' => $rnReset,
     ];
@@ -175,7 +183,7 @@ $rnGone = $rnBucket($expiry, 'expired');
         'series'   => [['label' => 'Settled', 'data' => $rnRate, 'tone' => '--primary']],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent fell due in this period, so there is no collection rate to plot.',
-        'height'   => 220,
+        'size'   => 'feature',
         'filtered' => $rnFiltered,
         'resetUrl' => $rnReset,
         'footnote' => 'Periods where no rent fell due are left blank rather than drawn at '
@@ -185,7 +193,11 @@ $rnGone = $rnBucket($expiry, 'expired');
     ?>
 </div>
 
-<!-- ── Row 3 · occupancy, expiry, and what is owed ───────────────── -->
+<?php /* occupancy, expiry, and what is owed */ ?>
+<?php $section = [
+    'title' => 'Lease health',
+    'desc'  => 'Occupancy, expiry and the shape of the book.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $rnOcc = array_values(array_filter([
@@ -207,7 +219,7 @@ $rnGone = $rnBucket($expiry, 'expired');
         ]],
         'label_heading' => 'State',
         'empty'    => 'No rentable property is in scope for the current filters.',
-        'height'   => 220,
+        'size'   => 'standard',
         'share'    => true,
         'filtered' => $rnFiltered,
         'resetUrl' => $rnReset,
@@ -234,7 +246,7 @@ $rnGone = $rnBucket($expiry, 'expired');
         ]],
         'label_heading' => 'Window',
         'empty'      => 'No active tenancy is in scope for the current filters.',
-        'height'     => 220,
+        'size'     => 'standard',
         'filtered'   => $rnFiltered,
         'resetUrl'   => $rnReset,
         'footnote'   => 'An already-expired lease is counted on its own line, not as '
@@ -244,7 +256,11 @@ $rnGone = $rnBucket($expiry, 'expired');
     ?>
 </div>
 
-<!-- ── Row 4 · the outstanding position, and the insights ────────── -->
+<?php /* the outstanding position, and the insights */ ?>
+<?php $section = [
+    'title' => 'Outstanding and attention',
+    'desc'  => 'The unpaid position, and what stands out in the tenancies.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $chart = [
@@ -262,7 +278,7 @@ $rnGone = $rnBucket($expiry, 'expired');
         ],
         'label_heading' => 'Position',
         'empty'      => 'Nothing is outstanding — every scheduled instalment has been settled.',
-        'height'     => 150,
+        'size'     => 'compact',
         'filtered'   => $rnFiltered,
         'resetUrl'   => $rnReset,
         'footnote'   => 'Outstanding is arrears plus not-yet-due. Both are owed; only the '
@@ -274,7 +290,11 @@ $rnGone = $rnBucket($expiry, 'expired');
     ?>
 </div>
 
-<!-- ── Row 5 · the queue, then the book ──────────────────────────── -->
+<?php /* the queue, then the book */ ?>
+<?php $section = [
+    'title' => 'Detailed records',
+    'desc'  => 'Tenancies ending soon, then the book in full.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <?php
 $rnMode = 'attention';
 require dirname(__DIR__) . '/_lease_table.php';

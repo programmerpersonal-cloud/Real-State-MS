@@ -36,7 +36,7 @@ if (!$mpRows && !$mpTRows) {
         <section class="card rcard" aria-labelledby="mp-prop-title">
             <div class="card__header">
                 <div class="rcard__titles">
-                    <h3 class="card__title" id="mp-prop-title">Properties generating maintenance</h3>
+                    <h4 class="card__title" id="mp-prop-title">Properties generating maintenance</h4>
                     <p class="card__subtitle">
                         <?= count($mpRows) ?>
                         <?= count($mpRows) === 1 ? 'property has' : 'properties have' ?>
@@ -99,7 +99,7 @@ if (!$mpRows && !$mpTRows) {
         <section class="card rcard" aria-labelledby="mp-type-title">
             <div class="card__header">
                 <div class="rcard__titles">
-                    <h3 class="card__title" id="mp-type-title">Issue types</h3>
+                    <h4 class="card__title" id="mp-type-title">Issue types</h4>
                     <p class="card__subtitle">What is being reported, as recorded</p>
                 </div>
             </div>

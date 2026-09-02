@@ -7,17 +7,28 @@
  * contract, a property let but still listed as available, rent received
  * without its schedule row being closed, and money on properties assigned to
  * nobody. None of them is a reporting bug and none is fixed here — Phase 1's
- * detectors count them, and this draws the count.
+ * detectors count them, and this builds the rows.
  *
- * Two decisions about tone, both deliberate:
+ * Three decisions about tone, all deliberate:
  *
  *  · Collapsed by default, and rendered only when something is actually
  *    wrong. A permanent warning strip is a warning nobody reads.
  *
- *  · Stated flatly, without alarm. Four inconsistencies in a small ledger is
- *    housekeeping, not a crisis, and dressing it in red would be crying wolf
- *    on the day something genuinely breaks. The figures above are still
- *    correct — that is the point of having settled the definitions first.
+ *  · Stated flatly, without alarm. A handful of inconsistencies in a small
+ *    ledger is housekeeping, not a crisis, and dressing it in red would be
+ *    crying wolf on the day something genuinely breaks. The figures above
+ *    are still correct — that is the point of having settled the definitions
+ *    first.
+ *
+ *  · Severity is assigned by *what kind of thing* the finding is, and the
+ *    line is drawn at whether the reader has anything to decide. A payment
+ *    filed against the wrong contract type is a disagreement between two
+ *    readable records, so it is a warning: somebody has to say which one is
+ *    right. Money deliberately held out of a total because it is dated next
+ *    month is not wrong at all — it is a note, and it exists only so a reader
+ *    reconciling against the payments register does not find a gap with no
+ *    explanation attached to it. Nothing this panel currently detects is
+ *    critical, and it does not invent one to fill the level.
  *
  * No record is modified, and no SQL is shown. What a reader gets is a
  * description of the disagreement and where to go and look.
@@ -25,14 +36,8 @@
  * Expects: $dataQuality (from reportDataQuality()), $unattributed, $ledger
  * Optional: $futureDated (from CoreAnalytics::futureDatedExcluded())
  *
- * Every local in this file is prefixed, and that is not house style — it is a
- * bug fix. A partial pulled in with require shares the including view's
- * variable scope, so a plain $series or $meta here silently overwrites the
- * one the report was using. It cost exactly that: the KPI tiles clobbered the
- * overview's $spark and the revenue chart rendered "nothing to chart" over a
- * period with revenue in it, while the tab strip clobbered $meta and titled
- * the Overview "Performance". Prefixes are what make these safe to require
- * more than once, and in any order.
+ * Every local in this file is prefixed. A partial pulled in with require
+ * shares the including view's variable scope; see the note in _kpi.php.
  */
 $dqData = $dataQuality ?? null;
 if (!$dqData) {
@@ -43,7 +48,7 @@ $dqRows = [];
 
 if ($dqData['payments']['count'] > 0) {
     $dqRows[] = [
-        'icon'  => 'bi-tags',
+        'severity' => 'warning',
         'label' => 'Payment classification',
         'count' => $dqData['payments']['count'],
         'text'  => $dqData['payments']['count'] === 1
@@ -56,7 +61,7 @@ if ($dqData['payments']['count'] > 0) {
 foreach ($dqData['states'] as $dqIssue) {
     if ($dqIssue['count'] > 0) {
         $dqRows[] = [
-            'icon'  => 'bi-house-exclamation',
+            'severity' => 'warning',
             'label' => $dqIssue['label'],
             'count' => $dqIssue['count'],
             'text'  => $dqIssue['detail'] . ' Occupancy is derived from leases, so this does not affect the figures above.',
@@ -68,7 +73,7 @@ foreach ($dqData['states'] as $dqIssue) {
 if (!empty($ledger) && isset($ledger['ledger_gap']) && abs((float) $ledger['ledger_gap']) >= 0.005) {
     $dqGap = (float) $ledger['ledger_gap'];
     $dqRows[] = [
-        'icon'  => 'bi-journal-x',
+        'severity' => 'warning',
         'label' => 'Rent ledger reconciliation',
         'count' => null,
         'text'  => $dqGap > 0
@@ -84,7 +89,7 @@ if (!empty($ledger) && isset($ledger['ledger_gap']) && abs((float) $ledger['ledg
    unexplained gap is how people stop trusting a total. */
 if (!empty($futureDated) && $futureDated['count'] > 0) {
     $dqRows[] = [
-        'icon'  => 'bi-calendar-plus',
+        'severity' => 'note',
         'label' => 'Future-dated payments excluded',
         'count' => $futureDated['count'],
         'text'  => sprintf(
@@ -99,7 +104,7 @@ if (!empty($futureDated) && $futureDated['count'] > 0) {
 
 if (!empty($unattributed) && $unattributed['count'] > 0) {
     $dqRows[] = [
-        'icon'  => 'bi-person-slash',
+        'severity' => 'note',
         'label' => 'Unattributed revenue',
         'count' => $unattributed['count'],
         'text'  => 'Collected on properties with no agent assigned, so it appears in company totals but on no agent\'s row.',
@@ -108,43 +113,12 @@ if (!empty($unattributed) && $unattributed['count'] > 0) {
     ];
 }
 
-if (!$dqRows) {
-    return;
-}
-?>
-<details class="dq">
-    <summary class="dq__summary">
-        <span class="dq__icon" aria-hidden="true"><i class="bi bi-clipboard-data"></i></span>
-        <span class="dq__lead">
-            <strong>Data quality</strong>
-            <span class="dq__count"><?= count($dqRows) === 1 ? '1 item needs attention' : count($dqRows) . ' items need attention' ?></span>
-        </span>
-        <span class="dq__note">Figures above are unaffected</span>
-        <i class="bi bi-chevron-down dq__chev" aria-hidden="true"></i>
-    </summary>
-
-    <ul class="dq__list">
-        <?php foreach ($dqRows as $dqRow): ?>
-            <li class="dq__row">
-                <span class="dq__row-icon" aria-hidden="true"><i class="bi <?= sanitize($dqRow['icon']) ?>"></i></span>
-                <div class="dq__row-body">
-                    <div class="dq__row-label">
-                        <?= sanitize($dqRow['label']) ?>
-                        <?php if ($dqRow['count'] !== null): ?>
-                            <span class="dq__badge"><?= number_format((int) $dqRow['count']) ?></span>
-                        <?php endif ?>
-                    </div>
-                    <p class="dq__row-text"><?= sanitize($dqRow['text']) ?></p>
-                </div>
-                <?php if ($dqRow['value'] !== null): ?>
-                    <div class="dq__row-value"><?= sanitize((string) $dqRow['value']) ?></div>
-                <?php endif ?>
-            </li>
-        <?php endforeach ?>
-    </ul>
-
-    <p class="dq__foot">
-        Nothing here is changed automatically. These are records that disagree with
-        each other and are worth correcting at source.
-    </p>
-</details>
+$qualityPanel = [
+    'title'   => 'Data quality & integrity',
+    'icon'    => 'bi-clipboard-data',
+    'note'    => 'Figures above are unaffected',
+    'rows'    => $dqRows,
+    'foot'    => 'Nothing here is changed automatically. These are records that disagree with '
+               . 'each other and are worth correcting at source.',
+];
+require __DIR__ . '/_quality_panel.php';

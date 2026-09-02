@@ -26,6 +26,8 @@
  */
 require_once BASE_PATH . '/models/Conversation.php';
 require_once BASE_PATH . '/models/ConversationMessage.php';
+require_once BASE_PATH . '/models/MessageAttachment.php';
+require_once BASE_PATH . '/models/MessageReaction.php';
 
 class CommunicationController
 {
@@ -146,12 +148,25 @@ class CommunicationController
             redirect($inbox . '&compose=1');
         }
 
-        // An opening message is optional. If one was typed it is sent through
-        // the same path as every other message, so it gets the same
-        // validation and the same transaction.
-        $body = trim((string) ($_POST['body'] ?? ''));
-        if ($body !== '') {
-            $this->messages->create($conversationId, $body);
+        // An opening message is optional. If one was written — text, files or
+        // both — it goes through the same path as every other message, so it
+        // gets the same validation, the same transaction and the same cleanup.
+        $body  = trim((string) ($_POST['body'] ?? ''));
+        $files = MessageAttachment::normalise($_FILES['attachments'] ?? null);
+
+        if ($body !== '' || $files) {
+            $errors = [];
+            $stored = MessageAttachment::storeAll($files, $errors);
+
+            if ($stored === null) {
+                // The conversation exists and is fine; only the files were
+                // refused. Land the user in it with the reason, rather than
+                // throwing away a thread they meant to start.
+                setFlash('error', implode(' ', $errors) ?: 'Those files could not be attached.');
+                redirect($this->conversationUrl($conversationId));
+            }
+
+            $this->messages->create($conversationId, $body, null, $stored);
         }
 
         redirect($this->conversationUrl($conversationId));
@@ -178,10 +193,20 @@ class CommunicationController
             authorizeRecord(false, 'conversation', $id);
         }
 
-        // Validated here so the message says what is wrong, and again in the
-        // model so a caller that forgets cannot write a blank row.
-        if ($body === '') {
-            setFlash('error', 'Write a message before sending.');
+        $files = MessageAttachment::normalise($_FILES['attachments'] ?? null);
+        $voice = MessageAttachment::normalise($_FILES['voice'] ?? null);
+
+        // Which message this one answers. Validated inside
+        // ConversationMessage::create(), which refuses a target from another
+        // conversation — otherwise a hand-edited id would quote a line the
+        // sender is not allowed to read.
+        $replyTo = (int) ($_POST['reply_to'] ?? 0) ?: null;
+
+        // A message must carry something, but text is no longer the only thing
+        // that counts: a photograph of a broken pipe is a complete message, and
+        // making someone type "see attached" beside it is busywork.
+        if ($body === '' && !$files && !$voice) {
+            setFlash('error', 'Write a message, attach a file or record a voice note before sending.');
             redirect($this->conversationUrl($id));
         }
 
@@ -201,16 +226,270 @@ class CommunicationController
             // Distinguished from a plain refusal because the commonest cause
             // is benign and worth naming: the conversation was closed, or the
             // business relationship behind it ended while the tab sat open.
+            // Checked before the files are stored, so a refused send writes
+            // nothing to the private store.
             setFlash('error', 'This conversation is no longer open for new messages.');
             redirect($this->conversationUrl($id));
         }
 
-        if ($this->messages->create($id, $body) <= 0) {
+        // Validated and written to the private store *before* the transaction
+        // opens: holding a database transaction across several megabytes of
+        // file writes is how a busy server ends up waiting on locks. The
+        // bargain is that whoever stores them owns the cleanup — storeAll()
+        // unlinks its own partial set, and create() unlinks the lot if the
+        // transaction fails.
+        $errors = [];
+        $stored = MessageAttachment::storeAll($files, $errors);
+
+        if ($stored === null) {
+            $_SESSION['form_data'] = ['body' => $body];
+            setFlash('error', implode(' ', $errors) ?: 'Those files could not be attached.');
+            redirect($this->conversationUrl($id));
+        }
+
+        // A voice note travels through the same storer with the audio policy
+        // instead of the document one, so it gets the identical sequence — the
+        // forged-upload guard, the sniffed type, the derived extension, the
+        // unguessable private name. Nothing about it is trusted from the
+        // browser, which matters more here than anywhere: the bytes were
+        // produced by a script rather than chosen by a person.
+        if ($voice) {
+            $recorded = MessageAttachment::storeVoice($voice, $errors);
+            if ($recorded === null) {
+                MessageAttachment::discard(array_column($stored, 'file_path'));
+                $_SESSION['form_data'] = ['body' => $body];
+                setFlash('error', implode(' ', $errors) ?: 'That recording could not be attached.');
+                redirect($this->conversationUrl($id));
+            }
+            $stored = array_merge($stored, $recorded);
+        }
+
+        if ($this->messages->create($id, $body, $replyTo, $stored) <= 0) {
             $_SESSION['form_data'] = ['body' => $body];
             setFlash('error', 'That message could not be sent. Please try again.');
         }
 
         redirect($this->conversationUrl($id));
+    }
+
+    /**
+     * Deliver one attachment's bytes.
+     *
+     * The whole chain is walked, every link checked, before a byte is read:
+     *
+     *   attachment id → attachment row → its message → its conversation
+     *                 → canAccessConversation() → the file on disk
+     *
+     * An id that does not exist and an id belonging to someone else's
+     * conversation are answered identically for a signed-in user, so walking
+     * the id space reveals nothing about what exists.
+     *
+     * Never renderPage(): the admin layout would emit HTML, and this response
+     * is either a file or a bare status line.
+     */
+    public function attachment(): void
+    {
+        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        if (!in_array($method, ['GET', 'HEAD'], true)) {
+            header('Allow: GET, HEAD');
+            $this->denyFile(405);
+        }
+
+        requireLogin();
+
+        // Reading a file is reading the conversation, so it takes the same
+        // permission the thread does.
+        if (!can('messages.show')) {
+            $this->denyFile(403);
+        }
+
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id < 1) {
+            $this->denyFile(404);
+        }
+
+        $attachment = (new MessageAttachment())->findForDelivery($id);
+        if (!$attachment) {
+            $this->denyFile(404);
+        }
+
+        // The live check, exactly the one the thread uses. A participant whose
+        // relationship has ended keeps the conversation in their history and
+        // loses the files with it.
+        if (!canAccessConversation((int) $attachment['conversation_id'])) {
+            $this->denyFile(403);
+        }
+
+        // A withdrawn message serves no files, for the same reason it serves
+        // no body.
+        if (!empty($attachment['message_deleted_at'])) {
+            $this->denyFile(404);
+        }
+
+        // Resolution refuses traversal, absolute paths and symlinks pointing
+        // out of the store. Null means "no such file" for any reason — which
+        // includes a file deleted from disk behind the application's back.
+        $full = documentStoragePath($attachment['stored_path'] ?? '');
+        if ($full === null) {
+            error_log('Message attachment ' . $id . ': unresolvable path '
+                . ($attachment['stored_path'] ?? ''));
+            $this->denyFile(404);
+        }
+
+        logAudit('downloaded_attachment', 'conversation',
+            (int) $attachment['conversation_id'], '', (string) $attachment['original_name']);
+
+        // Same streamer the document store uses: nosniff, a CSP that can load
+        // and run nothing, no ranges, and inline only for types that cannot
+        // script.
+        // Both policies, because both produce attachments in a conversation:
+        // the paperclip's images and documents, and the microphone's audio. A
+        // type absent from this list still leaves — as opaque bytes, forced to
+        // download — so the list controls what may be echoed back as itself,
+        // not what may be fetched.
+        streamStoredFile(
+            $full,
+            (string) $attachment['mime_type'],
+            (string) $attachment['original_name'],
+            array_merge(array_keys(MESSAGE_ATTACHMENT_TYPES), array_keys(MESSAGE_VOICE_TYPES)),
+            MESSAGE_ATTACHMENT_INLINE_TYPES,
+            ($_GET['disposition'] ?? '') === 'inline'
+        );
+    }
+
+    /**
+     * End a file request with a bare status.
+     *
+     * Deliberately terse and path-free: the reason a file is refused is not
+     * the requester's business, and an error page here would be HTML emitted
+     * where bytes were promised.
+     */
+    private function denyFile(int $code): never
+    {
+        http_response_code($code);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo match ($code) {
+            403     => 'You do not have permission to view this attachment.',
+            405     => 'Method not allowed.',
+            default => 'Attachment not found.',
+        };
+        exit;
+    }
+
+    /**
+     * Add or take back a reaction.
+     *
+     * A toggle rather than an add and a remove: the control is one button and
+     * modelling it as two actions would mean the page had to know which one to
+     * send, which goes wrong the moment the same person has the thread open in
+     * two tabs. MessageReaction::toggle() decides the direction from the
+     * database, not from the request.
+     */
+    public function react(): void
+    {
+        requirePost();
+        enforceCSRF();
+        authorize('messages.show');
+
+        $messageId = (int) ($_POST['message_id'] ?? 0);
+        $message   = messageForAuthorship($messageId);
+
+        if (!$message || !canAccessConversation((int) $message['conversation_id'])) {
+            authorizeRecord(false, 'conversation_message', $messageId);
+        }
+
+        $result = (new MessageReaction())->toggle($messageId, (string) ($_POST['emoji'] ?? ''));
+        if ($result !== true) {
+            setFlash('error', (string) $result);
+        }
+
+        // Back to where they were reading, at the message they reacted to.
+        redirect($this->conversationUrl((int) $message['conversation_id']) . '#m' . $messageId);
+    }
+
+    /**
+     * Rewrite a message the signed-in user wrote.
+     *
+     * The message id arrives in a POST body and is therefore untrusted;
+     * canEditMessage() resolves it back to its conversation and asks the live
+     * authorization there. The conversation id is never taken from the
+     * request at all — it is read from the message, so a mismatched pair
+     * cannot send the redirect somewhere the user does not belong.
+     */
+    public function edit(): void
+    {
+        requirePost();
+        enforceCSRF();
+        authorize('messages.send');
+
+        $messageId = (int) ($_POST['message_id'] ?? 0);
+        $message   = messageForAuthorship($messageId);
+
+        // An id that does not exist and one belonging to a conversation the
+        // user cannot reach are answered identically.
+        if (!$message || !canAccessConversation((int) $message['conversation_id'])) {
+            authorizeRecord(false, 'conversation_message', $messageId);
+        }
+
+        $conversationId = (int) $message['conversation_id'];
+        $result = $this->messages->edit($messageId, (string) ($_POST['body'] ?? ''));
+
+        if ($result !== true) {
+            $_SESSION['form_data'] = ['body' => (string) ($_POST['body'] ?? '')];
+            setFlash('error', (string) $result);
+            // Back into the editor, so the text is not lost to a refusal.
+            redirect($this->conversationUrl($conversationId) . '&edit=' . $messageId);
+        }
+
+        redirect($this->conversationUrl($conversationId));
+    }
+
+    /**
+     * Withdraw a message. Soft — see ConversationMessage::softDelete().
+     */
+    public function deleteMessage(): void
+    {
+        requirePost();
+        enforceCSRF();
+        authorize('messages.send');
+
+        $messageId = (int) ($_POST['message_id'] ?? 0);
+        $message   = messageForAuthorship($messageId);
+
+        if (!$message || !canAccessConversation((int) $message['conversation_id'])) {
+            authorizeRecord(false, 'conversation_message', $messageId);
+        }
+
+        $conversationId = (int) $message['conversation_id'];
+        $result = $this->messages->softDelete($messageId);
+
+        setFlash(
+            $result === true ? 'success' : 'error',
+            $result === true ? 'Message deleted. The other participant sees that it was withdrawn.' : (string) $result
+        );
+
+        redirect($this->conversationUrl($conversationId));
+    }
+
+    /**
+     * Mark every conversation read.
+     *
+     * Offered from the inbox's overflow menu. Only this user's watermarks
+     * move — see ConversationMessage::markAllRead(), where the UPDATE carries
+     * `user_id = :me`.
+     */
+    public function readAll(): void
+    {
+        requirePost();
+        enforceCSRF();
+        authorize('messages.view');
+
+        $n = $this->messages->markAllRead();
+        setFlash('success', $n > 0
+            ? 'All conversations marked as read.'
+            : 'Everything was already read.');
+
+        redirect(APP_URL . '/index.php?page=messages');
     }
 
     /** File a conversation away — for this participant, and nobody else. */
@@ -313,6 +592,9 @@ class CommunicationController
             'contactSource'  => communicationContactSource(),
             'scopeHint'      => communicationScopeHint(),
             'emptyMessage'   => communicationEmptyScopeMessage(),
+            // The explanation on its own, for the panel that already
+            // states the situation in its heading.
+            'emptyDetail'    => communicationEmptyScopeParts()[1],
             'composing'      => $composing,
             'composeContext' => $composeContext,
             'unreadTotal'    => $this->messages->totalUnreadFor(),
@@ -366,19 +648,44 @@ class CommunicationController
         // one on screen. No AJAX, and every paginated request re-runs the
         // access check, because forConversation() asks it itself.
         $before = (int) ($_GET['before'] ?? 0);
-        $thread = $this->messages->forConversation($conversationId, $before ?: null);
 
+        // Searching within the conversation. The term only ever narrows this
+        // thread — forConversation() keeps the conversation id in its WHERE
+        // clause — so there is no way for a search to reach another one.
+        $findTerm = trim((string) ($_GET['find'] ?? ''));
+
+        $thread = $this->messages->forConversation($conversationId, $before ?: null,
+            ConversationMessage::PAGE_SIZE, $findTerm);
+
+        // "Load earlier" belongs to the unfiltered thread. Offering it beside
+        // search results would page through matches as though they were the
+        // conversation, which is a different thing than it appears to be.
         $earlierUrl = null;
-        if ($thread !== [] && $this->messages->hasEarlierThan($conversationId, (int) $thread[0]['id'])) {
+        if ($findTerm === '' && $thread !== []
+            && $this->messages->hasEarlierThan($conversationId, (int) $thread[0]['id'])) {
             $earlierUrl = $this->conversationUrl($conversationId) . '&before=' . (int) $thread[0]['id'];
         }
+
+        /* Read receipts, from the watermark that already exists. A message of
+           mine is "read" once the other participant's last_read_message_id has
+           passed it — real state, not a guess, and the same number the unread
+           count is computed from. Null means they have not opened the thread
+           at all, which reads as delivered-but-unread. */
+        $theirWatermark = (int) ($counterpart['last_read_message_id'] ?? 0);
 
         return [
             'conversation' => $conversation,
             'participants' => $participants,
             'counterpart'  => $counterpart,
+            'theirWatermark' => $theirWatermark,
             'thread'       => $thread,
             'earlierUrl'   => $earlierUrl,
+            'findTerm'     => $findTerm,
+            // Which message the composer is answering, if any. Read from the
+            // URL so opening a reply is a link and cancelling is the link
+            // back; validated below before anything is rendered from it.
+            'replyTo'      => $this->replyContext($conversationId, (int) ($_GET['reply'] ?? 0)),
+            'quickReactions' => MESSAGE_REACTIONS,
             'canSend'      => canSendToConversation($conversationId),
             'isArchived'   => !empty($mine['archived_at']),
             'contextBlocks' => $this->conversationContext($conversation),
@@ -621,6 +928,46 @@ class CommunicationController
             $row['property_archived'] = $p['is_archived'] ?? 0;
             $row['property_image']    = $p['cover'] ?? null;
         }
+
+        return $row;
+    }
+
+    /**
+     * The message the composer is answering, described for the reply banner.
+     *
+     * Returns null unless the id names a message *in this conversation* — the
+     * check that stops `&reply=<id>` quoting a line from a thread the sender
+     * cannot read. ConversationMessage::create() applies the same rule again
+     * on POST, so this is for the reader's benefit rather than the boundary.
+     *
+     * A withdrawn message cannot be replied to: there is nothing left to
+     * quote, and showing "This message was deleted" above a composer would
+     * only puzzle the person writing.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function replyContext(int $conversationId, int $messageId): ?array
+    {
+        if ($messageId <= 0) {
+            return null;
+        }
+
+        $stmt = getDBConnection()->prepare("
+            SELECT m.id, m.body, m.sender_id, m.deleted_at,
+                   u.full_name AS sender_name,
+                   (SELECT COUNT(*) FROM message_attachments a WHERE a.message_id = m.id) AS attachments
+            FROM conversation_messages m
+            LEFT JOIN users u ON m.sender_id = u.id
+            WHERE m.id = ? AND m.conversation_id = ?
+        ");
+        $stmt->execute([$messageId, $conversationId]);
+        $row = $stmt->fetch();
+
+        if (!$row || !empty($row['deleted_at'])) {
+            return null;
+        }
+
+        $row['is_mine'] = (int) $row['sender_id'] === (int) ($_SESSION['user_id'] ?? 0);
 
         return $row;
     }

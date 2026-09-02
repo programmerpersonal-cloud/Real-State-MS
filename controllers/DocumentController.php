@@ -141,52 +141,25 @@ class DocumentController
             && ($property === null || propertyIsPubliclyVisible($property));
     }
 
-    /** Emit the file. Nothing may have been printed before this runs. */
+    /**
+     * Emit the file. Nothing may have been printed before this runs.
+     *
+     * The headers and the inline/attachment decision now live in
+     * streamStoredFile() (includes/documents.php), shared with the message
+     * attachment endpoint so both deliver private bytes under one set of
+     * rules. The behaviour here is unchanged: the same recognised-type list,
+     * the same inline allow-list, the same filename handling.
+     */
     private function stream(string $full, array $doc): void
     {
-        // Only a type we recognise is echoed back; anything else downloads as
-        // opaque bytes rather than being handed to the browser as-is.
-        $mime = (string) ($doc['file_type'] ?? '');
-        if (!in_array($mime, ALLOWED_DOCUMENT_TYPES, true)) {
-            $mime = 'application/octet-stream';
-        }
-
-        // Inline rendering is limited to types that cannot script. Everything
-        // else is forced to download, so a stored file can never execute in
-        // this site's own origin.
-        $wantsInline = ($_GET['disposition'] ?? '') === 'inline';
-        $disposition = ($wantsInline && in_array($mime, DOCUMENT_INLINE_TYPES, true)) ? 'inline' : 'attachment';
-
-        $name  = documentSafeOriginalName((string) ($doc['file_name'] ?: ($doc['title'] ?? 'document')));
-        $ascii = preg_replace('/[^A-Za-z0-9._ -]/', '_', $name) ?: 'document';
-
-        // A long-running download should not hold the session lock and block
-        // the user's other tabs.
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_write_close();
-        }
-
-        // views/layout.php renders inside ob_start(); any buffer still open
-        // here would be flushed into the middle of the file.
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-
-        header('Content-Type: ' . $mime);
-        header('Content-Disposition: ' . $disposition . '; filename="' . $ascii . '"; '
-             . "filename*=UTF-8''" . rawurlencode($name));
-        header('Content-Length: ' . filesize($full));
-        header('X-Content-Type-Options: nosniff');
-        header("Content-Security-Policy: default-src 'none'; sandbox");
-        header('Referrer-Policy: no-referrer');
-        header('Cache-Control: private, max-age=0, must-revalidate');
-        header('Pragma: no-cache');
-        header('Accept-Ranges: none');
-
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
-            readfile($full);
-        }
-        exit;
+        streamStoredFile(
+            $full,
+            (string) ($doc['file_type'] ?? ''),
+            (string) ($doc['file_name'] ?: ($doc['title'] ?? 'document')),
+            ALLOWED_DOCUMENT_TYPES,
+            DOCUMENT_INLINE_TYPES,
+            ($_GET['disposition'] ?? '') === 'inline'
+        );
     }
 
     /**

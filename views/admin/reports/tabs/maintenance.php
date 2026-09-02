@@ -33,7 +33,11 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
 <?php require dirname(__DIR__) . '/_maintenance_quality.php'; ?>
 
-<!-- ── Row 1 · the queue as it stands ────────────────────────────── -->
+<?php /* the queue as it stands */ ?>
+<?php $section = [
+    'title' => 'Workload summary',
+    'desc'  => 'The queue as it stands, and what moved in the period.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="kpis kpis--six">
     <?php
     $kpi = [
@@ -82,6 +86,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
 
     $kpi = [
         'label'   => 'Completed',
+        'good'    => 'up',
         'value'   => number_format((int) $summary['completed']),
         'icon'    => 'bi-check2-circle',
         'tone'    => (int) $summary['completed'] > 0 ? 'success' : 'info',
@@ -128,10 +133,10 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
     ?>
 </div>
 
-<div class="notice notice--muted mb-3" role="note">
-    <div class="notice__icon"><i class="bi bi-clock-history" aria-hidden="true"></i></div>
-    <div class="notice__body">
-        <div class="notice__title">What moves with the period, and what does not</div>
+<div class="rnote" role="note">
+    <span class="rnote__icon" aria-hidden="true"><i class="bi bi-clock-history"></i></span>
+    <div class="rnote__body">
+        <p class="rnote__title">What moves with the period, and what does not</p>
         <strong>Raised</strong> and <strong>completed</strong> are period figures and change
         with <?= sanitize($window['label']) ?>. <strong>Open</strong>, <strong>in progress</strong>,
         <strong>high priority open</strong> and request age describe the queue
@@ -142,7 +147,11 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
     </div>
 </div>
 
-<!-- ── Row 2 · intake against output, and where work sits ────────── -->
+<?php /* intake against output, and where work sits */ ?>
+<?php $section = [
+    'title' => 'Intake and workflow',
+    'desc'  => 'Requests raised against requests completed, and where work sits.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $chart = [
@@ -158,7 +167,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         ],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No maintenance request was raised or completed in this period.',
-        'height'   => 220,
+        'size'   => 'feature',
         'filtered' => $mtFiltered,
         'resetUrl' => $mtReset,
         'footnote' => 'Raised is dated by when the request was logged, completed by its '
@@ -184,7 +193,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         ]],
         'label_heading' => 'Status',
         'empty'      => 'No maintenance request is in scope for the current filters.',
-        'height'     => 220,
+        'size'     => 'feature',
         'filtered'   => $mtFiltered,
         'resetUrl'   => $mtReset,
         'footnote'   => 'Current state, not a period figure. Empty stages are shown rather '
@@ -195,7 +204,11 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
     ?>
 </div>
 
-<!-- ── Row 3 · urgency and how long it has waited ─────────────────── -->
+<?php /* urgency and how long it has waited */ ?>
+<?php $section = [
+    'title' => 'Priority and ageing',
+    'desc'  => 'How urgent the open queue is, and how long it has waited.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $mtPriorityDrawn = array_values(array_filter($priorityMix, static fn(array $r): bool => (int) $r['requests'] > 0));
@@ -214,7 +227,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         ]],
         'label_heading' => 'Priority',
         'empty'    => 'Nothing is open, so there is no priority mix to show.',
-        'height'   => 220,
+        'size'   => 'standard',
         'share'    => true,
         'filtered' => $mtFiltered,
         'resetUrl' => $mtReset,
@@ -238,7 +251,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         ]],
         'label_heading' => 'Age',
         'empty'      => 'Nothing is open, so there is no queue to age.',
-        'height'     => 220,
+        'size'     => 'standard',
         'filtered'   => $mtFiltered,
         'resetUrl'   => $mtReset,
         'footnote'   => 'Age, not lateness. This system records no target response time and '
@@ -249,14 +262,18 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
     ?>
 </div>
 
-<!-- ── Row 4 · insights, cost and the resolution position ────────── -->
+<?php /* insights, cost and the resolution position */ ?>
+<?php $section = [
+    'title' => 'Cost and attention',
+    'desc'  => 'What the work costs, and what stands out.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php require dirname(__DIR__) . '/_insights.php'; ?>
 
     <section class="card rcard" aria-labelledby="mt-cost-title">
         <div class="card__header">
             <div class="rcard__titles">
-                <h3 class="card__title" id="mt-cost-title">Cost and resolution</h3>
+                <h4 class="card__title" id="mt-cost-title">Cost and resolution</h4>
                 <p class="card__subtitle">What the work was costed at, and what is known about how long it takes</p>
             </div>
         </div>
@@ -308,7 +325,11 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
     </section>
 </div>
 
-<!-- ── Row 5 · the queue, the finished work, the properties ──────── -->
+<?php /* the queue, the finished work, the properties */ ?>
+<?php $section = [
+    'title' => 'Detailed records',
+    'desc'  => 'The attention queue, finished work, and the properties behind it.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <?php
 $mtMode = 'open';
 require dirname(__DIR__) . '/_maintenance_table.php';

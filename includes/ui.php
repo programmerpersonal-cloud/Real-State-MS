@@ -117,6 +117,64 @@ function uiPriority(string $priority): string
 }
 
 /**
+ * A timestamp for a conversation list, at the precision a reader actually
+ * wants.
+ *
+ * timeAgo() answers "how long has this been waiting", which is the right
+ * question for an approval queue and the wrong one for an inbox: "3 hours ago"
+ * takes longer to read than "14:20" and says less. This is the messaging
+ * convention instead — the newer the message, the more precise the label:
+ *
+ *   under a minute   now
+ *   under an hour    7m
+ *   today            14:20
+ *   yesterday        Yesterday
+ *   this week        Mon
+ *   older            12 Aug
+ *   another year     12 Aug 25
+ *
+ * Presentation only. Nothing here changes what is stored, and the full date
+ * and time still travels in the <time> element's title and datetime.
+ */
+function uiChatTime(?string $datetime): string
+{
+    if (!$datetime) {
+        return '';
+    }
+    $then = strtotime($datetime);
+    if ($then === false) {
+        return '';
+    }
+
+    $now  = time();
+    $diff = $now - $then;
+
+    if ($diff < 0)   { return 'now'; }        // clock skew, not the future
+    if ($diff < 60)  { return 'now'; }
+    if ($diff < 3600) { return (int) ($diff / 60) . 'm'; }
+
+    // Compared by calendar day, not by elapsed hours: a message sent at 23:50
+    // is "Yesterday" at 00:10, not "20m".
+    $today     = date('Y-m-d');
+    $messageDay = date('Y-m-d', $then);
+
+    if ($messageDay === $today) {
+        return date('H:i', $then);
+    }
+    if ($messageDay === date('Y-m-d', strtotime('-1 day'))) {
+        return 'Yesterday';
+    }
+    if ($then > strtotime('-6 days')) {
+        return date('D', $then);              // Mon, Tue …
+    }
+    if (date('Y', $then) === date('Y')) {
+        return date('j M', $then);            // 12 Aug
+    }
+
+    return date('j M y', $then);              // 12 Aug 25
+}
+
+/**
  * A person's initials — one or two letters, upper case.
  *
  * "Maryan Aba-Nuur Maxamed" → MM. First and last word, so a middle name does

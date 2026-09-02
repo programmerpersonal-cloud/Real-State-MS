@@ -7,6 +7,15 @@
  * property claiming a sale that never completed, a hold that expired months
  * ago and still reads confirmed.
  *
+ * On severity: a sale pointing at a property that no longer exists, two
+ * completed sales on one property, or a hold that expires before it starts
+ * are *critical* — nothing can read those rows correctly, this report
+ * included. A lapsed reservation still reading confirmed is a warning: the
+ * record is intact and simply out of date. A completed sale dated ahead is
+ * neither — it is held out of completed totals by the same rule revenue
+ * applies to future-dated payments, so it is a note explaining a gap rather
+ * than a fault to fix.
+ *
  * Nothing is repaired. Every count below is a record somebody needs to look
  * at, not a record this report will quietly correct.
  *
@@ -18,9 +27,10 @@
 $sqFlags = $salesFlags ?? [];
 $sqRows  = [];
 
-$sqAdd = static function (string $sqLabel, array $sqFlag, string $sqText) use (&$sqRows): void {
+$sqAdd = static function (string $sqSev, string $sqLabel, array $sqFlag, string $sqText) use (&$sqRows): void {
     if ((int) ($sqFlag['count'] ?? 0) > 0) {
         $sqRows[] = [
+            'severity' => $sqSev,
             'label' => $sqLabel,
             'count' => (int) $sqFlag['count'],
             'text'  => $sqText,
@@ -31,79 +41,49 @@ $sqAdd = static function (string $sqLabel, array $sqFlag, string $sqText) use (&
     }
 };
 
-$sqAdd('Lapsed reservations still active', $sqFlags['lapsed_reservations'] ?? [],
+$sqAdd('warning', 'Lapsed reservations still active', $sqFlags['lapsed_reservations'] ?? [],
     'The expiry date has passed but the status still reads active or confirmed. Nothing '
     . 'expires these automatically, so the property stays marked as held and the deposit '
     . 'stays with the company. They are excluded from live reservation counts.');
 
-$sqAdd('Recorded sold, no completed sale', $sqFlags['sold_no_sale'] ?? [],
+$sqAdd('warning', 'Recorded sold, no completed sale', $sqFlags['sold_no_sale'] ?? [],
     'The property record says sold but no sale against it has completed. This report counts '
     . 'completed sales from sale records, so the figures above are unaffected.');
 
-$sqAdd('Sale with no agent', $sqFlags['no_agent'] ?? [],
+$sqAdd('note', 'Sale with no agent', $sqFlags['no_agent'] ?? [],
     'No agent is recorded against the deal, so it cannot be attributed to anyone on the '
-    . 'performance report.');
+    . 'performance report. The deal itself is counted in full.');
 
-$sqAdd('Completed sale dated ahead', $sqFlags['future_completed'] ?? [],
+$sqAdd('note', 'Completed sale dated ahead', $sqFlags['future_completed'] ?? [],
     'Marked completed with a sale date after today. Held out of completed totals until the '
     . 'date arrives, the same rule revenue applies to future-dated payments.');
 
-$sqAdd('Sale with no amount', $sqFlags['bad_amount'] ?? [],
+$sqAdd('warning', 'Sale with no amount', $sqFlags['bad_amount'] ?? [],
     'The sale amount is zero or negative, so the deal contributes nothing to pipeline or '
     . 'completed value.');
 
-$sqAdd('Sale with no date', $sqFlags['no_date'] ?? [],
+$sqAdd('warning', 'Sale with no date', $sqFlags['no_date'] ?? [],
     'No sale date is recorded, so the deal cannot be placed in any reporting period and is '
     . 'absent from every period figure on this report.');
 
-$sqAdd('Sale on a missing property', $sqFlags['orphan_property'] ?? [],
+$sqAdd('critical', 'Sale on a missing property', $sqFlags['orphan_property'] ?? [],
     'The property the sale refers to no longer exists, so the deal cannot be scoped or '
     . 'categorised.');
 
-$sqAdd('Two completed sales on one property', $sqFlags['duplicate_completed'] ?? [],
+$sqAdd('critical', 'Two completed sales on one property', $sqFlags['duplicate_completed'] ?? [],
     'More than one sale has completed against the same property. The schema permits it and '
-    . 'nothing checks for it.');
+    . 'nothing checks for it — the property can only have been sold once.');
 
-$sqAdd('Reservation expiring before it starts', $sqFlags['expiry_before_start'] ?? [],
+$sqAdd('critical', 'Reservation expiring before it starts', $sqFlags['expiry_before_start'] ?? [],
     'The expiry date precedes the reservation date, so the hold period cannot be read from '
     . 'those two columns.');
 
-if (!$sqRows) {
-    return;
-}
-?>
-<details class="dq dq--rentals">
-    <summary class="dq__summary">
-        <span class="dq__icon" aria-hidden="true"><i class="bi bi-briefcase"></i></span>
-        <span class="dq__lead">
-            <strong>Sales &amp; reservation data quality</strong>
-            <span class="dq__count">
-                <?= count($sqRows) === 1 ? '1 item needs attention' : count($sqRows) . ' items need attention' ?>
-            </span>
-        </span>
-        <span class="dq__note">Figures above are unaffected</span>
-        <i class="bi bi-chevron-down dq__chev" aria-hidden="true"></i>
-    </summary>
-
-    <ul class="dq__list">
-        <?php foreach ($sqRows as $sqRow): ?>
-            <li class="dq__row">
-                <span class="dq__row-icon" aria-hidden="true"><i class="bi bi-tag"></i></span>
-                <div class="dq__row-body">
-                    <div class="dq__row-label">
-                        <?= sanitize($sqRow['label']) ?>
-                        <span class="dq__badge"><?= number_format((int) $sqRow['count']) ?></span>
-                    </div>
-                    <p class="dq__row-text"><?= sanitize($sqRow['text']) ?></p>
-                </div>
-                <?php if ($sqRow['value'] !== null): ?>
-                    <div class="dq__row-value"><?= sanitize((string) $sqRow['value']) ?></div>
-                <?php endif ?>
-            </li>
-        <?php endforeach ?>
-    </ul>
-
-    <p class="dq__foot">
-        Diagnostic only. No sale, reservation or property record is changed by this report.
-    </p>
-</details>
+$qualityPanel = [
+    'title'   => 'Sales & reservation data quality',
+    'icon'    => 'bi-briefcase',
+    'variant' => 'rentals',
+    'note'    => 'Figures above are unaffected',
+    'rows'    => $sqRows,
+    'foot'    => 'Diagnostic only. No sale, reservation or property record is changed by this report.',
+];
+require __DIR__ . '/_quality_panel.php';

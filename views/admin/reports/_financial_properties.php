@@ -41,7 +41,7 @@ $fpMoney = static fn($fpV): string => (float) $fpV > 0
 ?>
 <div class="table-card">
     <div class="table-head">
-        <div class="table-head__title">Rent ledger by property</div>
+        <h4 class="table-head__title">Rent ledger by property</h4>
         <span class="table-head__note">
             Scheduled rent in <?= sanitize($window['label']) ?>, dated by when it fell due
         </span>
@@ -89,7 +89,7 @@ $fpMoney = static fn($fpV): string => (float) $fpV > 0
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $fpR['id']) ?>">
                                     <?= sanitize((string) $fpR['title']) ?>
                                 </a>
-                                <div class="tp-code"><?= sanitize((string) $fpR['property_code']) ?></div>
+                                <div class="tp-code tp-code--id"><?= sanitize((string) $fpR['property_code']) ?></div>
                             </td>
                             <td class="col-mid">
                                 <i class="bi <?= sanitize(categoryIcon((string) $fpR['category'])) ?> tp-cat-icon" aria-hidden="true"></i>

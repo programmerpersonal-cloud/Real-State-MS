@@ -63,10 +63,10 @@ $fcAdd('Outstanding balance', (float) $ledger['outstanding'], null, 'money',
 $fcAdd('Rent arrears', (float) $ledger['arrears'], null, 'money',
     'Also a running balance, and unavailable for the same reason.');
 ?>
-<section class="card rcard fcomp" aria-labelledby="fcomp-title">
+<section class="card rcard" aria-labelledby="fcomp-title">
     <div class="card__header">
         <div class="rcard__titles">
-            <h3 class="card__title" id="fcomp-title">Period comparison</h3>
+            <h4 class="card__title" id="fcomp-title">Period comparison</h4>
             <p class="card__subtitle">
                 <?= sanitize(formatDate($window['from'])) ?> – <?= sanitize(formatDate($window['to_capped'])) ?>
                 against <?= sanitize(formatDate($window['prev_from'])) ?> – <?= sanitize(formatDate($window['prev_to'])) ?>

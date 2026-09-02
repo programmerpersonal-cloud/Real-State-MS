@@ -37,10 +37,10 @@ foreach ($fdRows as $fdR) {
 ?>
 <div class="table-card fd">
     <div class="table-head">
-        <div class="table-head__title">
+        <h4 class="table-head__title">
             <i class="bi bi-calendar-plus fd__icon" aria-hidden="true"></i>
             Future-dated payments
-        </div>
+        </h4>
         <span class="table-head__note">
             <?= number_format((int) $futureDated['count']) ?>
             <?= (int) $futureDated['count'] === 1 ? 'record' : 'records' ?>

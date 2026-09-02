@@ -43,13 +43,18 @@ class ReportController
         'overview' => [
             'label' => 'Overview',
             'icon'  => 'bi-grid-1x2',
-            'blurb' => 'Revenue, occupancy, arrears and portfolio at a glance.',
+            'blurb' => 'The executive read — revenue, occupancy, arrears and what needs attention today.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'financial' => [
+            // The tab strip draws a hairline before this entry. Overview is
+            // the executive summary and the seven that follow are the detail
+            // reports it points into -- one honest division rather than four
+            // invented clusters, and the required tab order is untouched.
+            'starts_group' => true,
             'label' => 'Financial',
             'icon'  => 'bi-cash-stack',
-            'blurb' => 'Expected against collected rent, revenue by source, and what is still owed.',
+            'blurb' => 'Rent collection, receivables and the money position across the reporting period.',
             // No payment-status or payment-method filter here, deliberately.
             // Every figure on this report is *defined* by payment status --
             // collected revenue is paid payments, expected is scheduled rent,
@@ -64,25 +69,25 @@ class ReportController
         'properties' => [
             'label' => 'Properties',
             'icon'  => 'bi-buildings',
-            'blurb' => 'Inventory, commercial state, approval and composition across the portfolio.',
+            'blurb' => 'Portfolio composition, commercial state and inventory quality across every listing.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'rentals' => [
             'label' => 'Rentals',
             'icon'  => 'bi-house-check',
-            'blurb' => 'Tenancies, occupancy, lease expiry and the rent they are owed.',
+            'blurb' => 'Occupancy, lease health, expiring tenancies and the rent they are owed.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'sales' => [
             'label' => 'Sales',
             'icon'  => 'bi-tag',
-            'blurb' => 'The deal book: pipeline, completed sales, and the holds on property.',
+            'blurb' => 'Sales performance, completed transactions, pipeline value and reservations.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'payments' => [
             'label' => 'Payments',
             'icon'  => 'bi-receipt',
-            'blurb' => 'Transaction activity: what was recorded, how it was paid, and what needs review.',
+            'blurb' => 'Transaction activity, payment classification, methods and ledger integrity.',
             // Method is exposed, status is not, and the line between them is
             // whether the filter narrows the question or renames the answer.
             // Narrowing to card payments leaves "collected revenue" correctly
@@ -99,13 +104,13 @@ class ReportController
         'maintenance' => [
             'label' => 'Maintenance',
             'icon'  => 'bi-tools',
-            'blurb' => 'The work queue: what is open, how long it has waited, and what it costs.',
+            'blurb' => 'Operational workload, priority, ageing and unresolved property maintenance.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
         'performance' => [
             'label' => 'Performance',
             'icon'  => 'bi-person-badge',
-            'blurb' => 'What each agent manages, lets, sells and collects.',
+            'blurb' => 'Agent workload, transactions, revenue and attribution — measured, never scored.',
             'filters' => ['property', 'category', 'location', 'agent', 'owner'],
         ],
     ];
@@ -225,8 +230,7 @@ class ReportController
             'analytics'    => $analytics,
             'isBuilt'      => in_array($tab, self::BUILT, true),
             'pageTitle'    => 'Reports & Analytics',
-            'pageSubtitle' => 'Monitor portfolio performance, revenue, occupancy, collections, '
-                            . 'sales and operations from one central intelligence workspace.',
+            'pageSubtitle' => 'Real-time portfolio intelligence and operational analytics.',
             'breadcrumbs'  => [['label' => 'Reports'], ['label' => self::TABS[$tab]['label']]],
         ];
 

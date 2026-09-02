@@ -599,3 +599,44 @@
      than wherever the sweep happened to have got to. */
   .auth-showcase__slide img{animation:none;transform:none}
 }
+
+/* ================================================================
+   PREMIUM AUTH PASS
+   ================================================================ */
+
+/* The visual half. A single scrim over a photograph flattens it; two —
+   one warm gradient from the foot, one cool wash across the whole — keep
+   the building readable while the copy over it stays at full contrast. */
+.auth__visual::after{
+  background:
+    linear-gradient(180deg,rgba(9,25,42,.28) 0%,rgba(9,25,42,.10) 34%,rgba(9,25,42,.86) 100%),
+    linear-gradient(115deg,rgba(10,99,168,.30),transparent 62%);
+}
+
+/* The headline over the picture. It had the size; this gives it the
+   weight and the tracking, and a shadow soft enough to survive a light
+   sky behind it without reading as a drop shadow. */
+.auth__headline,.auth__visual h1,.auth__visual h2{
+  letter-spacing:-.03em;
+  text-shadow:0 2px 24px rgba(6,20,36,.45);
+}
+
+/* The form half. The card is the only object on a wide white field, so it
+   is given a real measure and its controls a real height. */
+.auth__form-inner,.auth__panel{max-width:420px}
+.auth-form .form-control{
+  height:48px;border-radius:var(--radius);
+  box-shadow:inset 0 1px 2px rgba(15,32,51,.05);
+}
+.auth-form textarea.form-control{height:auto}
+.auth-form .btn--primary{
+  height:50px;font-size:var(--fs-body);border-radius:var(--radius);
+}
+
+/* The slide indicators double as the stop control, so they are a target
+   before they are a decoration. */
+.auth__dot{transition:width var(--transition),background var(--transition)}
+
+@media (prefers-reduced-motion:reduce){
+  .auth__dot{transition:none}
+}

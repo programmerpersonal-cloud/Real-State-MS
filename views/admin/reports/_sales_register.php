@@ -34,7 +34,7 @@ $srTone = ['completed' => 'success', 'pending' => 'warning', 'cancelled' => 'mut
 ?>
 <div class="table-card">
     <div class="table-head">
-        <div class="table-head__title">Sale register</div>
+        <h4 class="table-head__title">Sale register</h4>
         <span class="table-head__note">
             <?= number_format((int) $registerTotal) ?>
             <?= (int) $registerTotal === 1 ? 'deal' : 'deals' ?>
@@ -95,7 +95,7 @@ $srTone = ['completed' => 'success', 'pending' => 'warning', 'cancelled' => 'mut
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $srR['property_id']) ?>">
                                     <?= sanitize((string) $srR['property_title']) ?>
                                 </a>
-                                <div class="tp-code"><?= sanitize((string) $srR['sale_code']) ?></div>
+                                <div class="tp-code tp-code--id"><?= sanitize((string) $srR['sale_code']) ?></div>
                             </td>
                             <td class="col-mid">
                                 <?= !empty($srR['buyer_name'])

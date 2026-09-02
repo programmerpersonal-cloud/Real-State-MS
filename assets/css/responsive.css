@@ -158,6 +158,36 @@
     transform:translateY(-50%);height:44px;
   }
 
+  /* ── Links inside a stacked register card ────────────────────────
+     On a phone every row of a register becomes a card, and the links in
+     it — the property a payment was taken against, the title of the
+     listing — are how a record is opened. They were rendering at 20-22px
+     tall: the text is that tall, and an anchor around text is exactly as
+     tall as its text. That is under the 24 CSS px a pointer target needs,
+     on the one layout where the pointer is a thumb.
+
+     The band is given underneath rather than by growing the link, because
+     growing it would open gaps between the labelled lines and stretch the
+     card. The cell's own padding comes up two pixels at the same time so
+     that a 32px band on one line cannot reach the line below it and steal
+     its taps — the row pitch is 34px, the band is 32.
+
+     ::after rather than a wrapper: the pseudo-element belongs to the
+     link, so the whole band activates the link it came from. */
+  .table-card.is-stacked .table td{padding-top:7px;padding-bottom:7px}
+  .table-card.is-stacked .table td a{position:relative}
+  .table-card.is-stacked .table td a::after{
+    content:'';position:absolute;top:50%;left:0;right:0;
+    transform:translateY(-50%);height:32px;
+  }
+  /* The card's headline is the record itself, so it takes the target as
+     real height rather than as an overlay — it is the first line of the
+     card and has the room. */
+  .table-card.is-stacked .table td[data-stack-head] a,
+  .table-card.is-stacked .media-cell__body .cell-strong{
+    display:inline-flex;align-items:center;min-height:32px;
+  }
+
   /* An icon in a bar with no room to grow keeps the size it looks and
      gets the target underneath it instead. The pseudo-element is inside
      the link, so the whole area activates the link it belongs to. */

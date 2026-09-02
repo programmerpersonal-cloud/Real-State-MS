@@ -766,6 +766,272 @@ function canCreateContextConversation(int $propertyId = 0, int $leaseId = 0, int
     ], true);
 }
 
+// ─── Presence ──────────────────────────────────────────────────────────
+
+/**
+ * Record that the signed-in user was here.
+ *
+ * Called once per request from init.php. Rate-limited to one write a minute
+ * per session, so a burst of page loads costs one UPDATE rather than twenty —
+ * `users` is read on every request in this application and is not a table to
+ * write to casually.
+ *
+ * Failure is silent by design: presence is decoration on a page that has real
+ * work to do, and a locked row must never turn a dashboard into an error.
+ */
+function touchPresence(): void
+{
+    if (!isLoggedIn()) {
+        return;
+    }
+
+    $now  = time();
+    $last = (int) ($_SESSION['presence_written_at'] ?? 0);
+    if ($now - $last < PRESENCE_WRITE_INTERVAL) {
+        return;
+    }
+    $_SESSION['presence_written_at'] = $now;
+
+    try {
+        getDBConnection()
+            ->prepare("UPDATE users SET last_seen_at = NOW() WHERE id = ?")
+            ->execute([(int) $_SESSION['user_id']]);
+    } catch (PDOException $e) {
+        error_log('Presence write failed: ' . $e->getMessage());
+    }
+}
+
+/**
+ * How to describe someone's presence, honestly.
+ *
+ * The one rule this function exists to enforce: **never claim more than the
+ * server knows.** `last_seen_at` is stamped on a request, so all it can
+ * support is "they were here N ago". Within a two-minute window that rounds
+ * fairly to "Online"; beyond it, the interface says how long ago and stops
+ * pretending.
+ *
+ * There is no socket, no heartbeat and no polling behind this. Someone
+ * reading the same page for ten minutes is reported as last seen ten minutes
+ * ago, because that is the last moment the server heard from them. A green
+ * dot that survives an hour of silence is a lie, and a lying dot is worse
+ * than no dot.
+ *
+ *   under 2 minutes   Online          (dot shown)
+ *   under 1 hour      Last seen 12m ago
+ *   under 24 hours    Last seen 3h ago
+ *   under 7 days      Last seen 2d ago
+ *   older / never     no claim at all
+ *
+ * @return array{online:bool, label:string, title:string}
+ */
+function communicationPresence(?string $lastSeenAt): array
+{
+    $none = ['online' => false, 'label' => '', 'title' => ''];
+
+    if (!$lastSeenAt) {
+        return $none;                      // never seen since the column existed
+    }
+
+    $then = strtotime($lastSeenAt);
+    if ($then === false) {
+        return $none;
+    }
+
+    // Compared against the database's own clock. PHP and MySQL do not
+    // necessarily share a timezone — on this machine they differ by an hour —
+    // and measuring the gap between two clocks instead of the age of a
+    // timestamp is exactly the bug that inverted the message edit window.
+    static $dbNow = null;
+    if ($dbNow === null) {
+        try {
+            $dbNow = strtotime((string) getDBConnection()->query("SELECT NOW()")->fetchColumn());
+        } catch (PDOException $e) {
+            $dbNow = time();
+        }
+    }
+
+    $ago   = $dbNow - $then;
+    $title = 'Last seen ' . formatDateTime($lastSeenAt);
+
+    if ($ago < 0) {
+        return $none;                      // stamped in the future: say nothing
+    }
+    if ($ago < PRESENCE_ONLINE_WINDOW) {
+        return ['online' => true, 'label' => 'Online', 'title' => 'Active in the last couple of minutes'];
+    }
+    if ($ago < 3600) {
+        return ['online' => false, 'label' => 'Last seen ' . max(1, (int) ($ago / 60)) . 'm ago', 'title' => $title];
+    }
+    if ($ago < 86400) {
+        return ['online' => false, 'label' => 'Last seen ' . (int) ($ago / 3600) . 'h ago', 'title' => $title];
+    }
+    if ($ago < 604800) {
+        return ['online' => false, 'label' => 'Last seen ' . (int) ($ago / 86400) . 'd ago', 'title' => $title];
+    }
+
+    return $none;
+}
+
+// ─── Reactions ─────────────────────────────────────────────────────────
+
+/**
+ * May the signed-in user react to this message?
+ *
+ * Reacting is a lighter act than sending — it adds no words to the record —
+ * but it still writes a row that names them in the conversation, so it takes
+ * the same live access check the thread does. Deliberately *not* the send
+ * check: a closed conversation stays readable, and acknowledging a message in
+ * a closed thread is harmless.
+ *
+ * A withdrawn message cannot be reacted to; there is nothing left to react to.
+ */
+function canReactToMessage(int $messageId): bool
+{
+    $actor = communicationActor();
+    if ($actor === null || !can('messages.show')) {
+        return false;
+    }
+
+    $message = messageForAuthorship($messageId);
+    if (!$message || !empty($message['deleted_at'])) {
+        return false;
+    }
+
+    return canAccessConversation((int) $message['conversation_id']);
+}
+
+/** Is this one of the emoji the server is willing to store? */
+function isAllowedReaction(string $emoji): bool
+{
+    return in_array($emoji, MESSAGE_REACTIONS, true);
+}
+
+// ─── Changing a message after it was sent ──────────────────────────────
+
+/**
+ * How long a message stays editable, in seconds.
+ *
+ * Fifteen minutes: long enough to catch the typo you noticed as the page
+ * reloaded, short enough that nobody can quietly rewrite what they agreed to
+ * last week. This is business correspondence about tenancies and money, and an
+ * indefinitely editable record is not a record.
+ *
+ * Deletion has no such window — see canDeleteMessage() for why the two differ.
+ */
+function messageEditWindow(): int
+{
+    return 15 * 60;
+}
+
+/**
+ * One message with the columns every check below needs, or null.
+ *
+ * Fetched through the conversation so a single query answers both "does this
+ * exist" and "which conversation is it in" — the second is what the access
+ * layer actually cares about.
+ *
+ * `age_seconds` is computed by the DATABASE, deliberately, and this is not a
+ * stylistic choice. created_at is written by MySQL's NOW(); comparing it
+ * against PHP's time() silently measures the gap between two clocks as well as
+ * the age of the message. On this very machine PHP runs in Europe/Berlin and
+ * MySQL an hour ahead, which made a message sent one second ago read as an
+ * hour in the future and one sent an hour ago read as brand new — inverting
+ * the edit window exactly. TIMESTAMPDIFF asks the clock that wrote the value,
+ * so the answer is right whatever either timezone is set to.
+ */
+function messageForAuthorship(int $messageId): ?array
+{
+    if ($messageId <= 0) {
+        return null;
+    }
+
+    $stmt = getDBConnection()->prepare("
+        SELECT m.id, m.conversation_id, m.sender_id, m.body, m.message_type,
+               m.created_at, m.edited_at, m.deleted_at,
+               TIMESTAMPDIFF(SECOND, m.created_at, NOW()) AS age_seconds,
+               (SELECT COUNT(*) FROM message_attachments a WHERE a.message_id = m.id) AS attachment_count
+        FROM conversation_messages m
+        WHERE m.id = ?
+    ");
+    $stmt->execute([$messageId]);
+
+    return $stmt->fetch() ?: null;
+}
+
+/**
+ * May the signed-in user edit this message?
+ *
+ * Five conditions, and all of them are required:
+ *
+ *   · they wrote it — authorship is not transferable, and an administrator
+ *     editing someone else's words would make the whole thread untrustworthy;
+ *   · it has not been deleted;
+ *   · it is not a system line, which nobody authored;
+ *   · they can still send into the conversation, which carries the live
+ *     relationship check, the active-account check and the "conversation is
+ *     still open" check with it;
+ *   · it is inside the edit window.
+ *
+ * Note the fourth: revoking someone's access to a conversation also revokes
+ * their ability to go back and change what they said in it.
+ */
+function canEditMessage(int $messageId): bool
+{
+    $actor = communicationActor();
+    if ($actor === null || !can('messages.send')) {
+        return false;
+    }
+
+    $message = messageForAuthorship($messageId);
+    if (!$message) {
+        return false;
+    }
+
+    if ((int) $message['sender_id'] !== $actor['id']) { return false; }
+    if (!empty($message['deleted_at']))               { return false; }
+    if (($message['message_type'] ?? 'text') !== 'text') { return false; }
+
+    if (!canSendToConversation((int) $message['conversation_id'])) {
+        return false;
+    }
+
+    // Measured by the database — see messageForAuthorship(). A negative age
+    // would mean the row is stamped in the future, which is a clock problem
+    // rather than an editable message, so it fails closed.
+    $age = (int) ($message['age_seconds'] ?? PHP_INT_MAX);
+
+    return $age >= 0 && $age <= messageEditWindow();
+}
+
+/**
+ * May the signed-in user delete this message?
+ *
+ * The same rules as editing minus the time window, and the asymmetry is
+ * deliberate. Editing rewrites history — it changes what the record says was
+ * agreed — so it is fenced to the minutes just after sending. Deleting only
+ * withdraws a message: `deleted_at` is set, the row and its body stay in the
+ * table, the thread keeps its shape, and the reader is told plainly that
+ * something was withdrawn. Nothing is destroyed, so nothing needs the fence.
+ */
+function canDeleteMessage(int $messageId): bool
+{
+    $actor = communicationActor();
+    if ($actor === null || !can('messages.send')) {
+        return false;
+    }
+
+    $message = messageForAuthorship($messageId);
+    if (!$message) {
+        return false;
+    }
+
+    if ((int) $message['sender_id'] !== $actor['id']) { return false; }
+    if (!empty($message['deleted_at']))               { return false; }
+    if (($message['message_type'] ?? 'text') !== 'text') { return false; }
+
+    return canSendToConversation((int) $message['conversation_id']);
+}
+
 // ─── Asking about two people who are not the signed-in user ────────────
 
 /**
@@ -1100,25 +1366,49 @@ function communicationScopeHint(): string
 }
 
 /**
- * What to say when there is genuinely nobody. Distinguishes the two reasons —
- * an account with no business relationships yet, and a role that has run out
- * of counterparts — because the reader can act on the first and cannot act on
- * the second.
+ * What to say when there is genuinely nobody, in two parts: the state, and
+ * why it is that way. Distinguishes the two reasons — an account with no
+ * business relationships yet, and a role that has run out of counterparts —
+ * because the reader can act on the first and cannot act on the second.
+ *
+ * Split because the two callers need different halves. Somewhere the state is
+ * already a heading above the message, and repeating it in the sentence
+ * underneath — "No conversations yet" over "No conversations yet. Messages
+ * from clients…" — spends the one line that had something to say on saying
+ * the title again. Somewhere else the sentence stands alone and needs both.
+ *
+ * @return array{0:string,1:string} [state, explanation]
  */
-function communicationEmptyScopeMessage(): string
+function communicationEmptyScopeParts(): array
 {
     switch (communicationActorRole()) {
         case ROLE_ADMIN:
-            return 'No conversations yet. Messages from clients without an assigned agent will arrive here.';
+            return ['No conversations yet',
+                    'Messages from clients without an assigned agent will arrive here.'];
         case ROLE_AGENT:
-            return 'No contacts yet. Owners, tenants and technicians appear here once a property is assigned to you.';
+            return ['No contacts yet',
+                    'Owners, tenants and technicians appear here once a property is assigned to you.'];
         case ROLE_OWNER:
-            return 'No contacts yet. Your managing agent appears here once a property has been registered to you.';
+            return ['No contacts yet',
+                    'Your managing agent appears here once a property has been registered to you.'];
         case ROLE_CUSTOMER:
-            return 'No contacts yet. Your agent appears here once you hold a tenancy, a purchase or a reservation.';
+            return ['No contacts yet',
+                    'Your agent appears here once you hold a tenancy, a purchase or a reservation.'];
         case ROLE_MAINTENANCE:
-            return 'No contacts yet. The responsible agent appears here once a job has been assigned to you.';
+            return ['No contacts yet',
+                    'The responsible agent appears here once a job has been assigned to you.'];
     }
 
-    return 'Your authorized conversations will appear here.';
+    return ['', 'Your authorized conversations will appear here.'];
+}
+
+/**
+ * The same thing as one sentence, for the places that carry no heading of
+ * their own. Unchanged in wording and unchanged for every existing caller.
+ */
+function communicationEmptyScopeMessage(): string
+{
+    [$state, $detail] = communicationEmptyScopeParts();
+
+    return $state === '' ? $detail : $state . '. ' . $detail;
 }

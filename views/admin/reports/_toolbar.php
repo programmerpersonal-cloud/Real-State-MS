@@ -13,6 +13,15 @@
  * tokens; reportWindow() in includes/reporting.php turns a token into two
  * validated dates, and this file only ever prints what it was given.
  *
+ * Phase 8 made it a control surface and nothing else. It used to end with a
+ * paragraph restating the period it had just been used to choose — the same
+ * band both offering and asserting the same fact, and doing it far enough
+ * from the figures that scrolling lost it entirely. That statement now lives
+ * in the masthead above, directly over the numbers it qualifies. What is left
+ * here is one row of controls on a desktop: the period on the left, and
+ * filters, comparison and print grouped on the right, because those three are
+ * things you *do* to the report and the period is what you are looking at.
+ *
  * Expects: $window, $filters, $reportTab, $compare
  *
  * Every local in this file is prefixed, and that is not house style — it is a
@@ -60,6 +69,8 @@ $tbFields = array_values(array_filter(
     $tbFields,
     static fn(array $tbF): bool => !empty($tbF['options']) && in_array($tbF['name'], $tbHonoured, true)
 ));
+
+$tbCarry = !empty($compare) ? ['compare' => '1'] : [];
 ?>
 
 <?php if (!empty($window['notice'])): ?>
@@ -73,9 +84,9 @@ $tbFields = array_values(array_filter(
 <?php endif ?>
 
 <div class="rtoolbar">
+    <div class="rtoolbar__main">
 
-    <!-- ── Period ─────────────────────────────────────────────────── -->
-    <div class="rtoolbar__row">
+        <!-- ── Period ─────────────────────────────────────────────── -->
         <div class="rtoolbar__group">
             <span class="rtoolbar__legend" id="rangeLegend">Period</span>
             <div class="rrange" role="group" aria-labelledby="rangeLegend">
@@ -89,7 +100,13 @@ $tbFields = array_values(array_filter(
                 <?php /* Custom is a disclosure rather than a link: it has no
                          destination until two dates have been picked. Written
                          as <details> so it opens without JavaScript, and held
-                         open when a custom range is already applied. */ ?>
+                         open when a custom range is already applied.
+
+                         The panel is anchored to the right edge of the range
+                         track, not to this button. Anchored to the button it
+                         started 300px into the row and pushed the page 41px
+                         wide at 1265, 121px at 1185 and 161px at 1085 —
+                         measured, not guessed, in Phase 5A's browser pass. */ ?>
                 <details class="rrange__custom" <?= $tbIsCustom ? 'open' : '' ?>>
                     <summary class="rrange__btn<?= $tbIsCustom ? ' is-active' : '' ?>">
                         <i class="bi bi-calendar-range" aria-hidden="true"></i>
@@ -109,6 +126,7 @@ $tbFields = array_values(array_filter(
                             <?php endif ?>
                         <?php endforeach ?>
 
+                        <p class="rrange__title">Custom period</p>
                         <div class="rrange__fields">
                             <div class="toolbar__field">
                                 <label class="toolbar__field-label" for="rangeFrom">From</label>
@@ -132,7 +150,73 @@ $tbFields = array_values(array_filter(
             </div>
         </div>
 
+        <!-- ── What you can do to the report ──────────────────────── -->
         <div class="rtoolbar__actions">
+
+            <?php if ($tbFields): ?>
+                <form method="GET" action="<?= APP_URL ?>/index.php" class="rfilters">
+                    <input type="hidden" name="page" value="reports">
+                    <input type="hidden" name="tab" value="<?= sanitize($tbTab) ?>">
+                    <input type="hidden" name="range" value="<?= sanitize($window['key']) ?>">
+                    <?php if ($tbIsCustom): ?>
+                        <input type="hidden" name="from" value="<?= sanitize($window['from']) ?>">
+                        <input type="hidden" name="to" value="<?= sanitize($window['to']) ?>">
+                    <?php endif ?>
+                    <?php if (!empty($compare)): ?>
+                        <input type="hidden" name="compare" value="1">
+                    <?php endif ?>
+
+                    <?php /* --end right-anchors the panel. The trigger sits at
+                             the right of the bar, so a panel opening leftwards
+                             from it is the only one that cannot push the page
+                             wider than the viewport. */ ?>
+                    <details class="toolbar__filters toolbar__filters--end" data-filter-popover <?= $tbApplied ? 'open' : '' ?>>
+                        <summary class="toolbar__filter-trigger" aria-controls="reportFilters">
+                            <i class="bi bi-sliders" aria-hidden="true"></i>
+                            <span>Filters</span>
+                            <?php if ($tbApplied): ?>
+                                <span class="toolbar__filter-count"><?= (int) $tbApplied ?></span>
+                                <span class="sr-only"><?= $tbApplied === 1 ? 'filter applied' : 'filters applied' ?></span>
+                            <?php endif ?>
+                            <i class="bi bi-chevron-down toolbar__filter-chev" aria-hidden="true"></i>
+                        </summary>
+
+                        <div class="toolbar__popover" id="reportFilters">
+                            <p class="rfilters__title">Narrow this report</p>
+                            <div class="toolbar__popover-grid">
+                                <?php foreach ($tbFields as $tbF): ?>
+                                    <?php $tbId = 'rfilter-' . $tbF['name']; ?>
+                                    <div class="toolbar__field">
+                                        <label class="toolbar__field-label" for="<?= $tbId ?>"><?= sanitize($tbF['label']) ?></label>
+                                        <select name="<?= sanitize($tbF['name']) ?>" id="<?= $tbId ?>" class="form-control">
+                                            <option value="">All <?= sanitize(strtolower($tbF['label'])) ?></option>
+                                            <?php foreach ($tbF['options'] as $tbValue => $tbLabel): ?>
+                                                <option value="<?= sanitize((string) $tbValue) ?>"
+                                                    <?= (string) ($filters[$tbF['name']] ?? '') === (string) $tbValue ? 'selected' : '' ?>>
+                                                    <?= sanitize((string) $tbLabel) ?>
+                                                </option>
+                                            <?php endforeach ?>
+                                        </select>
+                                    </div>
+                                <?php endforeach ?>
+                            </div>
+                            <div class="toolbar__popover-foot">
+                                <?php if ($tbApplied): ?>
+                                    <?php /* Reset drops the filters and keeps the
+                                             period and the report — clearing one
+                                             thing should not clear three. */ ?>
+                                    <a class="btn btn--ghost btn--sm"
+                                       href="<?= sanitize(reportUrl($window, [], ['tab' => $tbTab] + $tbCarry)) ?>">
+                                        Reset filters
+                                    </a>
+                                <?php endif ?>
+                                <button type="submit" class="btn btn--primary btn--sm">Apply filters</button>
+                            </div>
+                        </div>
+                    </details>
+                </form>
+            <?php endif ?>
+
             <?php /* A link that carries state, not a checkbox that needs a
                      submit. aria-pressed states the mode for anyone who
                      cannot see that the control is filled in. */ ?>
@@ -140,83 +224,25 @@ $tbFields = array_values(array_filter(
                href="<?= sanitize($tbLink(['compare' => !empty($compare) ? null : '1'])) ?>"
                role="button" aria-pressed="<?= !empty($compare) ? 'true' : 'false' ?>">
                 <span class="rtoggle__track" aria-hidden="true"><span class="rtoggle__knob"></span></span>
-                <span>Compare with previous period</span>
+                <span class="rtoggle__text">Compare</span>
+                <span class="sr-only">with the previous period of equal length</span>
             </a>
 
             <?php /* Printing is real and works today. Export is not built yet
                      and is therefore not offered as a button that would do
                      nothing — the workspace would rather be short a control
                      than have one that lies. */ ?>
-            <button type="button" class="btn btn--outline btn--sm" data-report-print>
+            <button type="button" class="btn btn--outline btn--sm rtoolbar__print" data-report-print>
                 <i class="bi bi-printer" aria-hidden="true"></i>
-                Print
+                <span>Print</span>
             </button>
         </div>
     </div>
 
-    <!-- ── Filters ────────────────────────────────────────────────── -->
-    <?php if ($tbFields): ?>
-    <div class="rtoolbar__row rtoolbar__row--filters">
-        <form method="GET" action="<?= APP_URL ?>/index.php" class="rfilters">
-            <input type="hidden" name="page" value="reports">
-            <input type="hidden" name="tab" value="<?= sanitize($tbTab) ?>">
-            <input type="hidden" name="range" value="<?= sanitize($window['key']) ?>">
-            <?php if ($tbIsCustom): ?>
-                <input type="hidden" name="from" value="<?= sanitize($window['from']) ?>">
-                <input type="hidden" name="to" value="<?= sanitize($window['to']) ?>">
-            <?php endif ?>
-            <?php if (!empty($compare)): ?>
-                <input type="hidden" name="compare" value="1">
-            <?php endif ?>
-
-            <details class="toolbar__filters" data-filter-popover <?= $tbApplied ? 'open' : '' ?>>
-                <summary class="toolbar__filter-trigger" aria-controls="reportFilters">
-                    <i class="bi bi-sliders" aria-hidden="true"></i>
-                    <span>Filters</span>
-                    <?php if ($tbApplied): ?>
-                        <span class="toolbar__filter-count"><?= (int) $tbApplied ?></span>
-                        <span class="sr-only"><?= $tbApplied === 1 ? 'filter applied' : 'filters applied' ?></span>
-                    <?php endif ?>
-                    <i class="bi bi-chevron-down toolbar__filter-chev" aria-hidden="true"></i>
-                </summary>
-
-                <div class="toolbar__popover" id="reportFilters">
-                    <div class="toolbar__popover-grid">
-                        <?php foreach ($tbFields as $tbF): ?>
-                            <?php $tbId = 'rfilter-' . $tbF['name']; ?>
-                            <div class="toolbar__field">
-                                <label class="toolbar__field-label" for="<?= $tbId ?>"><?= sanitize($tbF['label']) ?></label>
-                                <select name="<?= sanitize($tbF['name']) ?>" id="<?= $tbId ?>" class="form-control">
-                                    <option value="">All <?= sanitize(strtolower($tbF['label'])) ?></option>
-                                    <?php foreach ($tbF['options'] as $tbValue => $tbLabel): ?>
-                                        <option value="<?= sanitize((string) $tbValue) ?>"
-                                            <?= (string) ($filters[$tbF['name']] ?? '') === (string) $tbValue ? 'selected' : '' ?>>
-                                            <?= sanitize((string) $tbLabel) ?>
-                                        </option>
-                                    <?php endforeach ?>
-                                </select>
-                            </div>
-                        <?php endforeach ?>
-                    </div>
-                    <div class="toolbar__popover-foot">
-                        <?php if ($tbApplied): ?>
-                            <?php /* Reset drops the filters and keeps the
-                                     period and the report — clearing one
-                                     thing should not clear three. */ ?>
-                            <a class="btn btn--ghost btn--sm"
-                               href="<?= sanitize(reportUrl($window, [], ['tab' => $tbTab] + (!empty($compare) ? ['compare' => '1'] : []))) ?>">
-                                Reset filters
-                            </a>
-                        <?php endif ?>
-                        <button type="submit" class="btn btn--primary btn--sm">Apply filters</button>
-                    </div>
-                </div>
-            </details>
-        </form>
-
-        <?php /* What is narrowing the report, stated rather than implied, and
-                 each chip removes only itself. */ ?>
-        <?php if ($tbApplied): ?>
+    <?php /* What is narrowing the report, stated rather than implied, and
+             each chip removes only itself. */ ?>
+    <?php if ($tbApplied && $tbFields): ?>
+        <div class="rtoolbar__chips">
             <div class="filter-chips">
                 <span class="filter-chips__label">Filtered by</span>
                 <?php foreach (reportFilterSpec() as $tbName => $tbSpec): ?>
@@ -233,7 +259,7 @@ $tbFields = array_values(array_filter(
                     };
                     ?>
                     <a class="filter-chip"
-                       href="<?= sanitize(reportUrl($window, array_merge($filters, [$tbName => null]), ['tab' => $tbTab] + (!empty($compare) ? ['compare' => '1'] : []))) ?>">
+                       href="<?= sanitize(reportUrl($window, array_merge($filters, [$tbName => null]), ['tab' => $tbTab] + $tbCarry)) ?>">
                         <span class="filter-chip__key"><?= sanitize($tbSpec['label']) ?></span>
                         <?= sanitize((string) $tbShown) ?>
                         <span class="filter-chip__x" aria-hidden="true">&times;</span>
@@ -241,25 +267,6 @@ $tbFields = array_values(array_filter(
                     </a>
                 <?php endforeach ?>
             </div>
-        <?php endif ?>
-    </div>
+        </div>
     <?php endif ?>
-
-    <!-- ── What the reader is looking at ──────────────────────────── -->
-    <p class="rtoolbar__period">
-        <i class="bi bi-calendar3" aria-hidden="true"></i>
-        <strong><?= sanitize($window['label']) ?></strong>
-        <span class="rtoolbar__dates">
-            <?= sanitize(formatDate($window['from'])) ?> – <?= sanitize(formatDate($window['to_capped'])) ?>
-            <?php if ($window['is_partial']): ?>
-                <span class="rtoolbar__partial" title="This period has not finished; figures run to today.">so far</span>
-            <?php endif ?>
-        </span>
-        <?php if (!empty($compare)): ?>
-            <span class="rtoolbar__vs">
-                vs <?= sanitize(formatDate($window['prev_from'])) ?> – <?= sanitize(formatDate($window['prev_to'])) ?>
-                <span class="rtoolbar__days">(<?= (int) $window['days'] ?> days each)</span>
-            </span>
-        <?php endif ?>
-    </p>
 </div>

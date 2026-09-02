@@ -13,6 +13,19 @@
  * where this pattern comes from — the workspace should not invent a second
  * kind of tab for the same job.
  *
+ * Phase 8 gave the strip a recessed track and made the active report a
+ * raised chip on it rather than an underlined word. The rule it is following
+ * is that the active state should be legible at a glance without being a
+ * heavy filled block: the chip is the surface colour the cards below are
+ * drawn in, lifted off a slightly darker track, with a hairline accent under
+ * it. That reads as "you are here" from across a desk and still sits quietly
+ * beside the figures.
+ *
+ * One hairline separates Overview from the seven reports that follow. It is
+ * the only division the eight tabs honestly support — Overview is the
+ * executive summary and the rest are the detail it points into — and the
+ * required order of the tabs is untouched by it.
+ *
  * Every link carries the reader's period, comparison and filters, so moving
  * between reports never silently resets what they set up.
  *
@@ -28,18 +41,21 @@
  * more than once, and in any order.
  */
 $tabsActive = $reportTab ?? 'overview';
-$tabsCarry = !empty($compare) ? ['compare' => '1'] : [];
+$tabsCarry  = !empty($compare) ? ['compare' => '1'] : [];
 ?>
 <nav class="rtabs" aria-label="Reports">
     <ul class="rtabs__list">
         <?php foreach (ReportController::TABS as $tabsKey => $tabsMeta): ?>
             <?php $tabsIsActive = $tabsKey === $tabsActive; ?>
+            <?php if (!empty($tabsMeta['starts_group'])): ?>
+                <li class="rtabs__sep" aria-hidden="true"></li>
+            <?php endif ?>
             <li class="rtabs__item">
                 <a class="rtabs__link<?= $tabsIsActive ? ' is-active' : '' ?>"
                    href="<?= sanitize(reportUrl($window, $filters, ['tab' => $tabsKey] + $tabsCarry)) ?>"
-                   <?= $tabsIsActive ? 'aria-current="page"' : '' ?>>
+                   <?= $tabsIsActive ? 'aria-current="page" data-report-tab-active' : '' ?>>
                     <i class="bi <?= sanitize($tabsMeta['icon']) ?>" aria-hidden="true"></i>
-                    <span><?= sanitize($tabsMeta['label']) ?></span>
+                    <span class="rtabs__name"><?= sanitize($tabsMeta['label']) ?></span>
                 </a>
             </li>
         <?php endforeach ?>

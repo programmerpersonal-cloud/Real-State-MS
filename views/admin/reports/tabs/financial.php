@@ -35,11 +35,16 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
 
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
 
-<!-- ── Row 1 · the five financial figures ────────────────────────── -->
+<?php /* the five financial figures */ ?>
+<?php $section = [
+    'title' => 'Financial position',
+    'desc'  => 'Collection, receivables and the balance still outstanding.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="kpis kpis--five">
     <?php
     $kpi = [
         'label'   => 'Collected revenue',
+        'good'    => 'up',
         'value'   => formatCurrency($revenue),
         'icon'    => 'bi-cash-stack',
         'tone'    => 'primary',
@@ -73,6 +78,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
 
     $kpi = [
         'label'   => 'Collection rate',
+        'good'    => 'up',
         'value'   => reportPercent($ledger['collection_rate']),
         'icon'    => 'bi-percent',
         'tone'    => $ledger['collection_rate'] === null
@@ -126,7 +132,11 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
     <?php require dirname(__DIR__) . '/_financial_comparison.php'; ?>
 <?php endif ?>
 
-<!-- ── Row 2 · expected against settled, and the rate it implies ─── -->
+<?php /* expected against settled, and the rate it implies */ ?>
+<?php $section = [
+    'title' => 'Collection performance',
+    'desc'  => 'Rent expected against rent settled, on the date it fell due.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     /* Grouped bars rather than lines. Two quantities for the same bucket that
@@ -150,7 +160,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         ],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent was scheduled to fall due in this period.',
-        'height'   => 230,
+        'size'   => 'feature',
         'filtered' => $fiFiltered,
         'resetUrl' => $fiReset,
         'footnote' => 'Both series sit on the due-date axis, which is what makes the '
@@ -180,7 +190,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'series'   => [['label' => 'Settled', 'data' => $fiRate, 'tone' => '--primary']],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent fell due in this period, so there is no collection rate to plot.',
-        'height'   => 230,
+        'size'   => 'feature',
         'filtered' => $fiFiltered,
         'resetUrl' => $fiReset,
         'footnote' => 'Buckets where no rent fell due are left blank rather than drawn '
@@ -190,7 +200,11 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
     ?>
 </div>
 
-<!-- ── Row 3 · what came in, and what is still owed ──────────────── -->
+<?php /* what came in, and what is still owed */ ?>
+<?php $section = [
+    'title' => 'Sources and outstanding',
+    'desc'  => 'Where revenue came from, and what is still owed.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $fiStreamNames = ['rental' => 'Rental', 'sale' => 'Sales', 'reservation' => 'Reservation'];
@@ -214,7 +228,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'series'   => [['label' => 'Collected', 'data' => $fiSData, 'tones' => $fiSTones]],
         'label_heading' => 'Stream',
         'empty'    => 'No eligible revenue was collected in this period.',
-        'height'   => 230,
+        'size'   => 'standard',
         'share'    => true,
         'filtered' => $fiFiltered,
         'resetUrl' => $fiReset,
@@ -241,7 +255,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         ],
         'label_heading' => 'Position',
         'empty'      => 'Nothing is outstanding — every scheduled instalment has been settled.',
-        'height'     => 150,
+        'size'     => 'compact',
         'filtered'   => $fiFiltered,
         'resetUrl'   => $fiReset,
         'footnote'   => 'Arrears is rent that has fallen due and is unpaid. Not-yet-due is '
@@ -252,14 +266,18 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
     ?>
 </div>
 
-<!-- ── Row 4 · insights, and the money held rather than earned ───── -->
+<?php /* insights, and the money held rather than earned */ ?>
+<?php $section = [
+    'title' => 'Attention and money held',
+    'desc'  => 'What stands out, and the deposits held rather than earned.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php require dirname(__DIR__) . '/_insights.php'; ?>
 
     <section class="card rcard" aria-labelledby="fi-held-title">
         <div class="card__header">
             <div class="rcard__titles">
-                <h3 class="card__title" id="fi-held-title">Money that is not revenue</h3>
+                <h4 class="card__title" id="fi-held-title">Money that is not revenue</h4>
                 <p class="card__subtitle">Received in this period, and deliberately excluded from the figures above</p>
             </div>
         </div>
@@ -294,5 +312,9 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
     </section>
 </div>
 
-<!-- ── Row 5 · the ledger, per property ──────────────────────────── -->
+<?php /* the ledger, per property */ ?>
+<?php $section = [
+    'title' => 'Detailed records',
+    'desc'  => 'The rent ledger, one row per property.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <?php require dirname(__DIR__) . '/_financial_properties.php'; ?>

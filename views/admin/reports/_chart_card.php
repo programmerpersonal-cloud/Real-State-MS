@@ -18,6 +18,16 @@
  * them would be a choice rather than a limitation. It is collapsed behind a
  * <details> so it costs a line of height and is one click from being read.
  *
+ * Phase 8 added two things to the frame. The first is the *summary line*: a
+ * sentence computed from the same array the chart is drawn from, saying what
+ * the picture adds up to and where its peak is. It is read out to a screen
+ * reader and printed under the canvas for everyone else, because "revenue
+ * performance" as a heading and a shape underneath it is not an answer —
+ * "$4,200.00 across 5 weeks, highest in week of 3 Aug" is. The second is a
+ * fixed set of card heights: every chart in the workspace is now one of three
+ * sizes, so two cards side by side line up instead of missing each other by
+ * ten pixels.
+ *
  * Data reaches Chart.js as JSON in a <script type="application/json"> block,
  * the same way scripts.php already hands the browser its validation rules.
  * Nothing executable is written into the page, and assets/js/reports.js
@@ -32,7 +42,8 @@
  *   series   array   [['label'=>…, 'data'=>float[], 'tone'=>token], …]
  *   unit     string  'currency'|'number'|'percent'
  *   empty    string  the sentence shown when there is nothing
- *   height   int     canvas aspect height; defaults to 190
+ *   size     string  'compact'|'standard'|'feature'; defaults to standard
+ *   height   int     an explicit override, only where a size will not do
  *   actions  string  optional pre-escaped HTML for the card header
  *   loading  bool    render the skeleton instead
  *   filtered bool    whether filters are narrowing this card
@@ -40,6 +51,8 @@
  *   share      bool  add a percent-of-total column to the data table
  *   stacked    bool  bar charts: stack the datasets
  *   horizontal bool  bar charts: lay the categories down the y axis
+ *   summary  string  an explicit summary line, where the computed one would
+ *                    be wrong for this chart's shape
  *   footnote string  a caveat printed under the card, always visible
  *
  * Every local in this file is prefixed, and that is not house style — it is a
@@ -51,12 +64,24 @@
  * the Overview "Performance". Prefixes are what make these safe to require
  * more than once, and in any order.
  */
-$ccC        = $chart ?? [];
-$ccId       = (string) ($ccC['id'] ?? 'chart');
-$ccLabels   = $ccC['labels'] ?? [];
-$ccSeries   = $ccC['series'] ?? [];
-$ccUnit     = $ccC['unit'] ?? 'number';
-$ccHeight   = (int) ($ccC['height'] ?? 190);
+$ccC      = $chart ?? [];
+$ccId     = (string) ($ccC['id'] ?? 'chart');
+$ccLabels = $ccC['labels'] ?? [];
+$ccSeries = $ccC['series'] ?? [];
+$ccUnit   = $ccC['unit'] ?? 'number';
+$ccType   = (string) ($ccC['type'] ?? 'line');
+$ccRound  = $ccType === 'doughnut' || $ccType === 'pie';
+
+/* Three heights, not twenty-five. Every chart in the workspace used to carry
+   its own number — 150, 210, 220, 230 — which meant two cards in one row
+   could differ by ten pixels for no reason a reader could name, and the row
+   read as slightly broken rather than as deliberately varied.
+
+   compact   a two- or three-bar composition that would look stretched taller
+   standard  the working size: a distribution, a doughnut, a short series
+   feature   the trend the report is actually about */
+$ccSizes  = ['compact' => 160, 'standard' => 230, 'feature' => 280];
+$ccHeight = (int) ($ccC['height'] ?? ($ccSizes[$ccC['size'] ?? 'standard'] ?? $ccSizes['standard']));
 
 /* When is a card empty?
  *
@@ -105,11 +130,56 @@ $ccFormat = static function ($ccV) use ($ccUnit): string {
     if ($ccUnit === 'percent')  return reportPercent((float) $ccV);
     return number_format((float) $ccV);
 };
+
+/* The summary line.
+ *
+ * Computed from the first series only, and phrased differently for the three
+ * shapes because the same sentence would be wrong for two of them. A rate has
+ * no meaningful total, so it reports its range; a composition has no peak
+ * "period", so it names its largest part; a quantity over time has both. */
+$ccSummary = (string) ($ccC['summary'] ?? '');
+if ($ccSummary === '' && $ccHasData) {
+    $ccVals = [];
+    foreach (($ccSeries[0]['data'] ?? []) as $ccI => $ccV) {
+        if ($ccV !== null) { $ccVals[$ccI] = (float) $ccV; }
+    }
+    if ($ccVals) {
+        $ccTopKey = array_keys($ccVals, max($ccVals), true)[0];
+        $ccTopLbl = (string) ($ccLabels[$ccTopKey] ?? '');
+        $ccSum    = array_sum($ccVals);
+
+        if ($ccRate) {
+            $ccSummary = sprintf(
+                'Ranges from %s to %s across %d %s.',
+                $ccFormat(min($ccVals)),
+                $ccFormat(max($ccVals)),
+                count($ccVals),
+                count($ccVals) === 1 ? 'reading' : 'readings'
+            );
+        } elseif ($ccRound || !empty($ccC['horizontal'])) {
+            $ccSummary = sprintf(
+                '%s in total. Largest is %s at %s.',
+                $ccFormat($ccSum),
+                $ccTopLbl !== '' ? $ccTopLbl : 'the leading entry',
+                $ccFormat(max($ccVals))
+            );
+        } else {
+            $ccSummary = sprintf(
+                '%s in total across %d %s. Highest %s at %s.',
+                $ccFormat($ccSum),
+                count($ccVals),
+                count($ccVals) === 1 ? 'point' : 'points',
+                $ccTopLbl !== '' ? $ccTopLbl : 'point',
+                $ccFormat(max($ccVals))
+            );
+        }
+    }
+}
 ?>
 <section class="card rcard" aria-labelledby="<?= sanitize($ccId) ?>-title">
     <div class="card__header">
         <div class="rcard__titles">
-            <h3 class="card__title" id="<?= sanitize($ccId) ?>-title"><?= sanitize((string) ($ccC['title'] ?? '')) ?></h3>
+            <h4 class="card__title" id="<?= sanitize($ccId) ?>-title"><?= sanitize((string) ($ccC['title'] ?? '')) ?></h4>
             <?php if (!empty($ccC['subtitle'])): ?>
                 <p class="card__subtitle"><?= sanitize((string) $ccC['subtitle']) ?></p>
             <?php endif ?>
@@ -148,11 +218,12 @@ $ccFormat = static function ($ccV) use ($ccUnit): string {
                 <canvas id="<?= sanitize($ccId) ?>"
                         data-report-chart="<?= sanitize($ccId) ?>"
                         role="img"
+                        aria-describedby="<?= sanitize($ccId) ?>-summary"
                         aria-label="<?= sanitize((string) ($ccC['title'] ?? 'Chart')) ?>. The same figures are listed in the data table below this chart."></canvas>
             </div>
 
             <script type="application/json" id="<?= sanitize($ccId) ?>-data"><?= json_encode([
-                'type'       => $ccC['type'] ?? 'line',
+                'type'       => $ccType,
                 'unit'       => $ccUnit,
                 'labels'     => $ccLabels,
                 'series'     => $ccSeries,
@@ -160,53 +231,61 @@ $ccFormat = static function ($ccV) use ($ccUnit): string {
                 'horizontal' => !empty($ccC['horizontal']),
             ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
-            <details class="rdata">
-                <summary class="rdata__toggle">
-                    <i class="bi bi-table" aria-hidden="true"></i>
-                    View as table
-                </summary>
-                <div class="table-wrap">
-                    <table class="table rdata__table">
-                        <caption class="sr-only"><?= sanitize((string) ($ccC['title'] ?? 'Chart data')) ?></caption>
-                        <thead>
-                            <tr>
-                                <th scope="col"><?= sanitize((string) ($ccC['label_heading'] ?? 'Period')) ?></th>
-                                <?php foreach ($ccSeries as $ccS): ?>
-                                    <th scope="col" class="cell-num"><?= sanitize((string) ($ccS['label'] ?? 'Value')) ?></th>
-                                <?php endforeach ?>
-                                <?php if ($ccShare): ?>
-                                    <th scope="col" class="cell-num">Share</th>
-                                <?php endif ?>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($ccLabels as $ccI => $ccLabel): ?>
+            <div class="rcard__foot">
+                <?php if ($ccSummary !== ''): ?>
+                    <p class="rchart__summary" id="<?= sanitize($ccId) ?>-summary"><?= sanitize($ccSummary) ?></p>
+                <?php else: ?>
+                    <span id="<?= sanitize($ccId) ?>-summary" class="sr-only">The same figures are listed in the data table below this chart.</span>
+                <?php endif ?>
+
+                <details class="rdata">
+                    <summary class="rdata__toggle">
+                        <i class="bi bi-table" aria-hidden="true"></i>
+                        <span>View as table</span>
+                    </summary>
+                    <div class="table-wrap">
+                        <table class="table rdata__table">
+                            <caption class="sr-only"><?= sanitize((string) ($ccC['title'] ?? 'Chart data')) ?></caption>
+                            <thead>
                                 <tr>
-                                    <th scope="row"><?= sanitize((string) $ccLabel) ?></th>
+                                    <th scope="col"><?= sanitize((string) ($ccC['label_heading'] ?? 'Period')) ?></th>
                                     <?php foreach ($ccSeries as $ccS): ?>
-                                        <?php /* `?? null`, never `?? 0`. A null in these series
-                                                 means "nothing was scheduled", and ?? 0 collapsed
-                                                 it into a formatted zero — so the table printed
-                                                 0.0% collection against months where no rent was
-                                                 ever due, contradicting the chart beside it,
-                                                 which correctly left them blank. */ ?>
-                                        <td class="cell-num"><?= sanitize($ccFormat($ccS['data'][$ccI] ?? null)) ?></td>
+                                        <th scope="col" class="cell-num"><?= sanitize((string) ($ccS['label'] ?? 'Value')) ?></th>
                                     <?php endforeach ?>
                                     <?php if ($ccShare): ?>
-                                        <td class="cell-num"><?= sanitize(
-                                            ($ccSeries[0]['data'][$ccI] ?? null) === null
-                                                ? '—'
-                                                : reportPercent(reportShare(
-                                                    (float) $ccSeries[0]['data'][$ccI], $ccTotal
-                                                  ))
-                                        ) ?></td>
+                                        <th scope="col" class="cell-num">Share</th>
                                     <?php endif ?>
                                 </tr>
-                            <?php endforeach ?>
-                        </tbody>
-                    </table>
-                </div>
-            </details>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($ccLabels as $ccI => $ccLabel): ?>
+                                    <tr>
+                                        <th scope="row"><?= sanitize((string) $ccLabel) ?></th>
+                                        <?php foreach ($ccSeries as $ccS): ?>
+                                            <?php /* `?? null`, never `?? 0`. A null in these series
+                                                     means "nothing was scheduled", and ?? 0 collapsed
+                                                     it into a formatted zero — so the table printed
+                                                     0.0% collection against months where no rent was
+                                                     ever due, contradicting the chart beside it,
+                                                     which correctly left them blank. */ ?>
+                                            <td class="cell-num"><?= sanitize($ccFormat($ccS['data'][$ccI] ?? null)) ?></td>
+                                        <?php endforeach ?>
+                                        <?php if ($ccShare): ?>
+                                            <td class="cell-num"><?= sanitize(
+                                                ($ccSeries[0]['data'][$ccI] ?? null) === null
+                                                    ? '—'
+                                                    : reportPercent(reportShare(
+                                                        (float) $ccSeries[0]['data'][$ccI], $ccTotal
+                                                      ))
+                                            ) ?></td>
+                                        <?php endif ?>
+                                    </tr>
+                                <?php endforeach ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            </div>
         <?php endif ?>
 
         <?php if (!empty($ccC['footnote'])): ?>

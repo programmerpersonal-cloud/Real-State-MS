@@ -70,7 +70,14 @@ $notif = notificationBell();
         <main class="app__content" id="main" tabindex="-1">
             <?= renderFlash() ?>
 
-            <?php if (!empty($pageTitle) || !empty($actionButton) || !empty($actionButtons)): ?>
+            <?php /* A page may opt out of the standard header when it is a
+                     full-height workspace rather than a document — the
+                     Messages page carries its own title inside the panel it
+                     belongs to, and a second one above it costs the
+                     conversation ~110px of the screen. $pageTitle stays set,
+                     so the breadcrumb and the <title> are unaffected. */ ?>
+            <?php if (empty($hidePageHeader)
+                      && (!empty($pageTitle) || !empty($actionButton) || !empty($actionButtons))): ?>
                 <?php require VIEWS_PATH . '/components/page_header.php'; ?>
             <?php endif; ?>
 

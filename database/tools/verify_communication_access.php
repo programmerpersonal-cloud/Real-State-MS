@@ -61,6 +61,8 @@ require_once dirname(__DIR__, 2) . '/includes/init.php';
 // dispatches to the controller that needs it — so this tool names its own.
 require_once BASE_PATH . '/models/Conversation.php';
 require_once BASE_PATH . '/models/ConversationMessage.php';
+require_once BASE_PATH . '/models/MessageAttachment.php';
+require_once BASE_PATH . '/models/MessageReaction.php';
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);

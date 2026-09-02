@@ -414,14 +414,28 @@ function documentStoragePath(?string $storedPath): ?string
  *
  * @return array{file_path:string,file_name:string,file_type:string,file_ext:string,file_size:int,checksum:string}|null
  */
-function storeDocumentFile(array $file, array &$errors): ?array
+function storeDocumentFile(array $file, array &$errors, array $options = []): ?array
 {
+    /* The three things a different caller needs to vary, and nothing else.
+       Defaults reproduce the document store exactly, so the six existing call
+       sites are unaffected by the parameter existing.
+
+       This is here rather than in a second copy of the function because every
+       line below is a security control that took work to get right — the
+       forged-$_FILES guard, the sniffed type, the decode check, the derived
+       extension, the random name. A message attachment needs all of them and
+       differs only in which types it accepts and how big a file may be. */
+    $types  = $options['types']  ?? DOCUMENT_EXT_BY_MIME;   // mime => extension
+    $max    = $options['max']    ?? documentMaxBytes();
+    $prefix = $options['prefix'] ?? 'doc';
+    $reject = $options['reject'] ?? 'That file type is not accepted. Upload a PDF, image, Word or Excel document.';
+
     // PHP's own limits fire before any check of ours, so translate them.
     $errorCode = $file['error'] ?? UPLOAD_ERR_NO_FILE;
     if ($errorCode !== UPLOAD_ERR_OK) {
         $errors[] = match ($errorCode) {
             UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE =>
-                'The file is larger than the server allows (' . formatBytes(documentMaxBytes()) . ' maximum).',
+                'The file is larger than the server allows (' . formatBytes($max) . ' maximum).',
             UPLOAD_ERR_PARTIAL   => 'The upload was interrupted. Please try again.',
             UPLOAD_ERR_NO_FILE   => 'Choose a file to upload.',
             UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE =>
@@ -443,7 +457,6 @@ function storeDocumentFile(array $file, array &$errors): ?array
         return null;
     }
 
-    $max = documentMaxBytes();
     if ($size > $max) {
         $errors[] = 'The file is ' . formatBytes($size) . '. The maximum is ' . formatBytes($max) . '.';
         return null;
@@ -454,8 +467,8 @@ function storeDocumentFile(array $file, array &$errors): ?array
     $mime  = finfo_file($finfo, $file['tmp_name']);
     finfo_close($finfo);
 
-    if (!is_string($mime) || !in_array($mime, ALLOWED_DOCUMENT_TYPES, true)) {
-        $errors[] = 'That file type is not accepted. Upload a PDF, image, Word or Excel document.';
+    if (!is_string($mime) || !array_key_exists($mime, $types)) {
+        $errors[] = $reject;
         return null;
     }
 
@@ -469,9 +482,9 @@ function storeDocumentFile(array $file, array &$errors): ?array
 
     // The extension comes from the sniffed type, never the submitted name, so
     // the file on disk cannot be given an executable extension.
-    $ext = DOCUMENT_EXT_BY_MIME[$mime] ?? null;
+    $ext = $types[$mime] ?? null;
     if ($ext === null) {
-        $errors[] = 'That file type is not accepted.';
+        $errors[] = $reject;
         return null;
     }
 
@@ -481,11 +494,13 @@ function storeDocumentFile(array $file, array &$errors): ?array
     }
 
     // Unguessable name: the last line of defence if a server is ever
-    // misconfigured to serve this directory.
+    // misconfigured to serve this directory. The prefix only says which part
+    // of the application put the file there; it carries no meaning to the
+    // resolver, which validates the whole basename either way.
     try {
-        $safeName = 'doc_' . bin2hex(random_bytes(16)) . '.' . $ext;
+        $safeName = $prefix . '_' . bin2hex(random_bytes(16)) . '.' . $ext;
     } catch (Exception $e) {
-        $safeName = 'doc_' . bin2hex((string) mt_rand()) . uniqid('', true) . '.' . $ext;
+        $safeName = $prefix . '_' . bin2hex((string) mt_rand()) . uniqid('', true) . '.' . $ext;
     }
 
     $target = DOCS_STORAGE_PATH . DIRECTORY_SEPARATOR . $safeName;
@@ -503,6 +518,75 @@ function storeDocumentFile(array $file, array &$errors): ?array
         'file_size' => $size,
         'checksum'  => hash_file('sha256', $target) ?: '',
     ];
+}
+
+/**
+ * Emit a file from the private store and stop.
+ *
+ * Extracted from DocumentController::stream() so the message attachment
+ * endpoint delivers bytes under exactly the same rules rather than growing a
+ * second set that drifts. Every header here is doing a job:
+ *
+ *   Content-Type            only a recognised type is echoed back; anything
+ *                           else leaves as opaque bytes
+ *   Content-Disposition     inline only for types that cannot script, so a
+ *                           stored file never executes in this site's origin
+ *   X-Content-Type-Options  stops a browser sniffing past the declared type
+ *   CSP default-src 'none'  a stored HTML or SVG file, if one ever got in,
+ *       + sandbox           can load nothing and run nothing
+ *   Referrer-Policy         the storage URL never travels to a third party
+ *   Accept-Ranges: none     no partial reads to reason about
+ *
+ * Nothing may have been printed before this runs.
+ *
+ * @param string   $full    Absolute path, already resolved through the store.
+ * @param string[] $known   Types that may be echoed back as themselves.
+ * @param string[] $inline  Types that may render in place.
+ */
+function streamStoredFile(
+    string $full,
+    string $mime,
+    string $displayName,
+    array $known,
+    array $inline,
+    bool $wantsInline = false
+): never {
+    if (!in_array($mime, $known, true)) {
+        $mime = 'application/octet-stream';
+    }
+
+    $disposition = ($wantsInline && in_array($mime, $inline, true)) ? 'inline' : 'attachment';
+
+    $name  = documentSafeOriginalName($displayName !== '' ? $displayName : 'file');
+    $ascii = preg_replace('/[^A-Za-z0-9._ -]/', '_', $name) ?: 'file';
+
+    // A long-running download should not hold the session lock and block the
+    // user's other tabs.
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+
+    // views/layout.php renders inside ob_start(); any buffer still open here
+    // would be flushed into the middle of the file.
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: ' . $disposition . '; filename="' . $ascii . '"; '
+         . "filename*=UTF-8''" . rawurlencode($name));
+    header('Content-Length: ' . filesize($full));
+    header('X-Content-Type-Options: nosniff');
+    header("Content-Security-Policy: default-src 'none'; sandbox");
+    header('Referrer-Policy: no-referrer');
+    header('Cache-Control: private, max-age=0, must-revalidate');
+    header('Pragma: no-cache');
+    header('Accept-Ranges: none');
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+        readfile($full);
+    }
+    exit;
 }
 
 /**

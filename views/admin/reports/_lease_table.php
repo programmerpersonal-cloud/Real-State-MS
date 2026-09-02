@@ -51,14 +51,14 @@ $ltMoney = static fn($ltV): string => (float) $ltV > 0
 ?>
 <div class="table-card<?= $ltAttention ? ' fd' : '' ?>">
     <div class="table-head">
-        <div class="table-head__title">
+        <h4 class="table-head__title">
             <?php if ($ltAttention): ?>
                 <i class="bi bi-exclamation-triangle fd__icon" aria-hidden="true"></i>
                 Lease attention queue
             <?php else: ?>
                 Active rental portfolio
             <?php endif ?>
-        </div>
+        </h4>
         <span class="table-head__note">
             <?php if ($ltAttention): ?>
                 Expired or ending within 60 days · soonest first
@@ -115,7 +115,7 @@ $ltMoney = static fn($ltV): string => (float) $ltV > 0
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $ltR['property_id']) ?>">
                                     <?= sanitize((string) $ltR['property_title']) ?>
                                 </a>
-                                <div class="tp-code"><?= sanitize((string) $ltR['lease_code']) ?></div>
+                                <div class="tp-code tp-code--id"><?= sanitize((string) $ltR['lease_code']) ?></div>
                             </td>
                             <td class="col-mid">
                                 <?= !empty($ltR['tenant_name'])

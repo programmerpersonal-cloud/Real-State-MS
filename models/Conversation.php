@@ -158,6 +158,7 @@ class Conversation
                    me.archived_at, me.last_read_message_id, me.last_read_at,
                    other.id AS other_user_id, other.full_name AS other_user_name,
                    other.avatar AS other_user_avatar,
+                   other.last_seen_at AS other_last_seen,
                    other_role.name AS other_user_role,
                    other_role.display_name AS other_user_role_label,
                    p.title AS property_title, p.property_code,
@@ -255,7 +256,8 @@ class Conversation
     public function participants(int $conversationId): array
     {
         $stmt = $this->db->prepare("
-            SELECT cp.*, u.full_name, u.email, u.avatar, u.is_active AS user_is_active,
+            SELECT cp.*, u.full_name, u.email, u.phone, u.avatar, u.is_active AS user_is_active,
+                   u.last_seen_at,
                    r.name AS role, r.display_name AS role_label
             FROM conversation_participants cp
             JOIN users u ON cp.user_id = u.id

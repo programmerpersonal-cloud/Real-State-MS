@@ -38,6 +38,17 @@ class SettingsController
         ],
     ];
 
+    /**
+     * Setting groups this screen does not draw.
+     *
+     * `backup` is edited on Backup Settings, which also owns the schedule
+     * rows that live in a table of their own. Rendering the same keys here as
+     * loose text fields would give one setting two edit surfaces with
+     * different validation — and the one on this screen would be the wrong
+     * one, because it cannot recompute next_run_at after a change.
+     */
+    private const HIDDEN_GROUPS = ['backup'];
+
     /** Currency presets — value => [name, symbol]. */
     public const CURRENCIES = [
         'USD' => ['US Dollar', '$'],
@@ -151,6 +162,9 @@ class SettingsController
         $updated = null;
 
         foreach ($rows as $r) {
+            if (in_array($r['setting_group'], self::HIDDEN_GROUPS, true)) {
+                continue;
+            }
             $grouped[$r['setting_group']][] = $r;
             if (!empty($r['updated_at']) && $r['updated_at'] > $updated) {
                 $updated = $r['updated_at'];
@@ -195,9 +209,17 @@ class SettingsController
         $db     = getDBConnection();
         $schema = self::schema();
 
-        // Only keys that already exist in the table may be written.
+        // Only keys that already exist in the table may be written — and only
+        // keys this screen actually renders. A hidden group is skipped on the
+        // way in as well as on the way out: a form field this page never drew
+        // must not be writable by adding it to the POST body, or "edited
+        // somewhere else" quietly becomes "editable from both places".
+        $hidden = "'" . implode("','", self::HIDDEN_GROUPS) . "'";
         $current = [];
-        foreach ($db->query("SELECT setting_key, setting_value FROM settings")->fetchAll() as $r) {
+        foreach ($db->query("
+            SELECT setting_key, setting_value FROM settings
+             WHERE setting_group NOT IN ({$hidden})
+        ")->fetchAll() as $r) {
             $current[$r['setting_key']] = (string)($r['setting_value'] ?? '');
         }
 

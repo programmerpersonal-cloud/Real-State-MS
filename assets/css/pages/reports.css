@@ -13,39 +13,194 @@
    the charts all move together.
 
    The look is the brief's: calm, dense, executive. Depth comes from
-   hairline borders and the existing two-layer shadow scale rather
+   hairline borders and the existing five-step shadow scale rather
    than from gradients, and the only colour that carries meaning is
    the semantic status ramp the rest of the product already uses.
+
+   Phase 8 rewrote it around four ideas that were missing:
+
+     hierarchy   a report is now sections, not a stack of cards, and
+                 the row directly under the KPIs is drawn taller than
+                 the rows below it
+     restraint   colour was removed from anything that was only
+                 decorating -- the KPI icon chips, the identical
+                 amber rows in the diagnostics panel -- and spent
+                 where it means something instead
+     one rhythm  three chart heights, one card inset, one radius, one
+                 gap. Two cards side by side now line up
+     honesty     an unavailable measure looks unavailable, a critical
+                 record looks different from a note, and neither of
+                 those distinctions is carried by hue alone
    ================================================================ */
 
-/* ─── Toolbar ────────────────────────────────────────────
-   One band above the reports carrying period, comparison and
-   filters. Compact on purpose: every pixel it takes is a pixel of
-   figures the reader does not see, and this is a screen people keep
-   open beside a spreadsheet. */
+
+/* ═══ 1 · The report shell ═══════════════════════════════════════ */
+
+.report{display:block;min-width:0}
+.report__body{min-width:0}
+
+
+/* ═══ 2 · Report tabs ════════════════════════════════════════════
+   A recessed track with the active report raised out of it. The
+   active state used to be an underlined word, which at a glance was
+   indistinguishable from the seven words either side of it; a chip in
+   the surface colour of the cards below, lifted by one step of the
+   shadow scale and marked with a hairline accent, reads from across a
+   desk without becoming a heavy filled block.
+
+   The track scrolls horizontally rather than wrapping. Eight reports
+   wrapped to two lines pushed the whole page down on a laptop, and
+   these are navigation: one line that slides is the pattern the rest
+   of the product already uses for register tabs. */
+.rtabs{
+  margin-bottom:var(--space-4);
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  /* The track must not clip the focus ring of the chip inside it. */
+  padding:2px;
+}
+.rtabs::-webkit-scrollbar{display:none}
+.rtabs__list{
+  display:flex;align-items:center;gap:2px;
+  list-style:none;margin:0;padding:4px;
+  min-width:max-content;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.rtabs__item{flex:0 0 auto;min-width:0}
+
+/* One hairline, after Overview. The only division the eight reports
+   honestly support: the executive summary, then the detail. */
+.rtabs__sep{
+  flex:0 0 auto;width:1px;height:18px;
+  margin:0 var(--space-2);
+  background:var(--border-strong);
+}
+
+.rtabs__link{
+  display:inline-flex;align-items:center;gap:7px;
+  height:var(--control-h-sm);padding:0 13px;
+  border-radius:var(--radius-sm);
+  border:1px solid transparent;
+  font-size:var(--fs-xs);font-weight:600;white-space:nowrap;
+  color:var(--text-muted);
+  transition:background var(--transition),color var(--transition),
+             border-color var(--transition),box-shadow var(--transition);
+}
+.rtabs__link i{font-size:.95em;opacity:.72;transition:opacity var(--transition)}
+.rtabs__link:hover{color:var(--text);background:var(--surface)}
+.rtabs__link:hover i{opacity:1}
+.rtabs__link:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.rtabs__link.is-active{
+  background:var(--surface);
+  color:var(--primary-ink);
+  border-color:var(--primary-border);
+  box-shadow:var(--shadow-xs);
+}
+.rtabs__link.is-active i{opacity:1;color:var(--primary)}
+
+
+/* ═══ 3 · Report masthead ════════════════════════════════════════
+   Which report, what it is for, and exactly what it is showing —
+   the three things a reader needs before the first figure, in one
+   band directly above the figures. */
+.rhead{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--space-5);flex-wrap:wrap;
+  margin-bottom:var(--space-3);
+}
+.rhead__lead{display:flex;align-items:flex-start;gap:var(--space-3);min-width:0;flex:1 1 320px}
+
+/* The one icon on the report. It identifies the active report at the
+   same size the tab strip does, which is why it survived the cull
+   that took the icon off every KPI tile. */
+.rhead__mark{
+  flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:var(--control-h);height:var(--control-h);border-radius:var(--radius-sm);
+  background:var(--primary-tint);color:var(--primary);
+  border:1px solid var(--primary-border);
+  font-size:1.05rem;
+}
+.rhead__titles{min-width:0}
+.rhead__title{
+  font-size:calc(var(--fs-title) * 1.25);font-weight:700;color:var(--text);
+  line-height:var(--lh-tight);letter-spacing:-.015em;
+}
+.rhead__lede{
+  margin-top:3px;
+  font-size:var(--fs-xs);color:var(--text-muted);
+  line-height:var(--lh-snug);max-width:74ch;
+}
+
+/* A description list, not a row of chips: each entry is a term and
+   its value, which is what a screen reader should be told. */
+.rhead__context{
+  display:flex;align-items:stretch;gap:var(--space-5);
+  flex-wrap:wrap;flex:0 1 auto;
+  padding:var(--space-2) 0;
+}
+.rhead__ctx{min-width:0;display:flex;flex-direction:column;gap:2px}
+.rhead__ctx + .rhead__ctx{padding-left:var(--space-5);border-left:1px solid var(--border)}
+.rhead__ctx-term{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-muted);
+}
+.rhead__ctx-value{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rhead__ctx-lead{
+  font-size:var(--fs-xs);font-weight:600;color:var(--text);
+  display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;
+}
+.rhead__ctx-sub{
+  font-size:var(--fs-2xs);color:var(--text-muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.rhead__partial{
+  font-size:var(--fs-2xs);font-weight:600;
+  color:var(--warning);background:var(--warning-bg);
+  border:1px solid color-mix(in srgb,var(--warning) 24%,transparent);
+  border-radius:var(--radius-pill);padding:1px 7px;
+}
+.rhead__ctx--compare .rhead__ctx-lead{color:var(--primary-ink)}
+
+/* Print only — see the note in _report_header.php. */
+.rhead__stamp{display:none}
+
+
+/* ═══ 4 · Toolbar ════════════════════════════════════════════════
+   One band of controls and nothing else. It used to end with a
+   paragraph restating the period it had just been used to set; that
+   statement is in the masthead now, and what is left here is compact
+   enough to sit on one row at laptop width. */
 .rtoolbar{
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:var(--card-radius);
   box-shadow:var(--shadow-xs);
   padding:var(--space-3) var(--card-pad-x);
-  margin-bottom:var(--space-3);
+  margin-bottom:var(--space-4);
 }
-.rtoolbar__row{
-  display:flex;align-items:center;gap:var(--space-3);
+.rtoolbar__main{
+  display:flex;align-items:center;gap:var(--space-4);
   flex-wrap:wrap;
 }
-.rtoolbar__row--filters{
-  margin-top:var(--space-3);padding-top:var(--space-3);
-  border-top:1px solid var(--border);
-  align-items:flex-start;
-}
 .rtoolbar__group{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-width:0}
-.rtoolbar__actions{display:flex;align-items:center;gap:var(--space-2);margin-left:auto;flex-wrap:wrap}
+.rtoolbar__actions{
+  display:flex;align-items:center;gap:var(--space-2);
+  margin-left:auto;flex-wrap:wrap;
+}
 .rtoolbar__legend{
   font-size:var(--fs-2xs);font-weight:700;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--text-muted);flex-shrink:0;
+  text-transform:uppercase;color:var(--text-subtle);
 }
+.rtoolbar__chips{
+  margin-top:var(--space-3);padding-top:var(--space-3);
+  border-top:1px solid var(--border);
+}
+.rtoolbar__chips .filter-chips{margin:0}
+
 
 /* ─── Range selector ─────────────────────────────────────
    A segmented control of real links. Eight of them is a lot for one
@@ -103,6 +258,11 @@
   border-radius:var(--radius);box-shadow:var(--shadow-lg);
   padding:var(--space-4);
 }
+.rrange__title,.rfilters__title{
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-subtle);
+  margin-bottom:var(--space-3);
+}
 .rrange__fields{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
 .rrange__hint{
   margin-top:var(--space-2);
@@ -114,141 +274,117 @@
   border-top:1px solid var(--border);
 }
 
+
 /* ─── Compare toggle ─────────────────────────────────────
    A switch built from a link, so the comparison lives in the URL and
-   survives a bookmark. The knob is the only moving part on the page;
+   survives a bookmark. The knob is the only moving part on the bar;
    it slides on the shared --dur-fast, and reduced-motion turns even
-   that off through the global rule in responsive.css. */
+   that off at the foot of this file. */
 .rtoggle{
   display:inline-flex;align-items:center;gap:9px;
-  height:var(--control-h-sm);padding:0 12px 0 10px;
+  height:var(--control-h);padding:0 13px;
   border:1px solid var(--border-strong);border-radius:var(--radius-sm);
   background:var(--surface);color:var(--text-muted);
-  font-size:var(--fs-2xs);font-weight:600;white-space:nowrap;
-  transition:border-color var(--transition),color var(--transition),background var(--transition);
+  font-size:var(--fs-xs);font-weight:600;white-space:nowrap;
+  transition:border-color var(--transition),color var(--transition),
+             background var(--transition);
 }
 .rtoggle:hover{border-color:var(--text-muted);color:var(--text)}
 .rtoggle:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .rtoggle__track{
-  position:relative;flex:0 0 auto;width:28px;height:16px;
-  border-radius:var(--radius-pill);background:var(--border-strong);
-  transition:background var(--transition);
+  position:relative;flex:0 0 auto;
+  width:28px;height:16px;border-radius:var(--radius-pill);
+  background:var(--surface-3);border:1px solid var(--border-strong);
+  transition:background var(--transition-fast),border-color var(--transition-fast);
 }
 .rtoggle__knob{
-  position:absolute;top:2px;left:2px;width:12px;height:12px;
-  border-radius:50%;background:var(--surface);box-shadow:var(--shadow-xs);
-  transition:transform var(--dur-fast) var(--ease-standard);
+  position:absolute;top:1px;left:1px;
+  width:12px;height:12px;border-radius:50%;
+  background:var(--surface);box-shadow:var(--shadow-xs);
+  transition:transform var(--transition-fast);
 }
 .rtoggle.is-on{color:var(--primary-ink);border-color:var(--primary-border);background:var(--primary-tint)}
-.rtoggle.is-on .rtoggle__track{background:var(--primary)}
+.rtoggle.is-on .rtoggle__track{background:var(--primary);border-color:var(--primary)}
 .rtoggle.is-on .rtoggle__knob{transform:translateX(12px)}
 
-/* ─── Filters row ────────────────────────────────────────
-   The popover itself is components.css's .toolbar__filters, reused
-   rather than reinvented, so the filter panel here behaves exactly
-   like the one on every register in the application. */
 .rfilters{flex:0 0 auto}
-.rtoolbar__row--filters .filter-chips{margin:0;flex:1 1 260px;min-width:0}
+.rtoolbar__print{white-space:nowrap}
 
-/* ─── Period statement ───────────────────────────────────
-   What the reader is actually looking at, in words, under the
-   controls. A dashboard that shows a figure without stating its
-   period is asking to be misread, and the toolbar's own state is not
-   an answer once the page has been printed or screenshotted. */
-.rtoolbar__period{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  margin-top:var(--space-3);padding-top:var(--space-3);
-  border-top:1px solid var(--border);
-  font-size:var(--fs-2xs);color:var(--text-muted);
-}
-.rtoolbar__period strong{color:var(--text);font-weight:600}
-.rtoolbar__period > i{color:var(--text-subtle)}
-.rtoolbar__dates{font-variant-numeric:tabular-nums}
-.rtoolbar__partial{
-  display:inline-block;margin-left:4px;padding:1px 6px;
-  border-radius:var(--radius-pill);background:var(--surface-3);
-  color:var(--text-subtle);font-size:var(--fs-2xs);font-weight:600;
-}
-.rtoolbar__vs{
-  padding-left:8px;border-left:1px solid var(--border);
-  font-variant-numeric:tabular-nums;
-}
-.rtoolbar__days{color:var(--text-subtle)}
 
-/* ─── Report tabs ────────────────────────────────────────
-   Eight destinations. A row of underlined links rather than pills:
-   at eight items pills become a wall of boxes, and the underline
-   carries the active state with far less ink. */
-.rtabs{
-  border-bottom:1px solid var(--border);
+/* ═══ 5 · Section headings ═══════════════════════════════════════
+   A report is sections now, not a stack of cards. The label is set in
+   body type at full weight and given room above it — no rule, no
+   band, no divider. Eight reports of five sections each would be
+   forty horizontal lines, which is how a page stops being calm. */
+.rsection{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  gap:var(--space-4);flex-wrap:wrap;
+  margin:var(--space-8) 0 var(--space-3);
+}
+.report__body > .rsection:first-of-type{margin-top:var(--space-2)}
+.rsection__lead{min-width:0}
+.rsection__title{
+  font-size:var(--fs-body);font-weight:700;color:var(--text);
+  letter-spacing:-.01em;line-height:var(--lh-tight);
+}
+.rsection__desc{
+  margin-top:3px;
+  font-size:var(--fs-xs);color:var(--text-muted);
+  line-height:var(--lh-snug);max-width:80ch;
+}
+.rsection__meta{flex:0 0 auto;font-size:var(--fs-2xs);color:var(--text-muted)}
+
+
+/* ═══ 6 · Reading notes ══════════════════════════════════════════
+   "What moves with the period and what does not" — the paragraph
+   several reports need before their figures make sense. It was
+   borrowing the muted notice component, which is a *message* about
+   something that just happened; this is a standing explanation, so it
+   is drawn as a quiet panel rather than as an alert. */
+.rnote{
+  display:flex;align-items:flex-start;gap:var(--space-3);
+  padding:var(--space-3) var(--card-pad-x);
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--card-radius);
   margin-bottom:var(--space-4);
-  /* Scrolls on narrow screens rather than wrapping: eight reports wrapped
-     onto three lines turn the navigation into a paragraph, and the active
-     one ends up somewhere in the middle of it. The list below is
-     min-width:max-content so the strip scrolls inside this box instead of
-     widening the page — which is what keeps the workspace free of
-     horizontal overflow at 375px. */
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
+  font-size:var(--fs-xs);color:var(--text-muted);
+  line-height:var(--lh-snug);
 }
-.rtabs::-webkit-scrollbar{display:none}
-.rtabs__list{display:flex;gap:0;list-style:none;margin:0;padding:0;min-width:max-content}
-.rtabs__item{flex:0 0 auto}
-.rtabs__link{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:11px 14px;margin-bottom:-1px;
-  border-bottom:2px solid transparent;
-  font-size:var(--fs-xs);font-weight:500;color:var(--text-muted);
-  white-space:nowrap;
-  transition:color var(--transition),border-color var(--transition),background var(--transition);
-}
-.rtabs__link i{font-size:.95em;opacity:.8}
-.rtabs__link:hover{color:var(--text);background:var(--surface-2)}
-.rtabs__link:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;border-radius:var(--radius-xs)}
-.rtabs__link.is-active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
-.rtabs__link.is-active i{opacity:1}
+.rnote__icon{flex:0 0 auto;color:var(--text-muted);font-size:.95rem;margin-top:1px}
+.rnote__body{min-width:0;max-width:100ch}
+.rnote__title{font-size:var(--fs-xs);font-weight:700;color:var(--text);margin-bottom:3px}
+.rnote strong{color:var(--text);font-weight:600}
+.rnote--info{background:var(--info-bg);border-color:color-mix(in srgb,var(--info) 20%,transparent)}
+.rnote--info .rnote__icon{color:var(--info)}
 
-/* ─── Report body ────────────────────────────────────────*/
-.report__intro{margin-bottom:var(--space-4)}
-.report__heading{
-  display:flex;align-items:center;gap:9px;
-  font-size:var(--fs-title);font-weight:700;color:var(--text);
-  font-family:var(--font);letter-spacing:0;
-}
-.report__heading i{color:var(--text-subtle);font-size:.95em}
-.report__blurb{
-  margin-top:3px;font-size:var(--fs-xs);color:var(--text-muted);
-  max-width:70ch;
-}
 
-/* ─── KPI grid ───────────────────────────────────────────
-   Its own grid rather than .stats, because these tiles carry a delta
-   line and a sparkline and need more vertical room than the register
-   stat cards do. auto-fit with a 220px floor: four across on a
-   desktop, two on a tablet, two on a phone. */
+/* ═══ 7 · KPI grid ═══════════════════════════════════════════════
+   The number first. Phase 8 took the coloured icon chip off every
+   tile — eight of them made a row of badges with figures inside —
+   and spends the tone on the two things that carry meaning: the
+   sparkline, and the ground of a tile that needs acting on. */
 .kpis{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));
-  gap:var(--space-3);
+  display:grid;gap:var(--space-3);
+  grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));
   margin-bottom:var(--space-4);
 }
+.kpis--five{grid-template-columns:repeat(auto-fit,minmax(min(184px,100%),1fr))}
+.kpis--six{grid-template-columns:repeat(auto-fit,minmax(min(168px,100%),1fr))}
+
 .kpi{
-  position:relative;overflow:hidden;
-  display:flex;flex-direction:column;gap:6px;
-  padding:var(--space-4) var(--card-pad-x) var(--space-5);
+  --kpi-tone:var(--primary);
+  position:relative;display:flex;flex-direction:column;gap:var(--space-2);
+  min-width:0;overflow:hidden;
+  /* The bottom inset clears the sparkline band beneath it, so the
+     baseline line and a 30px wash never sit on top of one another. */
+  padding:var(--space-4) var(--card-pad-x) var(--space-8);
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:var(--card-radius);
   box-shadow:var(--shadow-xs);
-  transition:border-color var(--transition),box-shadow var(--transition);
-}
-/* The tone rides on a hairline at the top rather than on the whole
-   card. A grid of four fully tinted tiles is a colour chart; a grid of
-   four white cards with a 2px marker is a report. */
-.kpi::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:2px;
-  background:var(--kpi-tone,var(--primary));
+  transition:box-shadow var(--transition),border-color var(--transition),
+             transform var(--transition);
 }
 .kpi--primary{--kpi-tone:var(--primary)}
 .kpi--success{--kpi-tone:var(--success)}
@@ -257,179 +393,234 @@
 .kpi--danger{--kpi-tone:var(--danger)}
 .kpi--purple{--kpi-tone:var(--purple)}
 
+/* A tile that wants acting on. Tinted ground, tinted hairline and the
+   one icon on the tile — restrained enough not to shout across a row
+   of six, distinct enough that it is the first thing found. */
+.kpi--alert{background:var(--warning-bg);border-color:color-mix(in srgb,var(--warning) 24%,transparent)}
+.kpi--danger.kpi--alert{background:var(--danger-bg);border-color:color-mix(in srgb,var(--danger) 24%,transparent)}
+
 .kpi--link{cursor:pointer}
 .kpi--link:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm)}
 .kpi--link:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 
-.kpi__top{display:flex;align-items:center;gap:8px;min-width:0}
-.kpi__icon{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:26px;height:26px;flex:0 0 auto;
-  border-radius:var(--radius-xs);
-  background:color-mix(in srgb,var(--kpi-tone) 12%,transparent);
-  color:var(--kpi-tone);font-size:.85rem;
-}
 .kpi__label{
+  /* Top-aligned, so a one-line label and a two-line one start on the same
+     baseline rather than floating in the middle of the reserved box. */
+  display:flex;align-items:flex-start;gap:7px;min-width:0;
   font-size:var(--fs-2xs);font-weight:700;letter-spacing:.05em;
   text-transform:uppercase;color:var(--text-muted);
-  overflow-wrap:anywhere;min-width:0;
+  line-height:var(--lh-snug);
+  /* Two lines' worth, whether the label needs them or not. Six tiles in a
+     row where two labels wrap put four figures on one baseline and two on
+     another, and a KPI row that does not line up is harder to scan than one
+     with a little air in it. The tiles are equal-height grid items, so on
+     any row where a label does wrap this costs nothing at all. */
+  min-height:calc(var(--fs-2xs) * var(--lh-snug) * 2);
 }
-/* Tabular figures: without them a grid of four money tiles jitters
-   its decimal points as the numbers change width. */
+.kpi__label-icon{color:var(--kpi-tone);font-size:.9rem;flex:0 0 auto;line-height:var(--lh-snug)}
+
+.kpi__figure{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
 .kpi__value{
-  font-size:1.65rem;font-weight:700;color:var(--text);
-  line-height:var(--lh-tight);font-variant-numeric:tabular-nums;
+  font-family:var(--font-display);
+  font-size:calc(var(--fs-page) * 0.9);font-weight:700;line-height:1.08;
+  letter-spacing:-.025em;color:var(--text);
+  font-variant-numeric:tabular-nums;
   overflow-wrap:anywhere;
 }
-.kpi__context{font-size:var(--fs-2xs);color:var(--text-subtle);line-height:var(--lh-snug)}
+.kpis--five .kpi__value{font-size:calc(var(--fs-page) * 0.82)}
+.kpis--six .kpi__value{font-size:calc(var(--fs-page) * 0.76)}
 
-/* Direction is stated three ways — glyph, words and colour — so it
-   survives greyscale printing, colour blindness and a screen reader.
-   The colour is the least of the three. */
-.kpi__delta{
-  display:inline-flex;align-items:center;gap:5px;
-  margin-top:2px;font-size:var(--fs-2xs);font-weight:600;
+/* An unavailable measure must not look like a measured zero, so it is
+   not set as a figure at all — different family, different size, muted. */
+.kpi--unavailable .kpi__value{
+  font-family:var(--font);
+  font-size:var(--fs-sm);font-weight:600;letter-spacing:0;
+  color:var(--text-subtle);
 }
-.kpi__delta--up{color:var(--success)}
-.kpi__delta--down{color:var(--danger)}
-.kpi__delta--flat{color:var(--text-subtle)}
-.kpi__previous{font-size:var(--fs-2xs);color:var(--text-subtle);font-variant-numeric:tabular-nums}
+
+/* Movement. Neutral unless the caller declared which way is good —
+   see the docblock in _kpi.php. The arrow and the wording carry the
+   direction on their own; the tint only reinforces it. */
+.kpi__delta{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 7px;border-radius:var(--radius-pill);
+  font-size:var(--fs-2xs);font-weight:700;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+  max-width:100%;
+  background:var(--surface-3);color:var(--text-muted);
+  border:1px solid var(--border);
+}
+.kpi__delta i{font-size:.72rem}
+.kpi__delta--good{background:var(--success-bg);color:var(--success);border-color:color-mix(in srgb,var(--success) 22%,transparent)}
+.kpi__delta--bad{background:var(--danger-bg);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 22%,transparent)}
+
+.kpi__context{
+  font-size:var(--fs-2xs);color:var(--text-muted);
+  line-height:var(--lh-snug);
+}
+.kpi__baseline{
+  font-size:var(--fs-2xs);color:var(--text-subtle);
+  font-variant-numeric:tabular-nums;line-height:var(--lh-snug);
+}
+.kpi__baseline-diff{font-weight:600;color:var(--text-muted)}
+.kpi--alert .kpi__baseline{color:var(--text-muted)}
 .kpi__from{opacity:.75}
 
+/* Decorative, and hidden from assistive technology because everything
+   it draws is stated in words on the tile. */
 .kpi__spark{
-  position:absolute;right:0;bottom:0;left:0;
-  width:100%;height:26px;
-  color:var(--kpi-tone);opacity:.28;pointer-events:none;
+  position:absolute;left:0;right:0;bottom:0;
+  width:100%;height:30px;
+  color:var(--kpi-tone);opacity:.38;
+  pointer-events:none;
 }
+.kpi__spark-area{fill:currentColor;opacity:.12;stroke:none}
 
-/* Five KPIs across, where five is what the report actually has. The floor
-   drops to 180px rather than the four-up 220px, because five cards in the
-   same column need the extra room — and min() keeps a narrow container from
-   overflowing instead of shrinking, which a bare minmax floor would do. */
-.kpis--five{grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))}
-/* Six across on a wide screen, and the floor drops again to make room. The
-   min() is what stops a narrow container overflowing rather than shrinking. */
-.kpis--six{grid-template-columns:repeat(auto-fit,minmax(min(165px,100%),1fr))}
 
-/* ─── Financial comparison ───────────────────────────────
-   A table, because the question is arithmetic. Figures are tabular so the
-   columns line up down the page rather than drifting with glyph widths. */
-.fcomp__table{--cell-y:10px}
-.fcomp__table .cell-num{font-variant-numeric:tabular-nums}
-.fcomp__now{font-weight:600;color:var(--text)}
-.fcomp__note{
-  margin-top:3px;font-size:var(--fs-2xs);color:var(--text-subtle);
-  font-weight:400;line-height:var(--lh-snug);max-width:46ch;
-}
-.fcomp__na{text-align:left;font-size:var(--fs-2xs)}
-.fcomp__delta{
-  display:inline-flex;align-items:center;gap:3px;
-  font-weight:600;white-space:nowrap;
-}
-.fcomp__delta--up{color:var(--success)}
-.fcomp__delta--down{color:var(--danger)}
-.fcomp__delta--flat{color:var(--text-subtle)}
+/* ═══ 8 · Grids, cards and charts ════════════════════════════════ */
 
-/* ─── Cards and grids ────────────────────────────────────*/
-.rgrid{display:grid;gap:var(--space-3);margin-bottom:var(--space-4)}
-/* min() rather than a bare floor on both. `minmax(340px,1fr)` does not mean
-   "at least 340px if there is room" — it means 340px, and a container
-   narrower than that overflows the page rather than shrinking. The media
-   query below collapses these to one column well before that, and the min()
-   is the belt to its braces at widths nobody has thought of yet. */
+.rgrid{display:grid;gap:var(--space-3);margin-bottom:var(--space-4);min-width:0}
+/* minmax() with a bare floor overflows rather than shrinking below it;
+   min() gives the track permission to be narrower than the floor when
+   the column itself is. */
 .rgrid--wide{grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))}
-.rgrid--thirds{grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))}
 
 .rcard{display:flex;flex-direction:column;min-width:0}
-.rcard .card__body{flex:1}
+.rcard .card__body{flex:1;display:flex;flex-direction:column}
 .rcard__titles{min-width:0}
+.rcard .card__title{font-family:var(--font-display)}
 .rcard__actions{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0}
 
-/* The chart's box is reserved before Chart.js draws into it, so the
-   page does not reflow as the canvas comes up. This is the whole of
-   the CLS story on a server-rendered page: there is no async gap to
-   skeleton over, only a paint to leave room for. */
-.rchart{position:relative;height:var(--rchart-h,190px);min-width:0}
+/* Three heights and no others — see the note in _chart_card.php. The
+   card reserves the box before Chart.js draws into it, so the page
+   does not reflow as the library comes up. */
+.rchart{position:relative;height:var(--rchart-h,230px);min-width:0}
+/* Chart.js writes width and height as inline styles on every resize, and
+   an inline style cannot be beaten by a selector. This is the one
+   !important outside the print block, and it is the library's doing. */
 .rchart canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
 
-/* ─── The data behind a chart ────────────────────────────
-   Not a fallback — part of the card. A chart alone cannot be read by
-   a screen reader, does not survive a printed page and cannot be
-   copied into an email. */
-.rdata{margin-top:var(--space-3);border-top:1px solid var(--border);padding-top:var(--space-2)}
+/* The foot of a chart card: the sentence that says what the picture
+   adds up to, and the same figures as a table one click away. */
+.rcard__foot{
+  margin-top:auto;padding-top:var(--space-3);
+  border-top:1px solid var(--border);
+}
+.rchart__summary{
+  font-size:var(--fs-2xs);color:var(--text-muted);
+  line-height:var(--lh-snug);font-variant-numeric:tabular-nums;
+  margin-bottom:var(--space-2);
+}
+.rdata{margin:0}
 .rdata__toggle{
   display:inline-flex;align-items:center;gap:6px;
-  font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);
-  cursor:pointer;list-style:none;padding:4px 0;
+  font-size:var(--fs-2xs);font-weight:600;color:var(--text-subtle);
+  cursor:pointer;list-style:none;user-select:none;
+  /* WCAG 2.2 target size: measured at 95x23 with the padding it had,
+     which is one pixel short of the 24px minimum. */
+  padding:3px 0;min-height:24px;
+  transition:color var(--transition);
 }
 .rdata__toggle::-webkit-details-marker{display:none}
 .rdata__toggle::marker{content:""}
 .rdata__toggle:hover{color:var(--primary)}
 .rdata__toggle:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:var(--radius-xs)}
+.rdata[open] .rdata__toggle{color:var(--text-muted);margin-bottom:var(--space-2)}
 .rdata__table{--cell-y:7px;--cell-x:10px;font-size:var(--fs-2xs)}
 .rdata__table .cell-num{font-variant-numeric:tabular-nums}
 
-/* A caveat that qualifies the chart above it. Always visible rather than
-   behind the table toggle: what a number excludes is part of reading it. */
+/* A caveat that qualifies what a chart means is part of reading it,
+   so it is always visible and never behind the table toggle. */
 .rcard__footnote{
-  margin-top:var(--space-3);padding-top:var(--space-2);
-  border-top:1px solid var(--border);
+  margin-top:var(--space-3);
+  padding-top:var(--space-3);border-top:1px solid var(--border);
   font-size:var(--fs-2xs);color:var(--text-subtle);
   line-height:var(--lh-snug);
 }
 
-/* ─── Top performing properties ──────────────────────────
-   A ranking, so the rank column is narrow and the money column is the
-   one the eye lands on. Both are tabular so the digits line up down
-   the column rather than drifting with the glyph widths. */
-.tp-rank{
-  width:1%;white-space:nowrap;
-  font-variant-numeric:tabular-nums;
-  color:var(--text-subtle);font-weight:700;
+
+/* ═══ 9 · Tables inside a report ═════════════════════════════════
+   The register components do the work; this is the handful of rules
+   that make an analytics table read as part of the workspace. */
+.report .table-card{box-shadow:var(--shadow-xs);margin-bottom:var(--space-4)}
+.report .table-head__title{font-family:var(--font-display);font-size:var(--fs-sm)}
+.report .table thead th{
+  font-size:var(--fs-2xs);letter-spacing:.04em;
+  background:var(--surface-2);
 }
+.report .table tfoot th,.report .table tfoot td{
+  background:var(--surface-2);font-weight:600;
+  border-top:1px solid var(--border-strong);
+}
+/* Row headers are identity, not data: they read at text weight and
+   stay left-aligned however many numeric columns follow them. */
+.report .table tbody th[scope=row]{font-weight:500;text-align:left;color:var(--text)}
+.report .table-foot__note strong{color:var(--text)}
+
+
+/* ═══ 10 · Financial comparison ══════════════════════════════════ */
+.fcomp__table{--cell-y:10px}
+.fcomp__table .cell-num{font-variant-numeric:tabular-nums}
+.fcomp__now{font-weight:600;color:var(--text)}
+.fcomp__note{
+  font-size:var(--fs-2xs);color:var(--text-subtle);
+  font-weight:400;display:block;margin-top:2px;
+}
+.fcomp__na{text-align:left;font-size:var(--fs-2xs)}
+.fcomp__delta{
+  display:inline-flex;align-items:center;gap:4px;
+  font-weight:600;font-variant-numeric:tabular-nums;
+}
+.fcomp__delta--up{color:var(--success)}
+.fcomp__delta--down{color:var(--danger)}
+.fcomp__delta--flat{color:var(--text-subtle)}
+
+
+/* ═══ 11 · Ranked property tables ════════════════════════════════ */
+/* A column class: narrow, and tabular so the digits line up down it. */
+.tp-rank{width:1%;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tp-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:22px;height:22px;padding:0 5px;
+  border-radius:var(--radius-sm);
+  background:var(--surface-3);color:var(--text-muted);
+  border:1px solid var(--border);
+  font-size:var(--fs-2xs);font-weight:700;font-variant-numeric:tabular-nums;
+}
+/* The leader is marked and the rest are numbered. A three-colour podium
+   would be a ranking of a difference this ledger cannot support. */
+.tp-badge--first{background:var(--primary-tint);color:var(--primary-ink);border-color:var(--primary-border)}
 .tp-name{font-weight:600;color:var(--text)}
 .tp-name:hover{color:var(--primary)}
+/* The small line under a record's name. Prose by default -- five phases
+   reused it for "Apartment", "3 overdue" and "over a fortnight", and a
+   monospaced sentence reads as a machine identifier. --id is the family
+   for the things that really are codes. */
 .tp-code{
-  margin-top:2px;font-family:var(--font-mono);
   font-size:var(--fs-2xs);color:var(--text-subtle);
+  margin-top:2px;line-height:var(--lh-snug);
 }
+.tp-code--id{font-family:var(--font-mono);letter-spacing:-.01em}
 .tp-cat-icon{color:var(--text-subtle);margin-right:5px}
 .tp-money{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text)}
 
-/* Totals row. Heavier ground and a rule above it, so it reads as a sum of the
-   rows rather than as one more of them. */
-.table tfoot th,.table tfoot td{
-  background:var(--surface-2);
-  border-top:2px solid var(--border-strong);
-  font-weight:700;color:var(--text);
-}
 
-/* ─── Payments · transaction table ───────────────────────
-   The row-level flag. Small and quiet, but carrying a word as well as a
-   tint, because the condition it marks — a payment type that disagrees
-   with the contract it was taken against — is one a reader must not skim
-   past. Future-dated rows have no badge here: they cannot appear in a
-   windowed table at all, and have their own panel instead. */
+/* ═══ 12 · Payments ══════════════════════════════════════════════ */
 .pr-date{white-space:nowrap;font-variant-numeric:tabular-nums}
 .pr-flag{
-  display:inline-block;margin-left:6px;padding:1px 7px;
-  border-radius:var(--radius-pill);
-  font-size:var(--fs-2xs);font-weight:600;line-height:1.5;
-  white-space:nowrap;vertical-align:middle;
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:var(--fs-2xs);font-weight:600;
+  padding:2px 7px;border-radius:var(--radius-pill);
 }
 .pr-flag--mismatch{
-  background:var(--info-bg);color:var(--info);
-  border:1px solid color-mix(in srgb,var(--info) 28%,transparent);
+  background:var(--warning-bg);color:var(--warning);
+  border:1px solid color-mix(in srgb,var(--warning) 26%,transparent);
 }
-
-/* ─── Payments · classification matrix ───────────────────*/
 .pclass__table{--cell-y:9px;font-size:var(--fs-xs)}
 .pclass__table .cell-num{font-variant-numeric:tabular-nums}
 
-/* ─── Payments · future-dated panel ──────────────────────
-   Amber, and no stronger. These records are not overdue and not failed —
-   they are dated ahead, which is a question rather than a fault, and a
-   red panel would accuse the ledger of something it has not done. */
+/* Records the approved definition deliberately holds out of the
+   totals. Amber hairline so it is findable, not alarming. */
 .fd{border-color:color-mix(in srgb,var(--warning) 26%,transparent)}
 .fd__icon{color:var(--warning);margin-right:6px}
 .fd__lede{
@@ -438,80 +629,145 @@
   border-bottom:1px solid color-mix(in srgb,var(--warning) 20%,transparent);
 }
 .fd__lede p{
-  font-size:var(--fs-xs);color:var(--text-body);
-  line-height:var(--lh-body);max-width:88ch;
+  font-size:var(--fs-2xs);color:var(--text-muted);
+  line-height:var(--lh-snug);max-width:90ch;
 }
 .fd__lede strong{color:var(--text)}
 
-/* ─── Portfolio · location panel ─────────────────────────
-   The note explaining why this is a table and not a chart. Muted rather
-   than alarming: inconsistent address text is a housekeeping fact, not a
-   fault in the report. */
+
+/* ═══ 13 · Portfolio location panel ══════════════════════════════ */
 .ploc__note{
   display:flex;align-items:flex-start;gap:var(--space-3);
   padding:var(--space-3) var(--card-pad-x);
   background:var(--surface-2);
   border-bottom:1px solid var(--border);
 }
-.ploc__note > i{color:var(--text-subtle);font-size:.95rem;flex:0 0 auto;margin-top:2px}
+.ploc__note > i{color:var(--text-muted);font-size:.95rem;flex:0 0 auto;margin-top:2px}
 .ploc__note p{
   font-size:var(--fs-2xs);color:var(--text-muted);
-  line-height:var(--lh-snug);max-width:70ch;
+  line-height:var(--lh-snug);max-width:86ch;
 }
 .ploc__note strong{color:var(--text)}
 .ploc__table{--cell-y:8px;font-size:var(--fs-xs)}
 .ploc__table .cell-num{font-variant-numeric:tabular-nums}
-/* Addresses are long and arbitrary; let them wrap rather than push the
-   table wide enough to scroll. */
 .ploc__value{font-weight:500;overflow-wrap:anywhere;max-width:36ch}
 
-/* ─── Insights ───────────────────────────────────────────*/
+
+/* ═══ 14 · Performance ═══════════════════════════════════════════
+   Two header tiers, because two of these columns are a stock and five
+   are a flow, and a flat header let a reader compare them without
+   being told. */
+/* The tense of each measure, under its own heading. It has to travel with
+   the column rather than sit in a group row above it, because the register's
+   column manager hides columns and a colspan cannot shrink with them. */
+.perf__when{
+  display:block;margin-top:2px;
+  font-size:.65rem;font-weight:500;letter-spacing:.02em;
+  text-transform:none;color:var(--text-muted);
+}
+.perf__who{min-width:180px}
+
+/* The only ranking this report can honestly carry: highest in its own
+   column. The word "highest" rides behind it for anyone not reading
+   the emphasis — see _kpi.php on colour never carrying meaning alone. */
+.perf__table td.is-leader{background:var(--primary-tint);font-weight:700;color:var(--text)}
+.report .table tbody tr:hover td.is-leader{background:var(--primary-light)}
+
+.attrib{display:block}
+.attrib__row{
+  display:grid;grid-template-columns:minmax(150px,210px) 1fr;
+  gap:var(--space-2) var(--space-5);
+  padding:var(--space-3) 0;border-bottom:1px solid var(--border);
+}
+.attrib__row:last-child{border-bottom:none;padding-bottom:0}
+.attrib__row:first-child{padding-top:0}
+.attrib__term{font-size:var(--fs-xs);font-weight:700;color:var(--text)}
+.attrib__def{
+  font-size:var(--fs-xs);color:var(--text-muted);
+  line-height:var(--lh-snug);max-width:92ch;
+}
+.attrib__def strong{color:var(--text);font-weight:600}
+
+
+/* ═══ 15 · Insights ══════════════════════════════════════════════
+   The controller ranks these; before Phase 8 the view drew them all
+   identically, so the ranking existed in the array and nowhere on the
+   screen. The first item is the lead. */
 .rinsights{list-style:none;margin:0;padding:0}
 .rinsight{
+  --ins-tone:var(--info);
+  position:relative;
   display:flex;align-items:flex-start;gap:var(--space-3);
   padding:var(--space-3) var(--card-pad-x);
   border-bottom:1px solid var(--border);
 }
 .rinsight:last-child{border-bottom:none}
-.rinsight__icon{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:28px;height:28px;flex:0 0 auto;margin-top:1px;
-  border-radius:var(--radius-xs);
-  background:color-mix(in srgb,var(--ins-tone,var(--info)) 12%,transparent);
-  color:var(--ins-tone,var(--info));font-size:.85rem;
+.rinsight::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--ins-tone);opacity:.30;
 }
+.rinsight.is-lead{background:var(--surface-2);padding-top:var(--space-4);padding-bottom:var(--space-4)}
+.rinsight.is-lead::before{opacity:1}
 .rinsight--success{--ins-tone:var(--success)}
 .rinsight--warning{--ins-tone:var(--warning)}
 .rinsight--danger{--ins-tone:var(--danger)}
 .rinsight--info{--ins-tone:var(--info)}
 .rinsight--primary{--ins-tone:var(--primary)}
+
+.rinsight__icon{color:var(--ins-tone);font-size:1rem;flex:0 0 auto;margin-top:1px}
 .rinsight__body{flex:1;min-width:0}
+.rinsight__head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .rinsight__label{
-  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.05em;
-  text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;
+  font-size:var(--fs-xs);font-weight:700;color:var(--text);
+  letter-spacing:-.005em;
 }
-.rinsight__text{font-size:var(--fs-xs);color:var(--text-body);line-height:var(--lh-snug)}
+/* Attention said in a word, not only in a hue. */
+.rinsight__flag{
+  font-size:var(--fs-2xs);font-weight:700;
+  padding:1px 7px;border-radius:var(--radius-pill);
+  background:color-mix(in srgb,var(--ins-tone) 12%,transparent);
+  color:var(--ins-tone);
+  border:1px solid color-mix(in srgb,var(--ins-tone) 26%,transparent);
+}
+.rinsight__text{
+  margin-top:3px;
+  font-size:var(--fs-xs);color:var(--text-body);line-height:var(--lh-snug);
+}
+.rinsight.is-lead .rinsight__text{color:var(--text-body)}
+/* A standalone link, not one inside a sentence, so the inline exception to
+   WCAG 2.2 target size does not apply to it. Measured at 106x19 before. */
 .rinsight__link{
-  display:inline-flex;align-items:center;gap:2px;margin-top:5px;
-  font-size:var(--fs-2xs);font-weight:600;
+  display:inline-flex;align-items:center;gap:2px;margin-top:4px;
+  min-height:24px;
+  font-size:var(--fs-2xs);font-weight:600;color:var(--primary);
 }
+.rinsight__link i{transition:transform var(--transition)}
+.rinsight__link:hover i{transform:translateX(2px)}
 .rinsight__metric{
   flex:0 0 auto;text-align:right;
   font-size:var(--fs-xs);font-weight:700;color:var(--text);
   font-variant-numeric:tabular-nums;
 }
+.rinsight.is-lead .rinsight__metric{font-size:var(--fs-body)}
+
 .rinsights__none{
   display:flex;align-items:flex-start;gap:var(--space-3);
   padding:var(--space-5) var(--card-pad-x);color:var(--text-muted);
 }
-.rinsights__none i{color:var(--success);font-size:1.2rem;flex:0 0 auto}
-.rinsights__none p{font-size:var(--fs-xs);line-height:var(--lh-snug);max-width:52ch}
+.rinsights__none i{color:var(--success);font-size:1.2rem;flex:0 0 auto;margin-top:2px}
+.rinsights__none-title{font-size:var(--fs-xs);font-weight:700;color:var(--text);margin-bottom:3px}
+.rinsights__none p{font-size:var(--fs-2xs);line-height:var(--lh-snug);max-width:60ch}
 
-/* ─── Data quality ───────────────────────────────────────
-   Deliberately quiet. Four inconsistencies in a small ledger is
-   housekeeping, not a crisis, and a red banner here would be crying
-   wolf on the day something genuinely breaks. Amber hairline, muted
-   ground, collapsed by default. */
+
+/* ═══ 16 · Data quality & integrity ══════════════════════════════
+   Deliberately quiet by default. A handful of inconsistencies in a
+   small ledger is housekeeping, not a crisis, and a red banner here
+   would be crying wolf on the day something genuinely breaks.
+
+   The exception is a *critical* finding — a record that contradicts
+   itself and cannot be read correctly by anything. Those change the
+   panel's ground and open it by themselves, which is the one thing
+   the collapsed default must never be allowed to hide. */
 .dq{
   background:var(--warning-bg);
   border:1px solid color-mix(in srgb,var(--warning) 22%,transparent);
@@ -529,34 +785,41 @@
 .dq__summary::marker{content:""}
 .dq__summary:focus-visible{outline:2px solid var(--warning);outline-offset:-2px}
 .dq__icon{color:var(--warning);font-size:1rem;flex:0 0 auto}
-.dq__lead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+.dq__lead{display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap;min-width:0}
 .dq__lead strong{font-size:var(--fs-xs);color:var(--text)}
-.dq__count{font-size:var(--fs-2xs);color:var(--warning);font-weight:600}
+.dq__tally{display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.dq__pip{font-size:var(--fs-2xs);font-weight:700;color:var(--text-muted)}
+.dq__pip--critical{color:var(--danger)}
+.dq__pip--warning{color:var(--warning)}
+.dq__pip--note{color:var(--text-muted)}
 .dq__note{
-  margin-left:auto;font-size:var(--fs-2xs);color:var(--text-subtle);
+  margin-left:auto;font-size:var(--fs-2xs);color:var(--text-muted);
   white-space:nowrap;
 }
 .dq__chev{
-  color:var(--text-subtle);font-size:.7rem;flex:0 0 auto;
+  color:var(--text-muted);font-size:.7rem;flex:0 0 auto;
   transition:transform var(--dur-base) var(--ease-standard);
 }
 .dq[open] .dq__chev{transform:rotate(180deg)}
 
-/* The rentals report carries a second, narrower panel beside the module-wide
-   one. Toned to the info ramp rather than the warning ramp so two amber
-   blocks do not stack and compete — these are tenancy record issues, and the
-   figures above them are unaffected either way. */
+/* A panel holding something that cannot be read at all. */
+.dq--has-critical{
+  background:var(--danger-bg);
+  border-color:color-mix(in srgb,var(--danger) 26%,transparent);
+}
+.dq--has-critical .dq__icon{color:var(--danger)}
+.dq--has-critical .dq__summary:focus-visible{outline-color:var(--danger)}
+
+/* The tab-level panels sit beside the module-wide one. Toned to the
+   info ramp so two amber blocks do not stack and compete — these are
+   record-level issues and the figures above them are unaffected
+   either way. A critical finding still overrides it, above. */
 .dq--rentals{
   background:var(--info-bg);
   border-color:color-mix(in srgb,var(--info) 22%,transparent);
 }
 .dq--rentals .dq__icon{color:var(--info)}
-.dq--rentals .dq__count{color:var(--info)}
 .dq--rentals .dq__list{border-top-color:color-mix(in srgb,var(--info) 18%,transparent)}
-.dq--rentals .dq__badge{
-  background:var(--info-bg);color:var(--info);
-  border-color:color-mix(in srgb,var(--info) 28%,transparent);
-}
 .dq--rentals .dq__summary:focus-visible{outline-color:var(--info)}
 
 .dq__list{
@@ -570,7 +833,20 @@
   border-bottom:1px solid var(--border);
 }
 .dq__row:last-child{border-bottom:none}
-.dq__row-icon{color:var(--text-subtle);font-size:.9rem;margin-top:2px;flex:0 0 auto}
+
+/* Severity as a word before it is a colour. */
+.dq__sev{
+  flex:0 0 auto;margin-top:1px;
+  min-width:62px;text-align:center;
+  padding:2px 7px;border-radius:var(--radius-sm);
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.02em;
+  background:var(--surface-3);color:var(--text-muted);
+  border:1px solid var(--border);
+}
+.dq__sev--critical{background:var(--danger-bg);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 26%,transparent)}
+.dq__sev--warning{background:var(--warning-bg);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 26%,transparent)}
+.dq__sev--note{background:var(--surface-3);color:var(--text-muted);border-color:var(--border)}
+
 .dq__row-body{flex:1;min-width:0}
 .dq__row-label{
   display:flex;align-items:center;gap:7px;flex-wrap:wrap;
@@ -578,14 +854,16 @@
 }
 .dq__badge{
   min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pill);
-  background:var(--warning-bg);color:var(--warning);
-  border:1px solid color-mix(in srgb,var(--warning) 28%,transparent);
+  background:var(--surface-3);color:var(--text-muted);
+  border:1px solid var(--border);
   font-size:.65rem;font-weight:700;line-height:16px;text-align:center;
   font-variant-numeric:tabular-nums;
 }
+.dq__row--critical .dq__badge{background:var(--danger-bg);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 28%,transparent)}
+.dq__row--warning .dq__badge{background:var(--warning-bg);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 28%,transparent)}
 .dq__row-text{
   margin-top:3px;font-size:var(--fs-2xs);color:var(--text-muted);
-  line-height:var(--lh-snug);max-width:78ch;
+  line-height:var(--lh-snug);max-width:82ch;
 }
 .dq__row-value{
   flex:0 0 auto;text-align:right;
@@ -595,132 +873,215 @@
 .dq__foot{
   padding:var(--space-3) var(--card-pad-x);
   background:var(--surface-2);border-top:1px solid var(--border);
-  font-size:var(--fs-2xs);color:var(--text-subtle);line-height:var(--lh-snug);
+  font-size:var(--fs-2xs);color:var(--text-muted);line-height:var(--lh-snug);
 }
 
-/* ─── Reports still being built ──────────────────────────
-   A dashed edge rather than a solid card: it reads as a space set
-   aside rather than as a panel that failed to load. */
+
+/* ═══ 17 · Reports still being built ═════════════════════════════ */
 .rpending{
   display:flex;align-items:flex-start;gap:var(--space-4);
   padding:var(--space-8) var(--card-pad-x);
-  background:var(--surface-2);
+  background:var(--surface);
   border:1px dashed var(--border-strong);
   border-radius:var(--card-radius);
+  margin-bottom:var(--space-4);
 }
 .rpending__icon{
+  flex:0 0 auto;
   display:inline-flex;align-items:center;justify-content:center;
-  width:44px;height:44px;flex:0 0 auto;
-  border-radius:var(--radius);
-  background:var(--surface);border:1px solid var(--border);
-  color:var(--text-subtle);font-size:1.15rem;
+  width:var(--control-h-lg);height:var(--control-h-lg);border-radius:var(--radius-sm);
+  background:var(--surface-3);color:var(--text-subtle);font-size:1.2rem;
 }
 .rpending__title{
-  font-size:var(--fs-title);font-weight:600;color:var(--text);
-  font-family:var(--font);letter-spacing:0;
+  font-size:var(--fs-title);font-weight:700;color:var(--text);
+  margin-bottom:4px;
 }
 .rpending__desc{
-  margin-top:5px;font-size:var(--fs-xs);color:var(--text-muted);
-  line-height:var(--lh-body);max-width:68ch;
+  font-size:var(--fs-xs);color:var(--text-muted);
+  line-height:var(--lh-snug);max-width:74ch;
 }
 
-/* ─── Skeletons ──────────────────────────────────────────
-   For content that genuinely arrives late. Server-rendered reports
-   do not — they are in the HTML or they are not — so these exist for
-   the chart canvas and for anything a later phase loads on demand.
-   The shimmer is one transform-only animation and stops dead under
-   prefers-reduced-motion via the global rule in responsive.css. */
+
+/* ═══ 18 · Skeletons ═════════════════════════════════════════════ */
 .skeleton{
   position:relative;overflow:hidden;
-  background:var(--surface-3);
-  border-radius:var(--radius-sm);
+  background:var(--surface-3);border-radius:var(--radius-sm);
 }
 .skeleton::after{
-  content:'';position:absolute;inset:0;
+  content:"";position:absolute;inset:0;
   transform:translateX(-100%);
   background:linear-gradient(90deg,
     transparent,
-    color-mix(in srgb,var(--surface) 70%,transparent),
+    color-mix(in srgb,var(--surface) 60%,transparent),
     transparent);
-  animation:sk-sweep 1.4s var(--ease-standard) infinite;
+  animation:sk-sweep 1.4s infinite;
 }
-.skeleton--chart{height:var(--sk-h,190px)}
-.skeleton--line{height:12px;margin-bottom:8px}
-.skeleton--kpi{height:110px}
+.skeleton--chart{height:var(--sk-h,230px)}
 @keyframes sk-sweep{to{transform:translateX(100%)}}
 
-/* ─── Print ──────────────────────────────────────────────
-   The Print button is real, so the printed page has to be. The rail,
-   the topbar and every control come off; the charts and their data
-   tables stay, and the tables are forced open because a printed
-   <details> that is shut prints nothing at all. */
+
+/* ═══ 19 · Motion ════════════════════════════════════════════════
+   Everything above moves on the shared duration tokens and nothing
+   moves further than a few pixels. Where a reader has asked for less
+   motion, the transitions are removed rather than shortened — and
+   without !important, by simply being declared later. */
+@media (prefers-reduced-motion:reduce){
+  .rtabs__link,.rtabs__link i,
+  .rrange__btn,.rtoggle,.rtoggle__track,.rtoggle__knob,
+  .kpi,.rdata__toggle,.dq__chev,.rinsight__link i{transition:none}
+  .rinsight__link:hover i{transform:none}
+  .skeleton::after{animation:none}
+}
+
+
+/* ═══ 20 · Print ═════════════════════════════════════════════════
+   A printed report has to say what it is, what period it covers and
+   when it was taken — none of which the screen needs, because the
+   reader is looking at it. The masthead carries all three; the
+   controls that produced them are removed. */
 @media print{
   .app__sidebar,.app__header,.app__footer,
-  .rtoolbar__row,.rtabs,.dq__chev,.rdata__toggle,
+  .rtabs,.rtoolbar,.dq__chev,.rdata__toggle,
   .page-header__actions,.skip-link,.toast-region{display:none!important}
 
   .app__main{margin-left:0!important}
   .app__content{padding:0!important}
 
-  .rtoolbar{border:none;box-shadow:none;padding:0;margin-bottom:var(--space-4)}
-  .rtoolbar__period{border-top:none;padding-top:0;margin-top:0}
+  .rhead{
+    display:block;
+    padding-bottom:var(--space-3);
+    border-bottom:1px solid var(--border-strong);
+    margin-bottom:var(--space-4);
+  }
+  .rhead__mark{display:none}
+  .rhead__context{gap:var(--space-6);padding-top:var(--space-2)}
+  .rhead__ctx + .rhead__ctx{border-left:none;padding-left:0}
+  .rhead__stamp{
+    display:block;margin-top:var(--space-2);
+    font-size:var(--fs-2xs);color:var(--text-subtle);
+  }
 
-  /* Four across suits the four-KPI reports. The five- and six-KPI ones read
-     better at three: six into four columns prints as 4+2, which leaves a
-     ragged half-row at the top of the page. */
+  /* Six KPIs into four columns printed as a ragged 4 + 2. */
   .kpis{grid-template-columns:repeat(4,1fr)}
   .kpis--five,.kpis--six{grid-template-columns:repeat(3,1fr)}
   .rgrid--wide{grid-template-columns:1fr 1fr}
 
-  .card,.kpi,.rpending,.dq{
-    box-shadow:none!important;
-    break-inside:avoid;page-break-inside:avoid;
+  .card,.kpi,.rpending,.dq,.table-card,.rnote{
+    box-shadow:none;break-inside:avoid;page-break-inside:avoid;
   }
-  .rdata[open],.rdata{display:block!important}
-  .table-card{break-inside:avoid;page-break-inside:avoid}
+  /* A section label must not print at the foot of a page with its
+     content overleaf. */
+  .rsection{break-after:avoid;page-break-after:avoid;margin-top:var(--space-6)}
+  .rdata,.rdata[open]{display:block!important}
   .rdata > div{display:block!important}
   .dq{background:transparent}
+  .kpi__spark{opacity:.7}
   .skeleton::after{animation:none}
 }
 
-/* ─── Narrow widths ──────────────────────────────────────
-   responsive.css loads after this file and holds the application's
-   floors — the 16px input rule, the 44px touch targets. What is here
-   is layout only, so the two cannot fight over the same property. */
+
+/* ═══ 21 · Narrow widths ═════════════════════════════════════════ */
 @media (max-width:1024px){
   .rgrid--wide{grid-template-columns:1fr}
+  .rhead__context{width:100%;gap:var(--space-4)}
 }
+
+@media (max-width:900px){
+  .rhead{gap:var(--space-3)}
+  .rhead__ctx + .rhead__ctx{padding-left:var(--space-4)}
+  .attrib__row{grid-template-columns:1fr;gap:2px}
+}
+
 @media (max-width:768px){
   .rtoolbar{padding:var(--space-3) var(--space-4)}
+  .rtoolbar__main{gap:var(--space-3)}
   .rtoolbar__actions{margin-left:0;width:100%}
+  .rtoolbar__actions .rfilters,
+  .rtoolbar__actions .rfilters .toolbar__filters{flex:1 1 160px}
+  .rtoolbar__actions .toolbar__filter-trigger{width:100%;justify-content:center}
   .rtoolbar__actions .rtoggle{flex:1 1 auto;justify-content:center}
+  .rtoolbar__print{flex:1 1 auto;justify-content:center}
   .rrange{width:100%}
   .rrange__btn{flex:1 1 auto;justify-content:center}
-  /* Static rather than absolute: a popover anchored to a control that
-     is now full width would hang off the side of the screen. */
+  /* Static below this width, so the anchoring question does not arise
+     and the panel simply pushes the bar taller. */
   .rrange__panel{position:static;width:auto;right:auto;box-shadow:none;padding:var(--space-3) 0 0}
-  .rfilters,.rfilters .toolbar__filters{width:100%}
-  .rfilters .toolbar__filter-trigger{width:100%;justify-content:center}
-  .kpis{grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:var(--space-2)}
-  .kpis--five,.kpis--six{grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))}
-  /* The explanatory note under each measure is the first thing to go when
-     the row has no width for it; the measure itself still reads. */
-  .fcomp__note{display:none}
+  .rsection{margin-top:var(--space-6)}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(min(168px,100%),1fr));gap:var(--space-2)}
+  .kpis--five,.kpis--six{grid-template-columns:repeat(auto-fit,minmax(min(158px,100%),1fr))}
   .kpi{padding:var(--space-3) var(--space-4) var(--space-5)}
-  .kpi__value{font-size:1.4rem}
+  .kpi__value,.kpis--five .kpi__value,.kpis--six .kpi__value{font-size:calc(var(--fs-page) * 0.78)}
+  .fcomp__note{display:none}
   .rinsight,.dq__row{padding-left:var(--space-4);padding-right:var(--space-4)}
   .dq__summary{padding-left:var(--space-4);padding-right:var(--space-4)}
   .dq__note{display:none}
   .rpending{flex-direction:column;gap:var(--space-3);padding:var(--space-6) var(--space-4)}
-  .fd__lede{padding-left:var(--space-4);padding-right:var(--space-4)}
+  .fd__lede,.ploc__note{padding-left:var(--space-4);padding-right:var(--space-4)}
+  .rnote{padding-left:var(--space-4);padding-right:var(--space-4)}
 }
+
 @media (max-width:480px){
   .kpis,.kpis--five,.kpis--six{grid-template-columns:1fr}
   .rrange__fields{grid-template-columns:1fr}
-  /* The metric drops under the text rather than fighting it for a
-     line that is now about thirty characters wide. */
+  .rhead__lead{gap:var(--space-2)}
+  .rhead__mark{width:var(--control-h-sm);height:var(--control-h-sm);font-size:.95rem}
+  .rhead__context{flex-direction:column;gap:var(--space-3)}
+  .rhead__ctx + .rhead__ctx{border-left:none;padding-left:0;margin-left:0}
+  /* A wrapped doughnut legend needs the room the chart box was
+     reserving for it. */
+  .rchart{height:calc(var(--rchart-h,230px) + 18px)}
   .rinsight,.dq__row{flex-wrap:wrap}
   .rinsight__metric,.dq__row-value{
-    flex:1 1 100%;text-align:left;padding-left:calc(28px + var(--space-3));
+    width:100%;text-align:left;padding-left:calc(1rem + var(--space-3));
   }
+}
+
+/* ================================================================
+   PREMIUM REPORTING PASS
+   Every tab, every figure and every query is untouched. This is the
+   presentation of an executive report: the numbers given the weight
+   they are owed, and the cards given a surface worth printing.
+   ================================================================ */
+
+/* ── KPI tiles ────────────────────────────────────────────────────
+   The figure is the whole point of a report header, so it takes the
+   display face at a size that reads across a room. */
+.kpi{
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition),transform var(--transition);
+}
+.kpi--link:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong);transform:translateY(-2px)}
+.kpi__value,.kpi__figure{letter-spacing:-.035em}
+.kpi__label{text-transform:uppercase;letter-spacing:.075em;font-weight:700}
+.kpi__delta{border-radius:var(--radius-pill);font-weight:600}
+
+/* ── Report cards ─────────────────────────────────────────────────  */
+.rcard{
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-xs);
+}
+.rchart{border-radius:var(--radius)}
+
+/* ── The report header ────────────────────────────────────────────  */
+.rhead__title{letter-spacing:-.03em}
+.rhead__ctx-value{letter-spacing:-.015em;font-weight:700}
+
+/* ── Filter bar ───────────────────────────────────────────────────  */
+.rfilters{
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-xs);
+}
+
+/* ── Insights ─────────────────────────────────────────────────────
+   Each insight is a finding with a severity, so the tone lives on a left
+   edge where a column of them can be scanned down rather than read. */
+.rinsight{border-radius:var(--radius);transition:background var(--transition)}
+
+/* ── Data quality panel ───────────────────────────────────────────  */
+.dq{border-radius:var(--card-radius)}
+.dq__badge{border-radius:var(--radius-pill);font-weight:700}
+
+@media (prefers-reduced-motion:reduce){
+  .kpi,.kpi--link:hover{transition:none;transform:none}
 }

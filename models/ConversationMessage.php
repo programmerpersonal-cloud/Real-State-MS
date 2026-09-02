@@ -57,8 +57,12 @@ class ConversationMessage
      *
      * @return array<int, array<string, mixed>>
      */
-    public function forConversation(int $conversationId, ?int $beforeId = null, int $limit = self::PAGE_SIZE): array
-    {
+    public function forConversation(
+        int $conversationId,
+        ?int $beforeId = null,
+        int $limit = self::PAGE_SIZE,
+        string $find = ''
+    ): array {
         if (!canAccessConversation($conversationId)) {
             return [];
         }
@@ -72,6 +76,18 @@ class ConversationMessage
             $params[':before'] = $beforeId;
         }
 
+        /* In-conversation search. The conversation id stays in the WHERE
+           clause above it, so a search can only ever narrow this thread — it
+           has no way to reach another one. Withdrawn messages are excluded:
+           their body is not shown, so matching on it would let someone
+           confirm what a deleted message said by watching which searches
+           return a "message deleted" row. */
+        $find = trim($find);
+        if ($find !== '') {
+            $where .= ' AND cm.deleted_at IS NULL AND cm.body LIKE :find';
+            $params[':find'] = '%' . $find . '%';
+        }
+
         $stmt = $this->db->prepare("
             SELECT cm.id, cm.conversation_id, cm.sender_id, cm.message_type,
                    cm.reply_to_message_id, cm.created_at, cm.edited_at, cm.deleted_at,
@@ -79,7 +95,12 @@ class ConversationMessage
                    u.full_name AS sender_name, u.avatar AS sender_avatar,
                    r.name AS sender_role,
                    rt.body AS reply_to_body, rt.deleted_at AS reply_to_deleted_at,
-                   ru.full_name AS reply_to_sender_name
+                   ru.full_name AS reply_to_sender_name,
+                   /* Whether the quoted message carried files, so the preview
+                      can name the attachment rather than showing an empty
+                      quote for a message that was all photograph. */
+                   (SELECT COUNT(*) FROM message_attachments ra
+                     WHERE ra.message_id = rt.id) AS reply_to_attachments
             FROM conversation_messages cm
             LEFT JOIN users u ON cm.sender_id = u.id
             LEFT JOIN roles r ON u.role_id = r.id
@@ -90,8 +111,32 @@ class ConversationMessage
             LIMIT {$limit}
         ");
         $stmt->execute($params);
+        $rows = array_reverse($stmt->fetchAll());
 
-        return array_reverse($stmt->fetchAll());
+        // One query for the page's attachments rather than one per message.
+        // A soft-deleted message keeps its rows in the table — the audit trail
+        // is the point — but is served none of them, for the same reason its
+        // body is withheld.
+        $visible = [];
+        foreach ($rows as $row) {
+            if (empty($row['deleted_at'])) {
+                $visible[] = (int) $row['id'];
+            }
+        }
+
+        // Two more queries for the whole page, not two per message. A
+        // withdrawn message is served neither its files nor its reactions, for
+        // the same reason it is not served its body.
+        $files     = $visible ? (new MessageAttachment())->forMessages($visible) : [];
+        $reactions = $visible ? (new MessageReaction())->forMessages($visible) : [];
+
+        foreach ($rows as $i => $row) {
+            $id = (int) $row['id'];
+            $rows[$i]['attachments'] = $files[$id] ?? [];
+            $rows[$i]['reactions']   = $reactions[$id] ?? [];
+        }
+
+        return $rows;
     }
 
     /** Are there older messages above the page just fetched? */
@@ -126,17 +171,36 @@ class ConversationMessage
      * controller. It is strictly narrower than read access: a closed thread
      * stays legible and stays closed.
      *
+     * $stored carries files that storeDocumentFile() has ALREADY written to
+     * the private store — validated, sniffed and renamed. They are passed in
+     * rather than uploaded here because validation must happen before the
+     * transaction opens: holding a database transaction open across several
+     * megabytes of file writes is how a busy server ends up with lock waits.
+     * The bargain is that this method owns the cleanup, and it does: any
+     * failure below unlinks every one of them.
+     *
+     * @param array<int, array<string,mixed>> $stored From MessageAttachment::storeAll().
      * @return int The new message id, or 0 when refused or invalid.
      */
-    public function create(int $conversationId, string $body, ?int $replyToId = null): int
+    public function create(int $conversationId, string $body, ?int $replyToId = null, array $stored = []): int
     {
         $actor = communicationActor();
         if ($actor === null || !canSendToConversation($conversationId)) {
+            MessageAttachment::discard(array_column($stored, 'file_path'));
             return 0;
         }
 
         $body = trim($body);
-        if ($body === '' || mb_strlen($body) > self::MAX_LENGTH) {
+
+        // A message must carry something. Text or a file will do — requiring
+        // someone to type "see attached" beside a photograph of a broken pipe
+        // is the kind of small indignity that makes a tool feel unfinished.
+        if ($body === '' && !$stored) {
+            return 0;
+        }
+
+        if (mb_strlen($body) > self::MAX_LENGTH) {
+            MessageAttachment::discard(array_column($stored, 'file_path'));
             return 0;
         }
 
@@ -173,6 +237,12 @@ class ConversationMessage
 
             $messageId = (int) $this->db->lastInsertId();
 
+            // Metadata for files already on disk. If this throws, the catch
+            // below rolls the message back and unlinks them, so a row can
+            // never name a missing file and a file is never orphaned by a
+            // failed row.
+            (new MessageAttachment())->attachAll($messageId, $stored, $actor['id']);
+
             (new Conversation())->touchLastMessage($conversationId, $messageId);
 
             // The sender has, by definition, read their own message. Without
@@ -194,6 +264,12 @@ class ConversationMessage
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
+
+            // The rollback undoes the rows; nothing undoes a file. Both halves
+            // are needed or a failed send leaves bytes in the private store
+            // that no record points at.
+            MessageAttachment::discard(array_column($stored, 'file_path'));
+
             error_log('Conversation message error: ' . $e->getMessage());
             return 0;
         }
@@ -267,6 +343,119 @@ class ConversationMessage
         }
     }
 
+    // ─── Changing a message after it was sent ──────────────────────────
+
+    /**
+     * Rewrite the body of a message the signed-in user wrote.
+     *
+     * canEditMessage() decides, and it is asked here as well as in the
+     * controller — the authorization is the model's, not the caller's.
+     *
+     * The previous text is written to audit_logs before it is overwritten.
+     * That is the whole reason an edit is allowed at all: the record of what
+     * was originally said survives, so "they changed it afterwards" is a
+     * question the system can answer rather than a suspicion nobody can
+     * settle. `edited_at` is what tells the reader an edit happened.
+     *
+     * @return bool|string true, or a reason the edit was refused.
+     */
+    public function edit(int $messageId, string $body): bool|string
+    {
+        if (!canEditMessage($messageId)) {
+            return 'That message can no longer be edited.';
+        }
+
+        $existing = messageForAuthorship($messageId);
+        $body     = trim($body);
+
+        // The same rule sending obeys: a message must carry something. An
+        // attachment-only message may legitimately be edited back to no text.
+        if ($body === '' && (int) ($existing['attachment_count'] ?? 0) === 0) {
+            return 'A message cannot be left empty. Delete it instead.';
+        }
+        if (mb_strlen($body) > self::MAX_LENGTH) {
+            return 'That message is too long.';
+        }
+        if ($body === (string) $existing['body']) {
+            return true;                       // nothing changed; not an error
+        }
+
+        try {
+            $this->db->beginTransaction();
+
+            $stmt = $this->db->prepare("
+                UPDATE conversation_messages
+                   SET body = :body, edited_at = NOW()
+                 WHERE id = :id
+            ");
+            $stmt->execute([':body' => $body, ':id' => $messageId]);
+
+            // Inside the transaction: the old wording and the new one are
+            // recorded together or neither is.
+            logAudit('edited_message', 'conversation',
+                (int) $existing['conversation_id'], (string) $existing['body'], $body);
+
+            $this->db->commit();
+
+            return true;
+        } catch (PDOException $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log('Message edit error: ' . $e->getMessage());
+            return 'That message could not be edited. Please try again.';
+        }
+    }
+
+    /**
+     * Withdraw a message.
+     *
+     * Soft, always. `deleted_at` is stamped and everything else stays exactly
+     * where it was: the row, its body, its attachments and its place in the
+     * thread. The renderer withholds the body and the files, the inbox preview
+     * says "Message deleted", and the unread count stops counting it — but the
+     * correspondence keeps its shape, replies keep their target, and the audit
+     * trail keeps its record.
+     *
+     * The conversation's last_message_id is deliberately not moved. Repointing
+     * it at the previous message would make the inbox claim the conversation's
+     * last activity was earlier than it was; leaving it is what produces the
+     * honest "Message deleted" preview.
+     *
+     * @return bool|string true, or a reason the deletion was refused.
+     */
+    public function softDelete(int $messageId): bool|string
+    {
+        if (!canDeleteMessage($messageId)) {
+            return 'That message can no longer be deleted.';
+        }
+
+        $existing = messageForAuthorship($messageId);
+
+        try {
+            $this->db->beginTransaction();
+
+            $stmt = $this->db->prepare("
+                UPDATE conversation_messages SET deleted_at = NOW() WHERE id = :id
+            ");
+            $stmt->execute([':id' => $messageId]);
+
+            // The withdrawn text is preserved in the log, not in the thread.
+            logAudit('deleted_message', 'conversation',
+                (int) $existing['conversation_id'], (string) $existing['body'], '');
+
+            $this->db->commit();
+
+            return true;
+        } catch (PDOException $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log('Message delete error: ' . $e->getMessage());
+            return 'That message could not be deleted. Please try again.';
+        }
+    }
+
     /**
      * Move the signed-in user's read watermark forward.
      *
@@ -309,6 +498,39 @@ class ConversationMessage
             ':cid'    => $conversationId,
             ':ca_me'  => $actor['id'],
         ]);
+    }
+
+    /**
+     * Move the signed-in user's watermark to the end of every conversation
+     * they are in.
+     *
+     * One statement rather than a loop: the watermark is per participant row,
+     * so "mark everything read" is a single correlated UPDATE. Archived
+     * conversations are included — they are still theirs, and leaving unread
+     * counts behind in the archive is how a badge starts lying.
+     *
+     * Nobody else's read state is touched: `user_id = :me` is on the UPDATE.
+     */
+    public function markAllRead(): int
+    {
+        $actor = communicationActor();
+        if ($actor === null) {
+            return 0;
+        }
+
+        $stmt = $this->db->prepare("
+            UPDATE conversation_participants cp
+               SET cp.last_read_message_id = (
+                       SELECT MAX(cm.id) FROM conversation_messages cm
+                        WHERE cm.conversation_id = cp.conversation_id
+                   ),
+                   cp.last_read_at = NOW()
+             WHERE cp.user_id = :me
+               AND cp.is_active = 1
+        ");
+        $stmt->execute([':me' => $actor['id']]);
+
+        return $stmt->rowCount();
     }
 
     // ─── Counting ──────────────────────────────────────────────────────

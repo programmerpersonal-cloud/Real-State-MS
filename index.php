@@ -9,6 +9,31 @@ require_once __DIR__ . '/includes/init.php';
 $page = $_GET['page'] ?? '';
 $action = $_GET['action'] ?? '';
 
+// ─── Maintenance mode ──────────────────────────────────────────────────
+//
+// Set by BackupManager::restore() for the length of a destructive restore and
+// cleared in its finally block, so a failed restore does not leave the site
+// dark. The flag is a file rather than a settings row on purpose: it has to
+// work while the database is mid-restore, which is exactly when a settings
+// lookup would read a half-written table.
+//
+// Whoever may restore the system is let through, because the person holding
+// the operation open is the one who has to watch it finish and fix it if it
+// does not. Everyone else — signed in or not — gets a 503 that search engines
+// and uptime monitors read correctly.
+//
+// This sits above every route, including the public site and login: a restore
+// swaps the users table underneath the application, and letting people
+// authenticate against a table being rewritten is how sessions end up
+// belonging to the wrong accounts.
+if (($maintenance = backupMaintenanceInfo()) !== null && !can('backup.restore')) {
+    http_response_code(503);
+    header('Retry-After: 120');
+    $maintenanceInfo = $maintenance;
+    require VIEWS_PATH . '/errors/maintenance.php';
+    exit;
+}
+
 // ─── Public / Auth Routes (no login required) ──────────
 switch ($page) {
     // ─── SEO endpoints (served via .htaccess rewrites) ─
@@ -520,13 +545,25 @@ switch ($page) {
     // and enforceCSRF() itself rather than inheriting it from here, because
     // an action added later must fail closed if its author forgets.
     case 'messages':
+        // `attachment` is the one GET that returns bytes rather than a page.
+        // It authenticates and walks attachment → message → conversation
+        // itself, because a file leaving the private store must answer to the
+        // same live check the thread does.
         $method = match ($action) {
-            'show'      => 'show',
-            'start'     => 'start',
-            'send'      => 'send',
-            'archive'   => 'archive',
-            'unarchive' => 'unarchive',
-            default     => 'index',
+            'show'       => 'show',
+            'start'      => 'start',
+            'send'       => 'send',
+            'archive'    => 'archive',
+            'unarchive'  => 'unarchive',
+            'attachment' => 'attachment',
+            // Editing and withdrawing act on one message rather than on the
+            // conversation, so they take a message_id and resolve the
+            // conversation from it — never the other way round.
+            'edit'       => 'edit',
+            'delete'     => 'deleteMessage',
+            'react'      => 'react',
+            'read-all'   => 'readAll',
+            default      => 'index',
         };
         dispatch('CommunicationController', $method);
         break;
@@ -606,6 +643,34 @@ switch ($page) {
     case 'settings':
         $method = $_SERVER['REQUEST_METHOD'] === 'POST' ? 'update' : 'index';
         dispatch('SettingsController', $method);
+        break;
+
+    // ─── Backup & restore ──────────────────────────────
+    // The slug is `backup`, singular, so canAccessPage('backup') resolves to
+    // can('backup.view') — the permission names in permissions.php and the
+    // route are the same string, which is the convention that keeps a menu
+    // entry and the controller behind it from drifting apart.
+    //
+    // Every action that writes is POST-only and re-checked inside the
+    // controller; the router's job is to find the method, not to decide who
+    // may reach it.
+    case 'backup':
+        $method = match ($action) {
+            'create'   => 'create',
+            'download' => 'download',
+            'verify'   => 'verify',
+            'delete'   => 'delete',
+            'protect'  => 'protect',
+            'restore'  => 'restore',
+            'settings' => 'settings',
+            'schedules'=> 'saveSchedules',
+            'sweep'    => 'sweep',
+            // Polled by the page while a run is in flight. Reports real
+            // status only — see BackupController::status().
+            'status'   => 'status',
+            default    => 'index',
+        };
+        dispatch('BackupController', $method);
         break;
 
     // ─── Branches ──────────────────────────────────────

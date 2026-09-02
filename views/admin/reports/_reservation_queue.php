@@ -32,12 +32,12 @@ foreach ($rqRows as $rqR) {
 ?>
 <div class="table-card<?= $rqLapsed > 0 ? ' fd' : '' ?>">
     <div class="table-head">
-        <div class="table-head__title">
+        <h4 class="table-head__title">
             <?php if ($rqLapsed > 0): ?>
                 <i class="bi bi-bookmark-x fd__icon" aria-hidden="true"></i>
             <?php endif ?>
             Reservation queue
-        </div>
+        </h4>
         <span class="table-head__note">
             <?= count($rqRows) ?> <?= count($rqRows) === 1 ? 'hold' : 'holds' ?>
             · <?= sanitize(formatCurrency($rqDeposits)) ?> on deposit
@@ -79,7 +79,7 @@ foreach ($rqRows as $rqR) {
                             <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $rqR['property_id']) ?>">
                                 <?= sanitize((string) $rqR['property_title']) ?>
                             </a>
-                            <div class="tp-code"><?= sanitize((string) $rqR['reservation_code']) ?></div>
+                            <div class="tp-code tp-code--id"><?= sanitize((string) $rqR['reservation_code']) ?></div>
                         </td>
                         <td class="col-mid">
                             <?= !empty($rqR['customer_name'])

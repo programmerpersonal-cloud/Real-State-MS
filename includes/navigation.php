@@ -105,6 +105,15 @@ function appNavSections(): array
             ['audit-logs',          'Audit Logs',          'bi-journal-text'],
             ['settings',            'Settings',            'bi-gear'],
         ]],
+
+        // ─── System ────────────────────────────────────────────────────
+        // Below Administration rather than inside it: everything above runs
+        // the business, and this runs the installation the business sits on.
+        // It is last because it is the section you want to be able to find
+        // without reading, on the day you need it.
+        ['System', [
+            ['backup', 'Backup & Restore', 'bi-shield-check'],
+        ]],
     ];
 
     $visible = [];

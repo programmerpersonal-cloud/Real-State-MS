@@ -67,10 +67,10 @@ $pmMoney = static fn(?float $v): string => $v === null ? '—' : formatCurrency(
 $pmCount = static fn(?float $v): string => $v === null ? '—' : number_format($v);
 $pmShow  = static fn(array $pmR): callable => $pmR['format'] === 'count' ? $pmCount : $pmMoney;
 ?>
-<section class="card rcard fcomp" aria-labelledby="pcomp-title">
+<section class="card rcard" aria-labelledby="pcomp-title">
     <div class="card__header">
         <div class="rcard__titles">
-            <h3 class="card__title" id="pcomp-title">Period comparison</h3>
+            <h4 class="card__title" id="pcomp-title">Period comparison</h4>
             <p class="card__subtitle">
                 <?= sanitize(formatDate($window['from'])) ?> – <?= sanitize(formatDate($window['to_capped'])) ?>
                 against <?= sanitize(formatDate($window['prev_from'])) ?> – <?= sanitize(formatDate($window['prev_to'])) ?>

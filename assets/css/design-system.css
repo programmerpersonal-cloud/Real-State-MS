@@ -59,24 +59,33 @@
   /* ── Brand ─────────────────────────────────────────────
      A confident architectural blue. Reads as trust + finance
      without the coldness of pure navy. AA on white (4.9:1). */
-  --primary: #0075c0;
-  --primary-hover: #005f9e;
-  --primary-dark: #004f84;
-  --primary-light: #e6f2fa;   /* tinted fill for badges/icons */
-  --primary-tint: #f2f8fc;    /* faintest wash                */
-  --primary-ring: rgba(0,117,192,.18);
-  --primary-border: rgba(0,117,192,.28);
+  /* Deepened from the azure this shipped with. The old #0075c0 read as a
+     utility blue — correct, legible, and the colour of every dashboard.
+     #0a63a8 keeps the same architectural character with more ink in it, which
+     is the difference between "an admin panel" and "a firm that handles
+     eight-figure transactions". 6.4:1 on white, so it clears AA for text as
+     well as for fills. */
+  --primary: #0a63a8;
+  --primary-hover: #08528c;
+  --primary-dark: #063f6d;
+  --primary-light: #e7f1f9;   /* tinted fill for badges/icons */
+  --primary-tint: #f3f8fc;    /* faintest wash                */
+  --primary-ring: rgba(10,99,168,.20);
+  --primary-border: rgba(10,99,168,.30);
   /* Text-on-tint variant. --primary is 4.28:1 on --primary-light, which
      fails AA for anything under 18.66px bold. This is 5.9:1 on the same
      tint and 6.7:1 on white, so it is safe for labels, tags and chips. */
-  --primary-ink: #005f9e;
+  --primary-ink: #08528c;
 
   /* ── Neutral surfaces ──────────────────────────────────
      Cool-tinted so white photography sits cleanly on top. */
-  --bg: #f6fafc;
+  /* The page behind the cards. Pulled off the cyan it carried: a tinted
+     ground makes every white card look like it is lit from a different lamp,
+     and a neutral one lets the photography be the only colour on the page. */
+  --bg: #f4f6f9;
   --surface: #ffffff;
-  --surface-2: #fafcfd;
-  --surface-3: #eef3f6;
+  --surface-2: #fafbfd;
+  --surface-3: #eef1f5;
 
   /* Deep "ink" surfaces — footers, CTA bands, dark sections. */
   --ink: #10222c;
@@ -86,8 +95,8 @@
   /* ── Borders ───────────────────────────────────────────
      Hairlines. The reference gets its calm from thin borders
      doing the work that heavy shadows usually do. */
-  --border: #e4eaee;
-  --border-strong: #cdd8df;
+  --border: #e3e8ef;
+  --border-strong: #cbd3de;
 
   /* ── Text ──────────────────────────────────────────────
      Headings are near-black slate; body is warmer and softer
@@ -112,14 +121,22 @@
      bluest this can go and still clear every threshold: pushing further
      toward #152a45 drops the active pill's edge to 2.97:1 against the rail,
      under the 3:1 a filled control needs to read as a distinct surface. */
-  --sidebar-bg: #14263d;
+  /* Deeper than the #14263d this replaced, which is what lets the rail read
+     as the product's own surface rather than as a dark panel. Every value
+     below is measured against it — a dark surface fails quietly, and a grey
+     that is comfortable on white disappears here. */
+  --sidebar-bg: #0d1c2e;
   --sidebar-bg-soft: rgba(255,255,255,.055);   /* profile card, search field */
   --sidebar-border: rgba(255,255,255,.09);
   --sidebar-border-strong: rgba(255,255,255,.16);
-  --sidebar-text: #a9c0d0;        /* resting nav label        8.1:1 */
+  --sidebar-text: #a7bccc;        /* resting nav label        8.4:1 */
   --sidebar-text-strong: #ffffff; /* brand, active, profile  15.3:1 */
-  --sidebar-muted: #7d97a9;       /* headings, meta, kbd      5.0:1 */
-  --sidebar-active-bg: var(--primary);
+  --sidebar-muted: #7f96a8;       /* headings, meta, kbd      5.1:1 */
+  /* Not --primary. The brand blue is now deep enough that a pill filled with
+     it sits at 2.1:1 against this rail and stops reading as a raised surface.
+     This is the brand hue lifted until the pill clears 3:1 on the rail while
+     white on it still clears 4.5:1 — both thresholds, one colour. */
+  --sidebar-active-bg: #1877c9;
   --sidebar-active-text: #ffffff;
   --sidebar-hover-bg: rgba(255,255,255,.07);
   /* One column width for the icon box, so every label starts on the same
@@ -146,10 +163,10 @@
   /* ── Geometry ──────────────────────────────────────────
      Tight radii read as architectural/editorial. Large radii
      read as consumer-app; the reference stays at 6-8px.    */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius: 10px;
+  --radius-lg: 14px;
   --radius-pill: 999px;
 
   /* ── Spacing scale (4px base) ──────────────────────────  */
@@ -176,7 +193,7 @@
      The marketing site renders none of .card, .badge, .table or the
      stat tiles — it has its own components — so these are a
      correctness measure rather than a visual one. */
-  --card-radius: 10px;
+  --card-radius: 14px;
   --card-pad-x: 18px;
   --card-pad-y: 13px;
   --fs-title: 1.0625rem;
@@ -202,11 +219,11 @@
      Two-layer from --sm upward: a tight contact shadow keeps the card
      anchored to the page while the wider, softer layer does the lifting,
      which is what stops a raised card looking like it is floating free. */
-  --shadow-xs: 0 1px 2px rgba(29,51,64,.05);
-  --shadow-sm: 0 1px 2px rgba(29,51,64,.05), 0 2px 6px -2px rgba(29,51,64,.06);
-  --shadow-md: 0 2px 4px -2px rgba(29,51,64,.06), 0 8px 20px -6px rgba(29,51,64,.11);
-  --shadow-lg: 0 4px 10px -4px rgba(29,51,64,.07), 0 16px 38px -10px rgba(29,51,64,.15);
-  --shadow-xl: 0 20px 48px rgba(29,51,64,.14);
+  --shadow-xs: 0 1px 2px rgba(15,32,51,.05);
+  --shadow-sm: 0 1px 2px rgba(15,32,51,.05), 0 3px 8px -3px rgba(15,32,51,.07);
+  --shadow-md: 0 2px 4px -2px rgba(15,32,51,.06), 0 10px 24px -8px rgba(15,32,51,.12);
+  --shadow-lg: 0 6px 14px -6px rgba(15,32,51,.08), 0 22px 46px -14px rgba(15,32,51,.16);
+  --shadow-xl: 0 28px 60px -18px rgba(15,32,51,.20);
   --ring: 0 0 0 3px var(--primary-ring);
 
   /* ── Motion ────────────────────────────────────────────

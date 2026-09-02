@@ -87,6 +87,20 @@
         return Number(v).toLocaleString();
     }
 
+    /**
+     * A category label on a horizontal axis.
+     *
+     * "Warehouse in the industrial district" as a y-axis label eats half the
+     * plot and pushes the bars into a strip. It is ellipsised here and given
+     * in full by the tooltip and by the card's data table, so nothing is lost
+     * -- only the axis is asked to be brief.
+     */
+    function axisLabel(value) {
+        var label = this.getLabelForValue ? this.getLabelForValue(value) : value;
+        label = String(label === undefined || label === null ? '' : label);
+        return label.length > 24 ? label.slice(0, 23) + '\u2026' : label;
+    }
+
     function formatter(unit) {
         if (unit === 'currency') { return money; }
         if (unit === 'percent') { return function (v) { return Number(v).toFixed(1) + '%'; }; }
@@ -203,8 +217,28 @@
 
         var ink = token('--text-muted', '#5f6b7e');
         var line = token('--border', '#e4eaee');
+        // Gridlines carry no information -- they are a ruler. At full border
+        // strength on a 230px card they compete with the series drawn over
+        // them, so they are dropped to a whisper and the axis line with them.
+        var rule = alpha(line, 0.72);
         var isRound = cfg.type === 'doughnut' || cfg.type === 'pie';
         var fmt = formatter(cfg.unit);
+
+        // One legend across the workspace: circles, bottom, same gap. A
+        // single-series chart has nothing to distinguish, so it has no legend
+        // at all -- the card title already says what the bars are.
+        var legend = {
+            display: isRound || cfg.series.length > 1,
+            position: 'bottom',
+            labels: {
+                boxWidth: 8,
+                boxHeight: 8,
+                padding: 14,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                color: ink
+            }
+        };
 
         var options = {
             responsive: true,
@@ -216,16 +250,19 @@
                 ? false
                 : { duration: 320, easing: 'easeOutQuart' },
             interaction: { mode: isRound ? 'nearest' : 'index', intersect: false },
+            // The card reserves the box; this keeps the drawing off its own
+            // edges so a top gridline label is never clipped by the border.
+            layout: { padding: { top: 4, right: 2, bottom: 0, left: 0 } },
             plugins: {
-                legend: isRound
-                    ? { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, padding: 12, usePointStyle: true } }
-                    : { display: cfg.series.length > 1, position: 'bottom',
-                        labels: { boxWidth: 10, boxHeight: 10, padding: 12, usePointStyle: true } },
+                legend: legend,
                 tooltip: {
                     backgroundColor: token('--ink', '#10222c'),
-                    padding: 10,
+                    padding: 11,
                     cornerRadius: 6,
-                    titleFont: { weight: '600' },
+                    titleFont: { weight: '600', size: 12 },
+                    bodyFont: { size: 12 },
+                    bodySpacing: 4,
+                    boxPadding: 4,
                     displayColors: true,
                     callbacks: {
                         label: function (c) {
@@ -261,36 +298,54 @@
         };
 
         if (isRound) {
-            options.cutout = '62%';
+            // A slightly thinner ring than the default reads as a chart
+            // rather than as a pie with a hole, and leaves the centre clean.
+            options.cutout = '66%';
+            options.radius = '92%';
         } else if (cfg.type === 'bar' && cfg.horizontal) {
             // A composition read left to right: the categories are few and
             // their labels are words, which a vertical axis would rotate.
             options.indexAxis = 'y';
+            options.maxBarThickness = 34;
             options.scales = {
                 x: {
                     beginAtZero: true,
                     stacked: !!cfg.stacked,
                     border: { display: false },
-                    grid: { color: line },
-                    ticks: { callback: function (v) { return tickFormatter(cfg.unit)(v); }, maxTicksLimit: 6 }
+                    grid: { color: rule, drawTicks: false },
+                    ticks: {
+                        callback: function (v) { return tickFormatter(cfg.unit)(v); },
+                        maxTicksLimit: 6,
+                        padding: 6
+                    }
                 },
-                y: { stacked: !!cfg.stacked, grid: { display: false }, border: { color: line } }
+                y: {
+                    stacked: !!cfg.stacked,
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: { padding: 6, callback: axisLabel }
+                }
             };
         } else {
             var ticks = tickFormatter(cfg.unit);
+            options.maxBarThickness = 46;
             options.scales = {
                 x: {
                     stacked: !!cfg.stacked,
                     grid: { display: false },
-                    border: { color: line },
-                    ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 12 }
+                    border: { color: rule },
+                    // Never rotated. A rotated axis label is unreadable at
+                    // this size, and the server already chose a grain coarse
+                    // enough that the labels fit -- dropping every other one
+                    // is the honest way to run out of room.
+                    ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 14, padding: 6 }
                 },
                 y: {
                     beginAtZero: true,
                     stacked: !!cfg.stacked,
                     border: { display: false },
-                    grid: { color: line },
-                    ticks: { callback: function (v) { return ticks(v); }, maxTicksLimit: 6 },
+                    grid: { color: rule, drawTicks: false },
+                    ticks: { callback: function (v) { return ticks(v); }, maxTicksLimit: 6, padding: 6 },
                     // A percentage axis is bounded by definition. Letting it
                     // autoscale to 42% makes a poor collection rate look like
                     // a full bar.
@@ -346,11 +401,17 @@
         if (!btn) { return; }
 
         btn.addEventListener('click', function () {
+            // Both kinds of disclosure. A printed page showing "4 items need
+            // attention" and then listing none of them is worse than not
+            // printing the panel at all.
             var opened = [];
-            Array.prototype.forEach.call(document.querySelectorAll('.rdata:not([open])'), function (d) {
-                d.open = true;
-                opened.push(d);
-            });
+            Array.prototype.forEach.call(
+                document.querySelectorAll('.rdata:not([open]), .dq:not([open])'),
+                function (d) {
+                    d.open = true;
+                    opened.push(d);
+                }
+            );
 
             // Charts are canvases and print as they are; the tables above
             // are what a reader marks up afterwards.
@@ -394,10 +455,30 @@
         });
     }
 
+    /**
+     * The active report, brought into view.
+     *
+     * The tab strip scrolls horizontally below about 900px, and "Performance"
+     * is the eighth of eight. Landing on it and finding the strip parked at
+     * "Overview" reads as though the page opened on the wrong report. Jumped,
+     * not animated: a strip that slides on every page load is motion nobody
+     * asked for, and it would fight prefers-reduced-motion.
+     */
+    function centreActiveTab() {
+        var nav = document.querySelector('.rtabs');
+        var active = nav && nav.querySelector('[data-report-tab-active]');
+        if (!nav || !active || nav.scrollWidth <= nav.clientWidth) { return; }
+        nav.scrollLeft = Math.max(
+            0,
+            active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2
+        );
+    }
+
     function boot() {
         init();
         bindPrint();
         bindDisclosures();
+        centreActiveTab();
     }
 
     if (document.readyState === 'loading') {

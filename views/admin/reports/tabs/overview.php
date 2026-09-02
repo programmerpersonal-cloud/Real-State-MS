@@ -27,7 +27,11 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
 
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
 
-<!-- ── Row 1 · the headline figures ──────────────────────────────── -->
+<?php /* the headline figures */ ?>
+<?php $section = [
+    'title' => 'Performance summary',
+    'desc'  => 'The four figures the rest of this report explains.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="kpis">
     <?php
     /* Revenue. The one tile with a comparison, because collected revenue is
@@ -35,6 +39,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
        rather than a reconstruction. */
     $kpi = [
         'label'   => 'Collected revenue',
+        'good'    => 'up',
         'value'   => formatCurrency($revenue),
         'icon'    => 'bi-cash-stack',
         'tone'    => 'primary',
@@ -109,7 +114,11 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
     ?>
 </div>
 
-<!-- ── Row 2 · where the money came from ─────────────────────────── -->
+<?php /* where the money came from */ ?>
+<?php $section = [
+    'title' => 'Revenue',
+    'desc'  => 'What came in over the period, and which contracts it came from.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     /* Revenue performance. With comparison on, the previous period rides as a
@@ -152,7 +161,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
         'series'   => $ovSeries,
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No payments were received in this period.',
-        'height'   => 220,
+        'size'   => 'feature',
         'filtered' => $ovFiltered,
         'resetUrl' => $ovReset,
     ];
@@ -185,7 +194,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
         'series'   => [['label' => 'Collected', 'data' => $ovStreamData, 'tones' => $ovStreamTones]],
         'label_heading' => 'Source',
         'empty'    => 'No revenue was collected in this period, so there is nothing to break down.',
-        'height'   => 220,
+        'size'   => 'feature',
         'filtered' => $ovFiltered,
         'resetUrl' => $ovReset,
         'share'    => true,
@@ -194,7 +203,11 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
     ?>
 </div>
 
-<!-- ── Row 3 · the portfolio, and what to do about it ────────────── -->
+<?php /* the portfolio, and what to do about it */ ?>
+<?php $section = [
+    'title' => 'Portfolio and attention',
+    'desc'  => 'The shape of the book today, and what stands out in it.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     /* Commercial state, not recorded status. Each slice is proved by a record
@@ -226,7 +239,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
         ]],
         'label_heading' => 'State',
         'empty'    => 'There are no properties in scope for the current filters.',
-        'height'   => 220,
+        'size'   => 'standard',
         'filtered' => $ovFiltered,
         'resetUrl' => $ovReset,
         'share'    => true,
@@ -239,5 +252,9 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
     ?>
 </div>
 
-<!-- ── Row 4 · which properties actually earned ──────────────────── -->
+<?php /* which properties actually earned */ ?>
+<?php $section = [
+    'title' => 'Detailed records',
+    'desc'  => 'Which properties actually earned in this period.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <?php require dirname(__DIR__) . '/_top_properties.php'; ?>

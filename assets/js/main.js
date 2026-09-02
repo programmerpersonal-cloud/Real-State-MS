@@ -2,20 +2,82 @@
  * Saxane Real Estate — Main JS
  */
 document.addEventListener('DOMContentLoaded', () => {
-  // ─── Sidebar Toggle (Mobile) ───────────────────────────
+  // ─── Sidebar drawer (mobile) ───────────────────────────
+  // On a phone the rail is a drawer over the page with a scrim behind it —
+  // which makes it a dialog in everything but name, and it was missing the
+  // three things that come with being one:
+  //
+  //   · Escape did nothing. The only way out was to find the scrim and tap
+  //     it, and on a short screen the scrim is a 40px strip beside a full
+  //     height menu.
+  //   · The page scrolled behind it. Dragging anywhere on the open drawer
+  //     took the content underneath with it, so closing the menu left you
+  //     somewhere else on the page than where you opened it.
+  //   · Focus stayed on the toggle while the drawer was open, so a keyboard
+  //     or screen-reader user opened a menu and was left standing outside
+  //     it — and after closing, focus was wherever the last click had put
+  //     it rather than back on the control they pressed.
+  //
+  // Everything below is that, and nothing else: same markup, same classes,
+  // same navigation.
   const toggle = document.getElementById('sidebarToggle');
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
 
   if (toggle && sidebar) {
-    toggle.addEventListener('click', () => {
-      sidebar.classList.toggle('open');
-      overlay?.classList.toggle('show');
+    const drawerOpen = () => sidebar.classList.contains('open');
+
+    const setDrawer = (open, restoreFocus) => {
+      if (open === drawerOpen()) return;
+      sidebar.classList.toggle('open', open);
+      overlay?.classList.toggle('show', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      // Shares the modal's counter, so a drawer and a dialog cannot
+      // release each other's lock.
+      lockPageScroll(open);
+
+      if (open) {
+        // The first thing in the drawer, which is the brand row — landing on
+        // the first nav link instead would skip past it silently.
+        const first = sidebar.querySelector(
+          'a[href],button:not([disabled]),input:not([disabled])'
+        );
+        first?.focus({ preventScroll: true });
+      } else if (restoreFocus) {
+        toggle.focus({ preventScroll: true });
+      }
+    };
+
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', 'sidebar');
+
+    toggle.addEventListener('click', () => setDrawer(!drawerOpen(), true));
+    overlay?.addEventListener('click', () => setDrawer(false, true));
+
+    // Escape closes it and hands the keyboard back to the button that opened
+    // it. Guarded on a modal being open, because a dialog launched from the
+    // drawer owns Escape first and closing both on one press loses the
+    // user's place entirely.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !drawerOpen()) return;
+      if (document.querySelector('.modal.is-open')) return;
+      e.preventDefault();
+      setDrawer(false, true);
     });
-    overlay?.addEventListener('click', () => {
-      sidebar.classList.remove('open');
-      overlay.classList.remove('show');
+
+    // Following a link closes it. Without this the drawer is still open
+    // behind the page that just loaded on a browser that restores state.
+    sidebar.addEventListener('click', (e) => {
+      if (e.target.closest('a[href]')) setDrawer(false, false);
     });
+
+    // Widening past the breakpoint makes the rail a rail again: the class
+    // would otherwise leave the scroll lock on a desktop page that has no
+    // drawer to justify it.
+    const wide = window.matchMedia('(min-width: 769px)');
+    const onWide = (e) => { if (e.matches) setDrawer(false, false); };
+    wide.addEventListener ? wide.addEventListener('change', onWide)
+                          : wide.addListener(onWide);
   }
 
   // ─── Dropdown Toggle ───────────────────────────────────
@@ -132,11 +194,167 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── Step 6 ────────────────────────────────────────────
   document.querySelectorAll('.table-wrap').forEach(initTableScroll);
 
+  // ─── Property photo viewer ─────────────────────────────
+  document.querySelectorAll('[data-viewer]').forEach(initPropertyViewer);
+
   // ─── Phone country picker ──────────────────────────────
   // Progressive: the <select> underneath is what posts, and is what a
   // browser with scripting off is left holding.
   document.querySelectorAll('[data-phone-field]').forEach(initPhoneField);
 });
+
+/**
+ * The property detail page's photo viewer: a stage and a rail of thumbnails.
+ *
+ * The markup it enhances already works. Every thumbnail is a link to the
+ * full-size file and the stage is a link to the first one, so with scripting
+ * off the gallery behaves exactly as it did before this existed — each photo
+ * opens in a tab. What is added here is the ability to stay on the page: a
+ * click on a thumbnail swaps the stage instead of leaving, the two step
+ * controls appear because there is now something able to drive them, and the
+ * arrow keys walk the set once the rail has focus.
+ *
+ * Nothing is preloaded and nothing is fetched. The rail's <img>s are the same
+ * files at a smaller box, so a swap is a src the browser already holds.
+ */
+function initPropertyViewer(root) {
+  const frame = root.querySelector('[data-viewer-frame]');
+  const image = root.querySelector('[data-viewer-image]');
+  const thumbs = Array.from(root.querySelectorAll('[data-viewer-thumb]'));
+  if (!frame || !image || thumbs.length < 2) return;
+
+  const counter = root.querySelector('[data-viewer-counter]');
+  const position = root.querySelector('[data-viewer-position]');
+  const steps = Array.from(root.querySelectorAll('[data-viewer-step]'));
+
+  // Revealed only now: before this point they were controls with nothing
+  // behind them, and a dead chevron over a photograph is worse than a plain
+  // photograph.
+  steps.forEach((button) => { button.hidden = false; });
+  if (counter) counter.hidden = false;
+
+  let index = Math.max(0, thumbs.findIndex((t) => t.classList.contains('is-current')));
+
+  const show = (next, focusThumb) => {
+    // Wraps in both directions, which is what makes one control enough at
+    // either end of the set.
+    const target = (next + thumbs.length) % thumbs.length;
+    if (target === index && root.dataset.viewerReady) return;
+    index = target;
+
+    const thumb = thumbs[index];
+    const href = thumb.getAttribute('href');
+
+    root.classList.add('is-swapping');
+    image.src = href;
+    // The stage is still a link to whatever it is currently showing.
+    frame.setAttribute('href', href);
+
+    thumbs.forEach((t, i) => {
+      t.classList.toggle('is-current', i === index);
+      if (i === index) {
+        t.setAttribute('aria-current', 'true');
+      } else {
+        t.removeAttribute('aria-current');
+      }
+    });
+
+    if (position) position.textContent = String(index + 1);
+    // Keep the active thumbnail in the strip rather than leaving it scrolled
+    // off to one side after a few steps.
+    thumb.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (focusThumb) thumb.focus();
+    root.dataset.viewerReady = '1';
+  };
+
+  // decode() rather than the load event: the class is what dims the outgoing
+  // picture, and it has to come off when the incoming one can actually be
+  // painted. A file the browser already has resolves immediately.
+  const settle = () => root.classList.remove('is-swapping');
+  image.addEventListener('load', settle);
+  image.addEventListener('error', settle);
+
+  thumbs.forEach((thumb, i) => {
+    thumb.addEventListener('click', (event) => {
+      // A modified click is someone asking for a new tab on purpose, and the
+      // element is a real link — so it is left alone to be one.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      show(i, false);
+    });
+  });
+
+  steps.forEach((button) => {
+    button.addEventListener('click', () => show(index + Number(button.dataset.viewerStep), false));
+  });
+
+  // Arrow keys, but only while the rail itself holds focus: bound to the
+  // document they would fight the page's own scrolling on every property.
+  root.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    if (!root.contains(document.activeElement)) return;
+    event.preventDefault();
+    show(index + (event.key === 'ArrowRight' ? 1 : -1), true);
+  });
+}
+
+/**
+ * Copy the table's column names onto its cells, so each one can carry its
+ * own label when the table is laid out as cards.
+ *
+ * Done once, from the <thead> that is already on the page — a card whose
+ * lines are labelled from anywhere other than the table's own header can
+ * drift out of step with it the first time a column is added.
+ *
+ * Returns false for a table that must never be stacked: a permission matrix
+ * is a grid whose meaning *is* the intersection of its row and column, and
+ * breaking it into per-row cards destroys the thing it exists to show.
+ * data-no-stack opts a table out by hand for the same kind of reason.
+ */
+function prepareStackLabels(table) {
+  if (!table || !table.tHead || !table.tHead.rows.length) return false;
+  if (table.classList.contains('table--matrix')) return false;
+  if (table.hasAttribute('data-no-stack')) return false;
+
+  const heads = Array.from(table.tHead.rows[0].cells);
+  const labels = heads.map((th) => {
+    // A sortable header wraps its label in a link with a direction glyph;
+    // .textContent of that is the label plus whatever the glyph renders as,
+    // so the explicit name wins where one is given.
+    const explicit = th.getAttribute('data-stack-label');
+    if (explicit !== null) return explicit.trim();
+    const link = th.querySelector('.th-sort__link');
+    const text = (link ? link.textContent : th.textContent) || '';
+    return text.replace(/\s+/g, ' ').trim();
+  });
+
+  // Which column is the card's headline. The register's identity is not
+  // always its first column — Properties opens with a code that is hidden
+  // on any narrow screen anyway — so the headline is the first column that
+  // is neither a de-prioritised one nor the checkbox or actions gutter.
+  // A table may name its own with data-stack-title.
+  let headIndex = heads.findIndex((th) => th.hasAttribute('data-stack-title'));
+  if (headIndex < 0) {
+    headIndex = heads.findIndex((th) => !th.matches('.col-lo,.col-mid,.check-col,.cell-actions'));
+  }
+  if (headIndex < 0) headIndex = 0;
+
+  Array.from(table.tBodies).forEach((body) => {
+    Array.from(body.rows).forEach((row) => {
+      let column = 0;
+      Array.from(row.cells).forEach((cell) => {
+        const span = cell.colSpan || 1;
+        if (span === 1) {
+          const label = labels[column];
+          if (label) cell.setAttribute('data-label', label);
+          if (column === headIndex) cell.setAttribute('data-stack-head', '');
+        }
+        column += span;
+      });
+    });
+  });
+  return true;
+}
 
 /**
  * Tell the CSS how a table is scrolled.
@@ -156,6 +374,15 @@ function initTableScroll(wrap) {
   // table rather than scroll along with it.
   const card = wrap.closest('.table-card') || wrap.parentElement;
   if (!card) return;
+
+  // Below this much table width there is no honest arrangement of a register's
+  // columns left, and the row becomes a card instead. Measured on the wrap
+  // rather than the window: the rail is a drawer by then, so the two usually
+  // agree, but a table inside a narrow panel on a wide screen has the same
+  // problem and deserves the same answer.
+  const STACK_MAX = 620;
+  const table = wrap.querySelector('table.table');
+  const stackable = prepareStackLabels(table);
 
   // A few pixels of slack, used by every comparison below. Sub-pixel column
   // layout leaves a fractional remainder on tables with nothing actually
@@ -184,14 +411,40 @@ function initTableScroll(wrap) {
    */
   const TIERS = ['is-cols-all', 'is-cols-mid', 'is-cols-min'];
   const fit = () => {
-    for (const tier of TIERS) {
+    card.classList.remove('is-stacked');
+
+    // Widest first. If every column the module offers fits, that is the
+    // answer at any screen size and there is nothing to decide.
+    card.classList.remove(...TIERS);
+    card.classList.add('is-cols-all');
+    if (overflow() <= SLACK) return;
+
+    // It does not fit. On a phone, stop here and stack.
+    //
+    // The test is deliberately "did the whole table fit", not "did the
+    // stripped-down table overflow" — those are different questions and the
+    // second one gave the wrong answer. Customers reduced to Name + Contact
+    // technically *fits* a 390px screen, so the old check was satisfied and
+    // the table stood; what the reader actually got was two columns with the
+    // names ellipsed and the role, the status and the portal access simply
+    // gone. Fitting by deletion is not fitting. The card restores those
+    // columns, because vertical room is the one thing a phone has.
+    if (stackable && wrap.clientWidth <= STACK_MAX) {
+      card.classList.remove(...TIERS);
+      card.classList.add('is-stacked');
+      return;
+    }
+
+    // There is real width here — so spend the de-prioritised columns, in
+    // order, and keep the first arrangement that fits.
+    for (const tier of ['is-cols-mid', 'is-cols-min']) {
       card.classList.remove(...TIERS);
       card.classList.add(tier);
-      if (overflow() <= SLACK) return;  // fits — keep this one
+      if (overflow() <= SLACK) return;
     }
-    // Nothing fits: a phone cannot hold eight columns however few are hidden.
-    // The narrowest state stands and the wrap scrolls, which is what the
-    // pinned first column and the edge shadows below are for.
+    // Nothing fits and the screen is not a phone: the narrowest state stands
+    // and the wrap scrolls, which is what the pinned first column and the
+    // edge shadows below are for.
   };
 
   let frame = 0;

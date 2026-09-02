@@ -178,7 +178,7 @@ require __DIR__ . '/_register_tabs.php';
                 <tr>
                     <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
                     <?= uiSortHeader('Property', ['asc' => 'title_asc', 'desc' => 'title_desc']) ?>
-                    <th class="col-mid">Type</th>
+                    <th class="col-mid cell-tight">Type</th>
                     <th class="col-mid">Owner</th>
                     <?= uiSortHeader('Price', ['asc' => 'price_asc', 'desc' => 'price_desc'], 'sort', 'cell-num') ?>
                     <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>
@@ -188,21 +188,39 @@ require __DIR__ . '/_register_tabs.php';
             </thead>
             <tbody>
                 <?php foreach ($properties as $p): ?>
-                    <?php $price = propertyPrice($p); ?>
+                    <?php
+                    $price = propertyPrice($p);
+                    $cover = $covers[(int) $p['id']] ?? null;
+                    ?>
                     <tr>
                         <td class="col-lo"><span class="table__id"><?= sanitize($p['property_code']) ?></span></td>
                         <td>
-                            <a href="<?= $showUrl((int) $p['id']) ?>" class="cell-strong">
-                                <?= sanitize($p['title']) ?>
-                            </a>
-                            <?php if (!empty($p['location'])): ?>
-                                <div class="person__meta">
-                                    <i class="bi bi-geo-alt" aria-hidden="true"></i>
-                                    <?= sanitize($p['location']) ?>
+                            <?php /* The photograph, the same one the grid view and the archive
+                                     already show. A property register is a list of buildings
+                                     somebody has to recognise, and the title alone makes every
+                                     row of "A new Apartment" look like the row above it. The
+                                     cover is already loaded for the grid on this very page, so
+                                     it costs no extra query — and the explicit width/height
+                                     reserve the row's height before the image arrives, so a
+                                     screenful of covers loading does not jolt the table. */ ?>
+                            <div class="media-cell">
+                                <img class="media-cell__thumb"
+                                     src="<?= sanitize(propertyImage($p, $cover)) ?>"
+                                     alt="" loading="lazy" width="56" height="42">
+                                <div class="media-cell__body">
+                                    <a href="<?= $showUrl((int) $p['id']) ?>" class="cell-strong">
+                                        <?= sanitize($p['title']) ?>
+                                    </a>
+                                    <?php if (!empty($p['location'])): ?>
+                                        <div class="person__meta">
+                                            <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                                            <?= sanitize($p['location']) ?>
+                                        </div>
+                                    <?php endif ?>
                                 </div>
-                            <?php endif ?>
+                            </div>
                         </td>
-                        <td class="col-mid">
+                        <td class="col-mid cell-tight">
                             <span class="text-muted">
                                 <i class="bi <?= categoryIcon($p['category']) ?>" aria-hidden="true"></i>
                                 <?= sanitize(uiLabel($p['category'])) ?>

@@ -120,7 +120,10 @@ $settled = ['completed', 'rejected', 'cancelled'];
                         <?= uiSortHeader('Priority', ['desc' => 'priority', 'asc' => 'priority_asc']) ?>
                         <?= uiSortHeader('Code', ['asc' => 'code_asc', 'desc' => 'code_desc'], 'sort', 'col-lo') ?>
                         <th class="col-mid">Property</th>
-                        <th>Fault</th>
+                        <?php /* The card layout takes its headline from the first column that is
+                                 not de-prioritised, which here would be the priority pill — a
+                                 tone, not a name. A request is identified by the fault. */ ?>
+                        <th data-stack-title>Fault</th>
                         <th class="col-mid">Assigned to</th>
                         <?= uiSortHeader('Reported', ['desc' => 'newest', 'asc' => 'oldest'], 'sort', 'cell-date') ?>
                         <?= uiSortHeader('Status', ['asc' => 'status_asc', 'desc' => 'status_desc']) ?>

@@ -17,12 +17,19 @@
  *
  * Expects from CommunicationController::render():
  *   $conversations $totalCount $page $perPage $filter $filters $search
- *   $contacts $contactSource $scopeHint $emptyMessage $composing $unreadTotal
+ *   $contacts $contactSource $scopeHint $emptyMessage $emptyDetail $composing $unreadTotal
  *   $conversation $participants $counterpart $thread $earlierUrl $canSend
  *   $isArchived $draft  and, when a conversation is open, $contextBlocks
  */
 $pageStyles   = ['pages/messages'];
 $extraScripts = ['messages'];
+
+/* No page header above the workspace. This is a chat, not a document: the
+   standard title block plus its subtitle took ~110px off the top of a
+   screen whose whole job is showing as much conversation as it can, and
+   the rail already says "Messages" directly above the list it names. The
+   breadcrumb in the top bar still reads Messages > <name>. */
+$hidePageHeader = true;
 
 $base       = APP_URL . '/index.php?page=messages';
 $isOpen     = !empty($conversation);
@@ -69,7 +76,10 @@ $listSuffix = $listQuery ? '&' . http_build_query($listQuery) : '';
                 <?= uiEmptyState([
                     'icon'  => $hasContacts ? 'bi-chat-dots' : 'bi-person-x',
                     'title' => $hasContacts ? 'No conversations yet' : 'No contacts available',
-                    'desc'  => $hasContacts ? $emptyMessage : $emptyMessage,
+                    // The heading above already says which of the two
+                    // situations this is, so the line under it explains
+                    // rather than repeats.
+                    'desc'  => $emptyDetail ?? $emptyMessage,
                     'actions' => $hasContacts ? [[
                         'label' => 'New message',
                         'icon'  => 'bi-pencil-square',
@@ -84,7 +94,7 @@ $listSuffix = $listQuery ? '&' . http_build_query($listQuery) : '';
                 <?= uiEmptyState([
                     'icon'  => 'bi-chat-square-text',
                     'title' => 'Select a conversation',
-                    'desc'  => 'Choose a conversation from the list to read it, or start a new one.',
+                    'desc'  => 'Choose a conversation to view messages and continue communication.',
                     'actions' => $hasContacts ? [[
                         'label' => 'New message',
                         'icon'  => 'bi-pencil-square',

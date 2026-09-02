@@ -49,7 +49,7 @@ $tpState = static function (array $tpR): array {
 ?>
 <div class="table-card">
     <div class="table-head">
-        <div class="table-head__title">Top performing properties</div>
+        <h4 class="table-head__title">Top performing properties</h4>
         <span class="table-head__note">
             By collected revenue in <?= sanitize($window['label']) ?>
         </span>
@@ -89,12 +89,19 @@ $tpState = static function (array $tpR): array {
                     <?php foreach ($tpRows as $tpI => $tpR): ?>
                         <?php [$tpLabel, $tpTone] = $tpState($tpR); ?>
                         <tr>
-                            <td class="tp-rank"><?= $tpI + 1 ?></td>
+                            <td class="tp-rank">
+                                <?php /* Only the leader is marked. A three-colour
+                                         podium would be a ranking of a difference
+                                         this small ledger cannot support. */ ?>
+                                <span class="tp-badge<?= $tpI === 0 ? ' tp-badge--first' : '' ?>">
+                                    <?= $tpI + 1 ?>
+                                </span>
+                            </td>
                             <td>
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $tpR['id']) ?>">
                                     <?= sanitize((string) $tpR['title']) ?>
                                 </a>
-                                <div class="tp-code"><?= sanitize((string) $tpR['property_code']) ?></div>
+                                <div class="tp-code tp-code--id"><?= sanitize((string) $tpR['property_code']) ?></div>
                             </td>
                             <td class="col-mid">
                                 <i class="bi <?= sanitize(categoryIcon((string) $tpR['category'])) ?> tp-cat-icon" aria-hidden="true"></i>

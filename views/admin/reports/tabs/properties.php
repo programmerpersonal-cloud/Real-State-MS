@@ -29,7 +29,11 @@ $poTotal    = (int) $state['total'];
 
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
 
-<!-- ── Row 1 · the portfolio in six figures ──────────────────────── -->
+<?php /* the portfolio in six figures */ ?>
+<?php $section = [
+    'title' => 'Portfolio summary',
+    'desc'  => 'The inventory as it stands today.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="kpis kpis--six">
     <?php
     /* No comparison on any of these. The previous-period column would have to
@@ -122,10 +126,10 @@ $poTotal    = (int) $state['total'];
 <?php /* Said once, plainly, under the figures it applies to. Without it a
          reader changes the period, sees nothing move, and concludes the
          report is broken. */ ?>
-<div class="notice notice--muted mb-3" role="note">
-    <div class="notice__icon"><i class="bi bi-clock-history" aria-hidden="true"></i></div>
-    <div class="notice__body">
-        <div class="notice__title">These figures describe the portfolio as it stands today</div>
+<div class="rnote" role="note">
+    <span class="rnote__icon" aria-hidden="true"><i class="bi bi-clock-history"></i></span>
+    <div class="rnote__body">
+        <p class="rnote__title">These figures describe the portfolio as it stands today</p>
         The database records no history of inventory — when a property was added,
         archived, approved or re-typed is not stored — so portfolio counts do not move
         with the reporting period and cannot be compared with a previous one.
@@ -134,7 +138,11 @@ $poTotal    = (int) $state['total'];
     </div>
 </div>
 
-<!-- ── Row 2 · what the records prove, and what the record says ──── -->
+<?php /* what the records prove, and what the record says */ ?>
+<?php $section = [
+    'title' => 'Commercial state',
+    'desc'  => 'What the records prove, beside what the register claims.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     /* Commercial state: each slice proved by a lease, a reservation or a
@@ -162,7 +170,7 @@ $poTotal    = (int) $state['total'];
         ]],
         'label_heading' => 'State',
         'empty'    => 'No approved property is in scope for the current filters.',
-        'height'   => 220,
+        'size'   => 'feature',
         'share'    => true,
         'filtered' => $poFiltered,
         'resetUrl' => $poReset,
@@ -199,7 +207,7 @@ $poTotal    = (int) $state['total'];
         ]],
         'label_heading' => 'State',
         'empty'      => 'No property is in scope for the current filters.',
-        'height'     => 220,
+        'size'     => 'feature',
         'filtered'   => $poFiltered,
         'resetUrl'   => $poReset,
         'footnote'   => 'Administrative state, not commercial. A property can be approved '
@@ -210,7 +218,11 @@ $poTotal    = (int) $state['total'];
     ?>
 </div>
 
-<!-- ── Row 3 · what the portfolio is made of ─────────────────────── -->
+<?php /* what the portfolio is made of */ ?>
+<?php $section = [
+    'title' => 'Composition',
+    'desc'  => 'What the portfolio is made of, and what it is listed for.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
     $chart = [
@@ -231,7 +243,7 @@ $poTotal    = (int) $state['total'];
         ]],
         'label_heading' => 'Category',
         'empty'      => 'No approved property is in scope for the current filters.',
-        'height'     => 220,
+        'size'     => 'standard',
         'share'      => true,
         'filtered'   => $poFiltered,
         'resetUrl'   => $poReset,
@@ -262,7 +274,7 @@ $poTotal    = (int) $state['total'];
         ]],
         'label_heading' => 'Intent',
         'empty'    => 'No approved property is in scope for the current filters.',
-        'height'   => 220,
+        'size'   => 'standard',
         'share'    => true,
         'filtered' => $poFiltered,
         'resetUrl' => $poReset,
@@ -273,11 +285,19 @@ $poTotal    = (int) $state['total'];
     ?>
 </div>
 
-<!-- ── Row 4 · location, and what can honestly be said about it ──── -->
+<?php /* location, and what can honestly be said about it */ ?>
+<?php $section = [
+    'title' => 'Location and attention',
+    'desc'  => 'Where the properties are, and what stands out.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php require dirname(__DIR__) . '/_portfolio_locations.php'; ?>
     <?php require dirname(__DIR__) . '/_insights.php'; ?>
 </div>
 
-<!-- ── Row 5 · one row per property ──────────────────────────────── -->
+<?php /* one row per property */ ?>
+<?php $section = [
+    'title' => 'Detailed records',
+    'desc'  => 'One row per property in scope.',
+]; require dirname(__DIR__) . '/_section.php'; ?>
 <?php require dirname(__DIR__) . '/_portfolio_table.php'; ?>

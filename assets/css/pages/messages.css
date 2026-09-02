@@ -46,20 +46,61 @@
   min-height: 0;
   overflow: hidden;
 }
-/* The page header keeps its own height; only the workspace flexes. */
+/* The page header keeps its own height; only the workspace flexes. It is
+   normally absent here — views/messages/index.php sets $hidePageHeader —
+   but the rule stays so the layout is still correct if a flash message or
+   an action button brings it back. */
 .app:has(.msg) .page-header { flex: 0 0 auto; }
 
-/* ─── The workspace ──────────────────────────────────────────── */
+/* ─── Every pixel this page can give the conversation ──────────
+   A messaging workspace is not a document: the chrome around it is
+   competing with the thing people came to read. The page header is
+   already gone; these two give back the rest.
+
+   Both are scoped to this page by :has(.msg) and change nothing
+   anywhere else in the application. */
+.app:has(.msg) .app__content { padding: 14px 18px 18px; }
+
+/* The footer is a version stamp and a support link. On a full-height
+   workspace it costs ~50px of conversation to say so, and both are one
+   click away everywhere else in the app. */
+.app:has(.msg) .app__footer { display: none; }
+
+/* ─── The workspace ──────────────────────────────────────────────
+   ONE surface, not two cards. The rail and the thread used to be
+   separate bordered panels with a gap between them, which made the
+   page read as a dashboard holding a chat widget rather than as a
+   messaging application. Now there is a single border around the
+   pair and a single hairline between them — the rail is joined to
+   the thread, and the thread gets every pixel the rail does not
+   need.
+
+   The rail is capped rather than fixed: minmax(300px, 340px) lets it
+   give ground on a laptop and stop growing on a wide monitor, where
+   extra width belongs to the conversation. */
 .msg {
-  --msg-list-w: 336px;
+  /* 320 is the number the reference sits at, and it is the right one:
+     wide enough for an avatar, a name, a preview and a time without
+     truncating any of them, narrow enough that the conversation keeps
+     the rest. It gives ground on a laptop and stops growing on a wide
+     monitor, where extra width belongs to the thread. */
+  --msg-list-w: minmax(288px, 320px);
 
   display: grid;
   grid-template-columns: var(--msg-list-w) minmax(0, 1fr);
-  gap: var(--space-4);
   flex: 1;
   min-height: 0;
   /* Never let a long name or a wide context tag push the page sideways. */
   max-width: 100%;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  /* One generous radius on the pair, and a soft shadow rather than a
+     hard card edge — the workspace should sit on the page, not be
+     stamped onto it. */
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(16, 34, 44, .04), 0 12px 32px -18px rgba(16, 34, 44, .28);
+  overflow: hidden;
 }
 
 .msg__list,
@@ -69,10 +110,15 @@
   min-height: 0;
   min-width: 0;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--card-radius);
-  overflow: hidden;
 }
+
+/* The only division between the two, and it is one line. */
+.msg__list { border-right: 1px solid var(--border); }
+
+/* The thread's own ground is a shade off the rail's, which separates
+   the two without a second border and gives the bubbles something
+   to sit on. */
+.msg__panel { background: var(--surface-2); }
 
 /* ─── Inbox: head, search, filters ───────────────────────────── */
 .msg__list-head {
@@ -80,18 +126,25 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  /* No bottom rule. The search field below is already a hard edge, and
+     three stacked hairlines down the top of the rail is what made this
+     read as a settings panel. */
+  padding: var(--space-4) var(--space-4) var(--space-2);
   flex: 0 0 auto;
 }
 .msg__list-title { min-width: 0; }
+
+/* The page's own name, at the size a page name is set. This was
+   var(--fs-sm) and semibold — the same weight as a field label — which
+   is why the panel had no anchor. */
 .msg__list-heading {
   margin: 0;
-  font-family: var(--font);
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  font-family: var(--font-display, var(--font));
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  line-height: 1.15;
   color: var(--text);
-  letter-spacing: .01em;
+  letter-spacing: -.015em;
 }
 .msg__total {
   display: block;
@@ -101,20 +154,34 @@
 }
 .msg__new { white-space: nowrap; }
 
+/* A single pill. The Search button that used to sit beside it was as
+   wide as the field and the loudest control on the panel, for an action
+   Enter already performs — it is now an sr-only submit, so the form
+   still works with a keyboard and with no script. */
 .msg__search {
   display: flex;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4) var(--space-3);
   flex: 0 0 auto;
 }
 .msg__search .input-icon { flex: 1; min-width: 0; }
-.msg__search .form-control { height: var(--control-h-sm); font-size: var(--fs-xs); }
+.msg__search .form-control {
+  height: 40px;
+  padding-left: 38px;
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.msg__search .form-control:focus {
+  background: var(--surface);
+  border-color: var(--primary);
+}
+.msg__search .input-icon > .bi { left: 14px; color: var(--text-subtle); }
 
 .msg__filters {
   display: flex;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-4);
+  gap: 6px;
+  padding: 0 var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
   overflow-x: auto;
@@ -122,16 +189,23 @@
 }
 .msg__filters::-webkit-scrollbar { display: none; }
 .msg__filter {
-  padding: 5px 11px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
-  transition: background .15s ease, color .15s ease;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
-.msg__filter:hover { background: var(--surface-3); color: var(--text); }
-.msg__filter.is-active { background: var(--primary-light); color: var(--primary-ink); }
+.msg__filter:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+/* The one in force is filled, not tinted: on a row of outlined pills a
+   tint is easy to miss and a fill is not. */
+.msg__filter.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
 
 /* ─── Inbox: the list ────────────────────────────────────────── */
 .msg__items {
@@ -145,37 +219,62 @@
 }
 .msg__items--empty { display: flex; align-items: center; justify-content: center; padding: var(--space-4); }
 
-.msg__item { border-bottom: 1px solid var(--border); }
-.msg__item:last-child { border-bottom: 0; }
+/* A row is a surface, not a table cell. The per-row hairline is gone:
+   in a scannable list it draws the eye to the gaps between people
+   rather than to the people, and 3px of hover surface separates them
+   perfectly well. Spacing and weight carry the hierarchy instead. */
+.msg__item { padding: 0 10px; }
+.msg__item + .msg__item { margin-top: 2px; }
 
 .msg__item-link {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  /* The unread marker rail. Transparent when read, so the text never
-     shifts sideways as a conversation changes state. */
-  border-left: 3px solid transparent;
+  padding: 10px var(--space-3);
+  border-radius: 14px;
   color: inherit;
-  transition: background .15s ease;
+  transition: background .16s ease;
 }
 .msg__item-link:hover { background: var(--surface-2); }
-.msg__item-link:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: -2px;
-}
+.msg__item-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Active: a filled surface plus a weightier name. Not a border — an
+   outline on one row of a list reads as an error state. */
+/* The open conversation is a soft brand wash with a spine on its
+   leading edge — enough to be unmistakable at a glance down the rail,
+   short of the filled block that made it look selected-for-deletion. */
 .msg__item.is-active .msg__item-link {
-  background: var(--primary-tint);
-  border-left-color: var(--primary);
+  background: var(--primary-tint, var(--primary-light));
+  box-shadow: inset 3px 0 0 var(--primary);
 }
-/* Unread is signalled three ways — rail, weight, badge — never by
-   colour alone. */
-.msg__item.is-unread .msg__item-link { border-left-color: var(--primary); }
-.msg__item.is-unread .msg__item-name { font-weight: 700; }
-.msg__item.is-unread .msg__item-preview { color: var(--text-body); font-weight: 500; }
+.msg__item.is-active .msg__item-name { color: var(--primary-ink); }
+
+/* Unread is signalled four ways — name weight, preview weight, preview
+   colour and a counted badge — so it survives greyscale and it survives
+   a reader who cannot see the badge's colour. */
+.msg__item.is-unread .msg__item-name { font-weight: 700; color: var(--text); }
+.msg__item.is-unread .msg__item-preview { color: var(--text); font-weight: 600; }
+.msg__item.is-unread .msg__item-time { color: var(--primary-ink); font-weight: 600; }
+
+/* The avatar carries the presence dot, the same honest one the header
+   uses: a request inside the last two minutes, never "has an account". */
+.msg__item-figure { position: relative; display: inline-flex; flex: 0 0 auto; }
+
+.msg__item-live {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--success-light, rgba(34,153,84,.12));
+  color: var(--success);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
 
 .msg__item-body { min-width: 0; }
+
 .msg__item-top {
   display: flex;
   align-items: baseline;
@@ -199,27 +298,50 @@
   flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
 }
-.msg__item-role,
-.msg__item-context,
+
+/* Preview and badge share a line: the count belongs beside the words it
+   is counting, not floated away at the row's edge. */
+.msg__item-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 2px;
+  min-width: 0;
+}
 .msg__item-preview {
-  display: block;
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-2xs);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.msg__item-role { color: var(--text-subtle); margin-top: 1px; }
-.msg__item-context {
-  color: var(--primary-ink);
-  margin-top: 3px;
-  font-weight: 500;
-}
-.msg__item-context .bi { font-size: .85em; margin-right: 3px; }
-.msg__item-preview { color: var(--text-muted); margin-top: 3px; }
 .msg__item-preview--none { font-style: italic; color: var(--text-subtle); }
 
+.msg__item-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  min-width: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+}
+.msg__item-role { flex: 0 0 auto; }
+.msg__item-dot { color: var(--border-strong); }
+.msg__item-context {
+  min-width: 0;
+  color: var(--primary-ink);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg__item-context .bi { font-size: .9em; margin-right: 3px; }
+
 .msg__item-badge {
-  align-self: center;
+  flex: 0 0 auto;
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
@@ -246,12 +368,17 @@
 .msg__list-count { font-size: var(--fs-2xs); color: var(--text-subtle); }
 
 /* ─── Thread: header ─────────────────────────────────────────── */
+/* The header sits on its own opaque surface above the patterned
+   ground, which is what stops the doodle running behind the name. */
 .msg__head {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: relative;
+  z-index: 3;
   flex: 0 0 auto;
 }
 .msg__back {
@@ -275,20 +402,60 @@
 .msg__head-name {
   margin: 0;
   font-family: var(--font);
-  font-size: var(--fs-body);
-  font-weight: 600;
+  font-size: var(--fs-md, 1.0625rem);
+  font-weight: 700;
+  letter-spacing: -.01em;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .msg__head-role {
-  margin: 1px 0 0;
+  margin: 2px 0 0;
   font-size: var(--fs-2xs);
   color: var(--text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .msg__head-flag { color: var(--warning); font-weight: 600; }
-.msg__head-actions { flex: 0 0 auto; }
+.msg__head-actions { flex: 0 0 auto; display: flex; gap: var(--space-1); }
+
+/* Icon-only, but never nameless: the verb is in the accessible name and
+   the tooltip. 38px keeps the header compact and still clears the
+   pointer-target minimum. */
+.msg__head-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease;
+}
+.msg__head-btn:hover { background: var(--surface-3); color: var(--text); }
+.msg__head-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Archived is a state, not a disabled control — a quiet band, not an
+   alert, and the thread below it behaves exactly as it always did. */
+.msg__archived-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-snug);
+  flex: 0 0 auto;
+}
 
 /* ─── Business context card ──────────────────────────────────── */
 /* Deliberately small. The thread is the content and this is the
@@ -395,91 +562,475 @@
 }
 
 /* ─── Thread: the message stream ─────────────────────────────── */
+/* ── The ground ──────────────────────────────────────────────
+   A doodle at 3% opacity: enough to tell the eye this is a
+   conversation surface rather than a dashboard card, far too faint to
+   compete with a bubble. It is an inline SVG data URI — no request, no
+   image file, and nothing to fail to load.
+
+   The pattern rides on the panel, not the scroller, so it stays put
+   while the messages move over it. */
+.msg__panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Texture, not decoration. At .035 on a 280px tile the outlines read
+     as large drawings competing with the bubbles; this is the level where
+     it registers as a surface and stops being a picture. */
+  opacity: .014;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%230075c0' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M14 20h26a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H26l-8 8V46a6 6 0 0 1-4-6V26a6 6 0 0 1 0-6z'/%3E%3Ccircle cx='104' cy='34' r='13'/%3E%3Cpath d='M99 34l4 4 7-8'/%3E%3Cpath d='M24 92v-8a10 10 0 0 1 20 0v8'/%3E%3Cpath d='M34 104v8'/%3E%3Cpath d='M26 112h16'/%3E%3Cpath d='M92 88h30v20h-12l-6 6v-6h-12z'/%3E%3Cpath d='M100 96h14M100 102h8'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 170px 170px;
+}
+.msg__panel { position: relative; }
+
 .msg__stream {
+  /* A flex column whose content starts at the top and stays there.
+     justify-content:flex-start is stated rather than left to the initial
+     value, because this is the property that decides whether a short
+     thread reads as a conversation or as two messages thrown at opposite
+     ends of the panel. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-4);
-  background: var(--surface-2);
+  padding: var(--space-4) var(--space-5, var(--space-4));
+  background: transparent;
+  position: relative;
+  z-index: 1;
 }
 .msg__stream:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .msg__stream-empty { display: flex; align-items: center; justify-content: center; min-height: 100%; }
 
 .msg__earlier { text-align: center; margin: 0 0 var(--space-4); }
 
-.msg__list-messages { list-style: none; margin: 0; padding: 0; }
+/* The message list is an ordinary top-to-bottom column. Nothing here
+   distributes the messages across the panel's height, and nothing
+   bottom-anchors them: two messages sit together at the top of the
+   thread, in the order they were said, with ordinary conversational
+   spacing between them and nothing inserted underneath. */
+.msg__list-messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  min-height: 0;
+}
 
+/* A centred chip rather than a rule with a word in it: on a patterned
+   ground two hairlines running the width of the panel are the loudest
+   thing on screen, and the date is not the loudest thing in a thread. */
 .msg__day {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: center;
   margin: var(--space-4) 0 var(--space-3);
-  font-size: var(--fs-2xs);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-subtle);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .06em;
 }
-.msg__day::before,
-.msg__day::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border);
+.msg__day > span {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(16, 34, 44, .10);
 }
 .msg__list-messages > .msg__day:first-child { margin-top: 0; }
 
-.msg__msg { display: flex; margin-bottom: var(--space-3); }
-.msg__msg--mine { justify-content: flex-end; }
+/* ─── Runs: consecutive messages from one person ─────────────── */
+/* The avatar and the name are drawn once per run and the timestamp
+   once at its foot. Repeating all three on every bubble is what makes
+   a thread read as a log of records rather than as a conversation. */
+.msg__run {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: var(--space-4);
+}
+.msg__run--mine { flex-direction: row-reverse; }
 
-.msg__msg-inner {
-  max-width: min(78%, 620px);
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+.msg__run-avatar { flex: 0 0 auto; align-self: flex-end; }
+
+.msg__run-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  /* The measure. A short reply must not stretch across the panel, and a
+     long one must not run past a comfortable line. */
+  max-width: min(72%, 560px);
+}
+.msg__run--mine .msg__run-body { align-items: flex-end; }
+
+.msg__run-author {
+  margin: 0 0 4px 2px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+/* Your own name adds nothing above your own words. Removed visually;
+   the sr-only line inside each bubble still names every sender, so the
+   reading order is unchanged. */
+.msg__run--mine .msg__run-author { display: none; }
+
+.msg__run-time {
+  margin: 4px 2px 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Bubbles ────────────────────────────────────────────────── */
+.msg__msg {
+  padding: 9px 13px;
   background: var(--surface);
+  /* No border. On a patterned ground a hairline plus a shadow reads as
+     a card; the shadow alone reads as a bubble lifted off the surface,
+     which is the whole difference between this and a list of records. */
+  border: 0;
+  box-shadow: 0 1px 1.5px rgba(16, 34, 44, .10), 0 1px 10px -6px rgba(16, 34, 44, .30);
+  color: var(--text-body);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  min-width: 0;
+  max-width: 100%;
+  /* A pasted URL or a long reference reflows rather than widening. */
+  overflow-wrap: anywhere;
+  border-radius: 18px;
+}
+.msg__msg + .msg__msg { margin-top: 2px; }
+
+/* The tucked corner. Only the corner facing the run's spine flattens,
+   which is what visually welds a run together. */
+.msg__msg--first { border-bottom-left-radius: 6px; }
+.msg__msg--mid   { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+.msg__msg--last  { border-top-left-radius: 6px; }
+
+/* The tail. Only the bubble that ends a run gets one, on the side its
+   run sits on — which is what makes a run read as one turn in a
+   conversation rather than as three separate ones. */
+.msg__msg--last, .msg__msg--only { border-bottom-left-radius: 5px; }
+.msg__run--mine .msg__msg--last,
+.msg__run--mine .msg__msg--only { border-bottom-left-radius: 18px; border-bottom-right-radius: 5px; }
+
+.msg__run--mine .msg__msg--first { border-bottom-left-radius: 18px; border-bottom-right-radius: 6px; }
+.msg__run--mine .msg__msg--mid   { border-top-left-radius: 18px; border-bottom-left-radius: 18px;
+                                   border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+.msg__run--mine .msg__msg--last  { border-top-left-radius: 18px; border-top-right-radius: 6px; }
+
+/* Outgoing takes the brand fill; incoming stays a neutral surface.
+   White on --primary is 4.9:1, so the text clears AA. Alignment, the
+   author line and the surface all differ — colour is never the only
+   thing separating the two sides. */
+.msg__run--mine .msg__msg {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 1px 1.5px rgba(0, 60, 100, .18), 0 2px 12px -6px rgba(0, 60, 100, .45);
+}
+
+.msg__msg--gone {
+  background: var(--surface-3);
+  border: 1px dashed var(--border-strong);
+  box-shadow: none;
+  color: var(--text-subtle);
+}
+.msg__run--mine .msg__msg--gone {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  box-shadow: none;
+  color: var(--text-subtle);
+}
+
+.msg__msg-body { min-width: 0; }
+.msg__msg-edited { font-style: italic; margin-left: 6px; }
+
+/* ─── Inline editor ──────────────────────────────────────────── */
+/* Replaces the bubble in place, so the message being changed stays
+   where the reader was looking rather than jumping to a form
+   elsewhere on the page. */
+.msg__msg { position: relative; }
+.msg__edit {
+  width: 100%;
+  max-width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--primary-border);
+  border-radius: 14px;
+  background: var(--primary-tint);
+}
+.msg__edit-field {
+  width: 100%;
+  resize: vertical;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+.msg__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* ─── Attachments in the thread ──────────────────────────────── */
+/* Images preview in place; everything else is a card with a
+   download. Nothing here points at the store — every src and href
+   is the delivery endpoint, which re-checks conversation access on
+   each request. */
+.msg__files {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-width: 0;
 }
-/* Sent messages differ by surface, border and alignment as well as by
-   author name — three signals, so none of them is load-bearing alone. */
-.msg__msg--mine .msg__msg-inner {
-  background: var(--primary-tint);
-  border-color: var(--primary-border);
-}
-.msg__msg--gone .msg__msg-inner { background: var(--surface-3); border-style: dashed; }
+.msg__file { min-width: 0; }
 
-.msg__msg-meta {
+.msg__file-shot {
+  display: block;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  max-width: 100%;
+}
+.msg__file-shot img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  /* A tall photograph must not push the composer off the screen. */
+  max-height: 260px;
+  object-fit: cover;
+}
+.msg__file-shot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.msg__file-name {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  margin: 0 0 4px;
+  margin-top: 4px;
   font-size: var(--fs-2xs);
-  color: var(--text-subtle);
+  color: var(--text-muted);
+  min-width: 0;
+  /* A long filename shortens; it never widens the thread. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.msg__msg-author { font-weight: 700; color: var(--text-muted); }
-.msg__msg-edited { font-style: italic; }
+.msg__file-name:hover { color: var(--primary); text-decoration: underline; }
+.msg__file-size { color: var(--text-subtle); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 
-.msg__msg-body {
-  font-size: var(--fs-sm);
-  line-height: var(--lh-body);
-  color: var(--text-body);
-  /* A pasted URL or a long reference must reflow, not widen the panel. */
-  overflow-wrap: anywhere;
+.msg__file-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: inherit;
+  min-height: 44px;
+  transition: border-color .15s ease, background .15s ease;
 }
-.msg__msg--gone .msg__msg-body { color: var(--text-subtle); }
+.msg__file-card:hover { border-color: var(--primary-border); background: var(--primary-tint); }
+.msg__file-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.msg__file-icon { font-size: 1.35rem; color: var(--primary-ink); }
+.msg__file-text { min-width: 0; }
+.msg__file-label {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg__file-meta { display: block; font-size: var(--fs-2xs); color: var(--text-subtle); }
+
+/* Inside an outgoing bubble the ground is brand blue, so the file card
+   and its filename invert onto a translucent white rather than staying
+   a white card on blue — which would read as a foreign object dropped
+   into the message. Contrast is carried by the white text. */
+.msg__run--mine .msg__file-card {
+  border-color: rgba(255,255,255,.35);
+  background: rgba(255,255,255,.12);
+  color: #fff;
+}
+.msg__run--mine .msg__file-card:hover { background: rgba(255,255,255,.2); }
+.msg__run--mine .msg__file-card:focus-visible { outline-color: #fff; }
+.msg__run--mine .msg__file-icon,
+.msg__run--mine .msg__file-label { color: #fff; }
+.msg__run--mine .msg__file-meta,
+.msg__run--mine .msg__file-name { color: rgba(255,255,255,.85); }
+.msg__run--mine .msg__file-name:hover { color: #fff; }
+.msg__run--mine .msg__file-size { color: rgba(255,255,255,.7); }
+.msg__run--mine .msg__file-shot { border-color: rgba(255,255,255,.35); }
 
 /* ─── Composer ───────────────────────────────────────────────── */
+/* The patterned ground on .msg__panel is a positioned pseudo-element,
+   so anything that must appear over it needs a stacking context of its
+   own. That is the whole reason for the position/z-index pairs on the
+   composer, the context card and the two notices. */
 .msg__composer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "field send" "hint hint";
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-3);
   border-top: 1px solid var(--border);
   background: var(--surface);
+  position: relative;
+  z-index: 3;
   flex: 0 0 auto;
 }
+.msg__ctx,
+.msg__archived-note,
+.msg__closed-note { position: relative; z-index: 2; }
+
+/* One surface holding attach, field and send, so the composer reads as
+   a single thing to write in. The focus ring is drawn here rather than
+   on the bare textarea — otherwise the keyboard state appears on a
+   control that looks like it has no edges. */
+.msg__bar {
+  /* Flex, not a fixed-column grid. The grid held three columns and grew to
+     six children, so the extras wrapped into a permanent toolbar under the
+     composer. Flex cannot do that: there are three items and they sit in a
+     row whatever is added inside them. */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  /* One large rounded surface. The border is a hairline rather than the
+     strong one — the shape and the fill already say "write here", and a
+     heavy outline around the widest control on the panel is what made
+     the composer read as a form field bolted underneath a chat. */
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--surface-2);
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.msg__bar:focus-within {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: var(--ring, 0 0 0 3px var(--primary-ring));
+}
+
+.msg__textarea {
+  /* Not .form-control: inside the bar it is the bar that carries the
+     border and the focus state, so the field itself has neither. */
+  border: 0;
+  background: transparent;
+  padding: 8px 6px;
+  margin: 0;
+  resize: none;
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text);
+  min-height: 34px;
+  max-height: 40vh;
+  min-width: 0;
+  /* The field must fill the middle of the bar. Without this a short
+     draft leaves the send button floating in from the right instead of
+     sitting against its edge. */
+  width: 100%;
+  display: block;
+}
+.msg__textarea:focus { outline: none; }
+.msg__textarea::placeholder { color: var(--text-subtle); }
+
+/* Circular, brand-filled, and 40px so it clears the pointer-target
+   minimum with room to spare. */
+.msg__send {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
+}
+.msg__send:hover { background: var(--primary-hover); }
+.msg__send:active { transform: scale(.94); }
+.msg__send:focus-visible { outline: 2px solid var(--primary-dark); outline-offset: 2px; }
+.msg__send[disabled] { background: var(--border-strong); cursor: not-allowed; }
+
+/* ─── Attach control ─────────────────────────────────────────── */
+/* The input is off-screen rather than display:none, so it keeps its
+   place in the tab order and its accessible name; the label is the
+   visible target and `for` is what makes the keyboard open it. */
+.msg__attach { flex: 0 0 auto; }
+.msg__attach-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.msg__attach-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease;
+}
+.msg__attach-label:hover { background: var(--surface-3); color: var(--primary); }
+.msg__attach-input:focus-visible + .msg__attach-label {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.msg__picked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.msg__picked li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg__picked li.is-bad { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
 .msg__textarea {
   grid-area: field;
   resize: vertical;
@@ -489,8 +1040,7 @@
 }
 .msg__send { grid-area: send; align-self: end; }
 .msg__hint {
-  grid-area: hint;
-  margin: 0;
+  margin: 0 0 0 var(--space-2);
   font-size: var(--fs-2xs);
   color: var(--text-subtle);
 }
@@ -637,6 +1187,8 @@
 .avatar--sm { width: 28px; height: 28px; font-size: var(--fs-2xs); }
 .avatar--md { width: 38px; height: 38px; font-size: var(--fs-xs); }
 .avatar--lg { width: 44px; height: 44px; font-size: var(--fs-sm); }
+/* Header only: the person you are talking to outranks a list row. */
+.avatar--xl { width: 52px; height: 52px; font-size: var(--fs-body); }
 
 /* Six tints, each a status/brand wash already in the palette paired
    with its own accessible ink. No new colours are introduced. */
@@ -647,9 +1199,623 @@
 .avatar--t4 { background: var(--orange-bg);     color: var(--orange); }
 .avatar--t5 { background: var(--info-bg);       color: var(--info); }
 
+/* ─── Message tools, menus, reactions, replies ───────────────── */
+
+/* The ⋯ affordance. Sits outside the bubble on its spine side, fades
+   in on hover and on keyboard focus — :focus-within is what keeps it
+   reachable without a pointer. */
+.msg__acts {
+  position: absolute;
+  top: 2px;
+}
+.msg__run--mine .msg__acts { right: calc(100% + 6px); }
+.msg__run:not(.msg__run--mine) .msg__acts { left: calc(100% + 6px); }
+
+.msg__acts > summary {
+  list-style: none;
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+.msg__acts > summary::-webkit-details-marker { display: none; }
+.msg__msg:hover .msg__acts > summary,
+.msg__msg:focus-within .msg__acts > summary,
+.msg__acts[open] > summary { opacity: 1; }
+
+.msg__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .8rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(16,34,44,.08));
+}
+.msg__tool:hover { background: var(--surface-3); color: var(--text); }
+.msg__tool:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* The menu itself. Absolute, so it escapes the bubble; the stream is
+   the scroll container and clips at its own edge, which is why the
+   menu opens inward on the side with room. */
+.msg__menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  min-width: 176px;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg, 0 10px 28px rgba(16,34,44,.16));
+}
+.msg__run--mine .msg__menu { right: 0; }
+.msg__run:not(.msg__run--mine) .msg__menu { left: 0; }
+
+.msg__menu-react {
+  display: flex;
+  gap: 2px;
+  padding: 2px 2px var(--space-1);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-1);
+}
+.msg__react-btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
+}
+.msg__react-btn:hover { background: var(--surface-3); transform: scale(1.14); }
+.msg__react-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+.msg__menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+  min-height: 38px;
+}
+.msg__menu-item:hover { background: var(--surface-3); }
+.msg__menu-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.msg__menu-item--danger { color: var(--danger); }
+.msg__menu-item--danger:hover { background: var(--danger-bg); }
+.msg__menu form { display: contents; }
+
+/* The quote inside a reply. A slab with a spine, tinted to whichever
+   side of the conversation it sits on. */
+.msg__quote {
+  display: block;
+  margin: 0 0 6px;
+  padding: 5px 9px;
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-xs);
+  background: var(--surface-3);
+  color: inherit;
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  min-width: 0;
+}
+.msg__run--mine .msg__quote {
+  border-left-color: rgba(255,255,255,.75);
+  background: rgba(255,255,255,.16);
+}
+.msg__quote-who { display: block; font-weight: 700; }
+.msg__quote-text {
+  display: block;
+  opacity: .85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Reactions sit under the bubble, overlapping its edge slightly so
+   they read as attached to it rather than as a new row. */
+.msg__reactions {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -6px 0 0;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+}
+.msg__reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.6;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease;
+}
+.msg__reaction:hover { border-color: var(--border-strong); }
+.msg__reaction:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+/* Mine: a filled chip, not merely a tinted one — pressed state must
+   survive greyscale, so the border weight changes too. */
+.msg__reaction.is-mine {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary-ink);
+  font-weight: 700;
+}
+.msg__reaction-n { font-variant-numeric: tabular-nums; }
+
+/* A message arrived at by a link — a reply quote or a reaction
+   redirect — is marked briefly so the eye can find it. */
+.msg__msg.is-linked {
+  box-shadow: 0 0 0 3px var(--primary-ring);
+  transition: box-shadow .3s ease;
+}
+
+/* ─── Presence ───────────────────────────────────────────────── */
+.msg__head-figure { position: relative; display: inline-flex; flex: 0 0 auto; }
+.msg__dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--success);
+  /* Ringed in the header's own surface so it reads as a badge on the
+     avatar rather than a dot floating over it. */
+  box-shadow: 0 0 0 2.5px var(--surface);
+}
+.msg__presence { color: var(--text-subtle); }
+.msg__presence.is-online { color: var(--success); font-weight: 600; }
+.msg__head-sep { color: var(--border-strong); }
+
+/* ─── Overflow menus ─────────────────────────────────────────── */
+/* Used twice: the inbox header and the chat header. Both are a
+   <details>, so both open with a click and with Enter, and neither
+   needs a line of script to work. The central Escape / outside-click
+   handler in messages.js only adds polish on top. */
+.msg__more { position: relative; flex: 0 0 auto; }
+.msg__more > summary { list-style: none; }
+.msg__more > summary::-webkit-details-marker { display: none; }
+
+.msg__round--sm { width: 34px; height: 34px; font-size: .95rem; }
+
+.msg__more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  min-width: 232px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 12px 34px -12px rgba(16, 34, 44, .34), 0 2px 6px rgba(16, 34, 44, .06);
+  animation: msgRise .14s ease-out;
+  transform-origin: top right;
+}
+.msg__more-menu form { margin: 0; }
+
+.msg__more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+  /* A menu item is a pointer target, so it clears the 24px minimum
+     with room rather than only just. */
+  min-height: 38px;
+  transition: background .14s ease, color .14s ease;
+}
+.msg__more-item .bi { color: var(--text-subtle); font-size: 1rem; flex: 0 0 auto; }
+.msg__more-item:hover { background: var(--surface-2); color: var(--text); }
+.msg__more-item:hover .bi { color: var(--primary); }
+.msg__more-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.msg__more-item--danger:hover { background: var(--danger-light, rgba(200,40,40,.08)); color: var(--danger); }
+.msg__more-item--danger:hover .bi { color: var(--danger); }
+
+/* Present but unavailable, and said in words: "Nothing unread" rather
+   than a Mark-all-read that silently does nothing. */
+.msg__more-item.is-disabled { color: var(--text-subtle); cursor: default; }
+.msg__more-item.is-disabled:hover { background: transparent; color: var(--text-subtle); }
+
+/* ─── Read receipts ──────────────────────────────────────────── */
+/* One tick means the message is stored; two mean the other participant's
+   read watermark has passed it. There is deliberately no third state —
+   nothing on this server can observe a recipient's device, so there is
+   no "delivered" to draw. */
+.msg__ticks { margin-left: 5px; color: var(--text-subtle); }
+.msg__ticks.is-read { color: var(--primary); }
+.msg__ticks .bi { font-size: .95em; vertical-align: -1px; }
+
+/* ─── Voice notes ────────────────────────────────────────────── */
+/* The transport the script reveals once it has taken the native
+   controls away. Until then this is hidden and the browser's own
+   player is what is on the page. */
+.msg__voice-ui {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  /* Capped so a voice note reads as one more bubble in the run rather
+     than as a wide player the conversation has to flow around. */
+  width: min(272px, 100%);
+  position: relative;
+}
+
+.msg__voice-play {
+  grid-column: 1;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease;
+}
+.msg__voice-play:hover { background: var(--primary-hover); }
+.msg__voice-play:active { transform: scale(.93); }
+.msg__voice-play:focus-visible { outline: 2px solid var(--primary-dark); outline-offset: 2px; }
+
+/* On an outgoing bubble the ground is already brand, so the button
+   inverts rather than disappearing into it. */
+.msg__run--mine .msg__voice-play { background: #fff; color: var(--primary); }
+.msg__run--mine .msg__voice-play:hover { background: rgba(255,255,255,.86); }
+
+/* The bars are a scrubber styled as a waveform — deterministic heights
+   from the attachment id, not a decode of the audio. They are
+   aria-hidden precisely so they never claim to be one. */
+.msg__wave {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+.msg__wave > i {
+  flex: 1 1 0;
+  min-width: 2px;
+  height: var(--h, 50%);
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+.msg__run--mine .msg__wave > i { background: rgba(255,255,255,.42); }
+
+/* The played portion. Each bar is coloured directly rather than covered
+   by a blended overlay: an overlay has to behave on two very different
+   grounds - a white incoming bubble and a brand-filled outgoing one -
+   and a blend mode that reads correctly on one washes out on the other.
+   Colouring the bars is the same effect and it is predictable on both. */
+.msg__wave > i.is-played { background: var(--primary); }
+.msg__run--mine .msg__wave > i.is-played { background: #fff; }
+
+
+/* The real control, laid over the bars. Invisible, not absent: it keeps
+   its keyboard behaviour, its slider role and its value text. */
+.msg__voice-seek {
+  position: absolute;
+  /* Clears the play button: its width plus the grid gap. */
+  left: 43px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.msg__voice-seek:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.msg__voice-time {
+  grid-column: 3;
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.msg__run--mine .msg__voice-time { color: rgba(255,255,255,.82); }
+
+.msg__voice { position: relative; }
+
+/* ─── Composer: microphone ───────────────────────────────────── */
+/* Occupies the send button's place while the field is empty. Ships
+   hidden; revealed only where MediaRecorder exists. */
+/* Quiet, not filled. Send is the one primary action in the composer and
+   two brand-filled circles side by side would be two of them — the
+   microphone is a secondary way to compose, so it reads like the + and
+   the emoji button it shares the bar with. */
+.msg__mic {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.02rem;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease, transform .16s ease;
+}
+.msg__mic:hover { background: var(--surface-3); color: var(--danger); }
+.msg__mic:active { transform: scale(.94); }
+.msg__mic:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ─── In-conversation search ─────────────────────────────────── */
+.msg__find { position: relative; }
+.msg__find > summary { list-style: none; }
+.msg__find > summary::-webkit-details-marker { display: none; }
+.msg__find-form {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 6;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg, 0 10px 28px rgba(16,34,44,.16));
+}
+.msg__find-form .form-control { width: 220px; height: var(--control-h-sm); font-size: var(--fs-xs); }
+
+.msg__found {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  color: var(--primary-ink);
+  font-size: var(--fs-2xs);
+}
+
+/* ─── Composer additions ─────────────────────────────────────── */
+
+/* The label fills the middle of the bar, so clicking the empty space
+   beside the placeholder focuses the field. This is `for` doing its
+   ordinary job — no script, no fake input surface. */
+/* The label fills the middle of the bar and is the flexible item in it,
+   so clicking anywhere in the empty writing area focuses the field.
+   flex:1 is what stops the controls drifting inward on a short draft. */
+.msg__field {
+  flex: 1 1 auto;
+  display: block;
+  min-width: 0;
+  cursor: text;
+  padding: 0;
+}
+
+.msg__round {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  cursor: pointer;
+  list-style: none;
+  transition: background .16s ease, color .16s ease;
+}
+.msg__round::-webkit-details-marker { display: none; }
+.msg__round:hover { background: var(--surface-3); color: var(--primary); }
+.msg__round:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.msg__round--mic:hover { color: var(--danger); }
+
+.msg__attach { position: relative; flex: 0 0 auto; }
+
+/* Both popovers grow out of the button they belong to, which is what makes
+   them read as part of the composer rather than as a panel that appeared. */
+.msg__attach[open] .msg__attach-menu,
+.msg__emoji-menu:not([hidden]) {
+  animation: msgRise .14s ease-out;
+  transform-origin: bottom left;
+}
+@keyframes msgRise {
+  from { opacity: 0; transform: translateY(6px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.msg__attach-menu, .msg__emoji-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg, 0 10px 28px rgba(16,34,44,.16));
+}
+
+/* Opens upward, because the composer is at the foot of the screen.
+   Two columns rather than a single stacked list: four short labels in a
+   column is a tall thin menu, and the pairing reads faster. */
+.msg__attach-menu {
+  width: 268px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+/* One rule for both kinds of item — three are <label>s wrapping a file input
+   and two are <button>s — so a menu of mixed elements reads as one list. */
+.msg__attach-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: 44px;
+}
+.msg__attach-opt:hover { background: var(--surface-3); }
+.msg__attach-opt:focus-within { outline: 2px solid var(--primary); outline-offset: -2px; }
+.msg__attach-opt .bi { font-size: 1.1rem; color: var(--primary-ink); flex: 0 0 auto; }
+.msg__attach-opt span { display: flex; flex-direction: column; font-size: var(--fs-xs); font-weight: 600; color: var(--text); }
+/* The sub-labels are dropped in the two-column layout: they would make
+   each tile two lines tall for information the hint line under the
+   composer already carries in full. */
+.msg__attach-opt small { display: none; }
+/* The input stays in the accessibility tree and keeps its label. */
+.msg__attach-opt input[type="file"] {
+  position: absolute; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none;
+}
+
+/* Emoji sits beside the +, so its panel anchors to its own button
+   rather than to the attachment disclosure. */
+.msg__emoji { position: relative; flex: 0 0 auto; }
+.msg__emoji-menu { width: min(320px, 78vw); }
+.msg__emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 1px;
+  max-height: 208px;
+  overflow-y: auto;
+}
+.msg__emoji-btn {
+  width: 30px; height: 30px;
+  border: 0; border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 1.05rem; line-height: 1;
+  cursor: pointer;
+}
+.msg__emoji-btn:hover { background: var(--surface-3); }
+.msg__emoji-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+/* Replying-to banner, above the bar. */
+.msg__replying {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--primary-tint);
+  min-width: 0;
+}
+.msg__replying .bi { color: var(--primary); flex: 0 0 auto; }
+.msg__replying-text { min-width: 0; flex: 1; font-size: var(--fs-2xs); }
+.msg__replying-who { display: block; font-weight: 700; color: var(--primary-ink); }
+.msg__replying-body {
+  display: block; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.msg__replying-x {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  color: var(--text-muted);
+}
+.msg__replying-x:hover { background: var(--surface-3); color: var(--text); }
+
+/* The recording bar. Replaces the composer while a recording runs. */
+.msg__rec {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: 22px;
+  background: var(--danger-bg);
+}
+.msg__rec-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--danger);
+  animation: msgPulse 1.4s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+.msg__rec-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--danger);
+  min-width: 42px;
+}
+.msg__rec-wave { display: flex; align-items: center; gap: 3px; flex: 1; height: 22px; }
+.msg__rec-wave i {
+  flex: 1; max-width: 4px; border-radius: 2px;
+  background: var(--danger); opacity: .55;
+  animation: msgWave 1s ease-in-out infinite;
+}
+.msg__rec-wave i:nth-child(2) { animation-delay: .1s }
+.msg__rec-wave i:nth-child(3) { animation-delay: .2s }
+.msg__rec-wave i:nth-child(4) { animation-delay: .3s }
+.msg__rec-wave i:nth-child(5) { animation-delay: .4s }
+.msg__rec-wave i:nth-child(6) { animation-delay: .5s }
+.msg__rec-wave i:nth-child(7) { animation-delay: .6s }
+
+@keyframes msgPulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes msgWave  { 0%,100% { height: 7px } 50% { height: 20px } }
+
+/* A voice note in the thread. .msg__voice is the wrapper; what it
+   holds is either the browser's own player (no script) or the custom
+   transport above (script), never both. */
+.msg__voice { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.msg__voice-icon { color: var(--primary-ink); flex: 0 0 auto; font-size: .9rem; opacity: .7; }
+.msg__voice-player { max-width: 280px; width: 100%; height: 38px; }
+.msg__run--mine .msg__voice-icon { color: #fff; }
+
 /* ─── Tablet ─────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
-  .msg { --msg-list-w: 290px; gap: var(--space-3); }
+  .msg { --msg-list-w: minmax(252px, 284px); }
+  /* The title stops competing for the rail's width before the preview
+     text does. */
+  .msg__list-heading { font-size: var(--fs-lg); }
+  .msg__item-link { padding: 9px 10px; }
+  .msg__run-body { max-width: min(80%, 520px); }
 }
 
 /* ─── Narrow: the URL-driven takeover ────────────────────────── */
@@ -669,24 +1835,81 @@
   /* Detail showing: the thread is the page. */
   .msg--detail .msg__list { display: none; }
 
-  .msg__list,
-  .msg__panel { border-radius: var(--card-radius); }
 
   .msg__back { display: inline-flex; }
 
   /* Touch targets: a conversation row is a primary control on a
      phone and gets the full 44px, plus room for a thumb. */
-  .msg__item-link { padding: var(--space-3) var(--space-4); min-height: 64px; }
+  .msg__item-link { padding: var(--space-3); min-height: 68px; }
   .msg__filter { padding: 9px 14px; }
 
-  .msg__msg-inner { max-width: 88%; }
+  /* Wider measure: on a 390px screen 72% leaves a two-word reply
+     wrapping mid-phrase. */
+  .msg__run-body { max-width: 86%; }
+  .msg__head { position: sticky; top: 0; z-index: 4; background: var(--surface); }
+
+  /* The workspace is the page now, so the card edge goes: a rounded
+     corner and a shadow around something that fills the viewport is a
+     border for its own sake. */
+  .msg { border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; }
+
+  /* Both overflow menus anchor to the right edge of a much narrower
+     header, so they are capped rather than allowed to run off it. */
+  .msg__more-menu { min-width: 0; width: max-content; max-width: min(84vw, 300px); }
+
+  /* The composer stays anchored to the foot while the stream scrolls
+     under it — the shell is already height-bounded, so this is the flex
+     layout doing its job rather than a fixed position that would sit on
+     top of the last message. */
+  .msg__stream { padding: var(--space-3); }
+  .msg__voice-ui { width: 100%; }
+
+  /* There is no hover on a touch screen, so the ⋯ button cannot hide
+     behind one: it is always visible and at a full touch size. Long
+     press opens the same menu, and the button is the way in for anyone
+     whose browser or assistive technology does not do long press. */
+  .msg__acts > summary { opacity: 1; }
+  .msg__tool { width: 34px; height: 34px; }
+
+  /* The menu becomes a bottom sheet: anchoring a 176px popup to a
+     bubble near the edge of a 375px screen puts half of it off-screen,
+     and a sheet is the pattern a phone user already knows. */
+  .msg__acts[open] .msg__menu {
+    position: fixed;
+    left: 0; right: 0; bottom: 0; top: auto;
+    width: auto; min-width: 0;
+    border-radius: var(--card-radius) var(--card-radius) 0 0;
+    border-left: 0; border-right: 0; border-bottom: 0;
+    padding: var(--space-3) var(--space-3) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+    z-index: 60;
+  }
+  .msg__menu-react { justify-content: space-around; padding-bottom: var(--space-3); }
+  .msg__react-btn { width: 46px; height: 46px; font-size: 1.4rem; }
+  .msg__menu-item { min-height: 48px; font-size: var(--fs-sm); }
+
+  /* Menus that open upward from the composer need room on a phone. Both stay
+     anchored to the paperclip rather than becoming full-width sheets: the
+     composer is at the foot of the screen already, so a popover above it is
+     within thumb reach and does not cover the conversation. */
+  .msg__attach-menu { width: min(76vw, 260px); }
+  .msg__emoji-menu  { width: min(92vw, 320px); }
+  .msg__emoji-grid  { grid-template-columns: repeat(8, 1fr); max-height: 40vh; }
+  .msg__attach-opt  { min-height: 48px; }
+  /* Room for a thumb, and clear of the home indicator. */
+  .msg__attach-menu, .msg__emoji-menu { margin-bottom: env(safe-area-inset-bottom, 0px); }
+  .msg__find-form { position: fixed; left: var(--space-3); right: var(--space-3); top: auto; }
+  .msg__find-form .form-control { width: auto; flex: 1; }
 
   /* The composer is the reason this page is height-bounded: it must
      stay put while the stream scrolls under it, and it must not be
      pushed under the on-screen keyboard. 100dvh shrinks when the
      keyboard opens, so the grid re-flows rather than overflowing. */
-  .msg__composer { padding: var(--space-3); }
+  .msg__composer { padding: var(--space-3); gap: var(--space-2); }
   .msg__textarea { max-height: 30vh; }
+
+
+  /* Previews fit the bubble rather than a fixed 320px. */
+  .msg__file-shot img { max-width: 100%; max-height: 220px; }
 }
 
 @media (max-width: 480px) {
@@ -696,7 +1919,7 @@
   .msg__item-link { padding: var(--space-3); }
   .msg__stream { padding: var(--space-3); }
   .msg__head { padding: var(--space-3); }
-  .msg__msg-inner { max-width: 92%; }
+  .msg__run-body { max-width: 92%; }
   /* The context card keeps its thumbnail and title but drops the
      secondary reference line and the chevron: on a 360px screen
      those are what push a long property name into a second row. */
@@ -705,8 +1928,6 @@
   .msg__ctx-thumb { width: 34px; height: 34px; }
   .msg__ctx-ref { display: none; }
   .msg__ctx-go { display: none; }
-  /* Send collapses to its icon; the label stays for screen readers. */
-  .msg__send span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }
 
 /* ─── Fallback for browsers without :has() ───────────────────── */
@@ -725,5 +1946,111 @@
   .msg__item-link,
   .msg__contact-label,
   .msg__filter,
-  .msg__ctx-card--link { transition: none; }
+  .msg__ctx-card--link,
+  .msg__bar,
+  .msg__send,
+  .msg__attach-label,
+  .msg__head-btn,
+  .msg__file-card,
+  .msg__tool,
+  .msg__acts > summary,
+  .msg__reaction,
+  .msg__react-btn,
+  .msg__more-item,
+  .msg__mic,
+  .msg__voice-play,
+  .msg__round { transition: none; }
+  /* The recording indicator stops moving; the timer still counts, so
+     nothing about the state is lost. */
+  .msg__rec-dot, .msg__rec-wave i { animation: none; }
+  .msg__attach[open] .msg__attach-menu,
+  .msg__emoji-menu:not([hidden]),
+  .msg__more-menu { animation: none; }
+  .msg__react-btn:hover { transform: none; }
+  /* Every press-scale in the module. */
+  .msg__send:active,
+  .msg__mic:active,
+  .msg__voice-play:active { transform: none; }
 }
+
+/* ================================================================
+   PREMIUM COMMUNICATION PASS
+   Appended last so it settles this workspace on source order. The
+   panel structure, the permissions and the composer are untouched.
+   ================================================================ */
+
+/* The workspace is one object with two panes, not two cards side by
+   side — so the outer shell carries the radius and the elevation, and
+   the divider between the panes is a hairline rather than a gap. */
+.msg{
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+
+/* ── Conversation list ────────────────────────────────────────────  */
+.msg__list{background:var(--surface-2)}
+.msg__list-head{background:var(--surface);border-bottom:1px solid var(--border)}
+.msg__find input,.msg__find-form input{border-radius:var(--radius-pill)}
+.msg__filter{border-radius:var(--radius-pill);font-weight:600}
+
+/* A row in the list is a target the whole width of the pane. The active
+   one is carried by a surface change and a left edge, so "which
+   conversation am I in" survives being read without colour. */
+.msg__item-link{
+  border-radius:10px;
+  transition:background var(--transition),box-shadow var(--transition);
+}
+.msg__item.is-active .msg__item-link,
+.msg__item-link.is-active{
+  background:var(--surface);
+  box-shadow:inset 3px 0 0 var(--primary),var(--shadow-xs);
+}
+.msg__item-link:hover{background:rgba(255,255,255,.72)}
+.msg__item-badge{border-radius:var(--radius-pill);font-weight:700}
+
+/* ── Thread ───────────────────────────────────────────────────────  */
+.msg__head{background:var(--surface);border-bottom:1px solid var(--border)}
+
+/* Bubbles. The asymmetric corner is what tells the eye which side a
+   message came from before the alignment does — and it is the cheapest
+   possible way to make a thread read as a conversation. */
+.msg__msg-body{
+  border-radius:16px;
+  box-shadow:0 1px 2px rgba(15,32,51,.06);
+  line-height:1.5;
+}
+.msg__msg--last .msg__msg-body{border-bottom-left-radius:5px}
+.msg__msg--out .msg__msg-body,
+.msg__msg--mine .msg__msg-body{
+  box-shadow:0 1px 2px rgba(6,63,109,.18),0 2px 8px -4px rgba(10,99,168,.30);
+}
+.msg__msg--out.msg__msg--last .msg__msg-body,
+.msg__msg--mine.msg__msg--last .msg__msg-body{
+  border-bottom-left-radius:16px;border-bottom-right-radius:5px;
+}
+
+/* The day divider: a rule with the date sitting on it, rather than a
+   line of grey text floating between two bubbles. */
+.msg__day{font-weight:600;letter-spacing:.02em}
+
+/* ── Composer ─────────────────────────────────────────────────────  */
+.msg__composer{background:var(--surface);border-top:1px solid var(--border)}
+.msg__compose-field{
+  border-radius:var(--radius-lg);
+  box-shadow:inset 0 1px 2px rgba(15,32,51,.05);
+  transition:border-color var(--transition),box-shadow var(--transition);
+}
+.msg__compose-field:focus-within{
+  border-color:var(--primary);
+  box-shadow:var(--ring),inset 0 1px 2px rgba(15,32,51,.04);
+}
+
+/* ── Property / lease / job context card ──────────────────────────  */
+.msg__ctx-card{
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow var(--transition),border-color var(--transition);
+}
+.msg__ctx-card--link:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+.msg__ctx-thumb{border-radius:var(--radius-sm)}
