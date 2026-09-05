@@ -354,11 +354,231 @@
             };
         }
 
+        // A drillable card gets a click handler and a pointer cursor; one
+        // without a `drill` block gets neither, so a chart that cannot be
+        // traced to records never invites the click.
+        var onDrill = chartDrill(canvas, cfg);
+        if (onDrill) {
+            options.onClick = onDrill;
+            options.onHover = function (event, elements) {
+                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+            };
+            canvas.parentNode.classList.add('rchart--drill');
+        }
+
         registry[id] = new window.Chart(canvas, {
             type: cfg.type || 'line',
             data: isRound ? doughnutData(cfg, ink) : lineOrBarData(cfg, ink),
             options: options
         });
+    }
+
+    /**
+     * Drill-down.
+     *
+     * Every drillable figure on the page is an ordinary link to an ordinary
+     * URL. This intercepts the click, fetches the same URL with &partial=1
+     * and puts the panel in the drawer instead of navigating -- which means
+     * the feature degrades to a page load rather than to nothing, and the
+     * link can still be copied, bookmarked and sent to somebody.
+     *
+     * History is pushed so Back closes the drawer and returns the reader to
+     * the report they were reading rather than to whatever they were looking
+     * at before it. That is the behaviour the browser's own button promises
+     * and the one people press without thinking.
+     */
+    function bindDrilldown() {
+        var drawer = document.querySelector('[data-drill-drawer]');
+        if (!drawer) { return; }
+
+        var panel   = drawer.querySelector('.drawer__panel');
+        var content = drawer.querySelector('[data-drill-content]');
+        var opener  = null;   // what to give focus back to
+        var token   = 0;      // so a slow response cannot overwrite a fast one
+
+        function isOpen() { return !drawer.hidden; }
+
+        function open() {
+            if (isOpen()) { return; }
+            drawer.hidden = false;
+            document.body.classList.add('has-drawer');
+        }
+
+        /**
+         * Close, and put focus back where it came from.
+         *
+         * `push` distinguishes the two ways a drawer closes: a person
+         * dismissing it should leave the history entry behind them, and the
+         * Back button arriving here should not add another one.
+         */
+        function close(push) {
+            if (!isOpen()) { return; }
+            drawer.hidden = true;
+            document.body.classList.remove('has-drawer');
+            content.innerHTML = '';
+
+            if (push && window.history && history.pushState) {
+                history.pushState({ drill: false }, '', reportUrlOf(location.href));
+            }
+            if (opener && document.contains(opener)) {
+                opener.focus();
+            }
+            opener = null;
+        }
+
+        /** The report URL a drill-down was opened from: same query, no drill. */
+        function reportUrlOf(href) {
+            var url = href.split('#')[0];
+            var cut = url.split('?');
+            if (cut.length < 2) { return url; }
+
+            var kept = [];
+            cut[1].split('&').forEach(function (pair) {
+                var name = pair.split('=')[0];
+                if (name !== 'action' && name !== 'metric' && name !== 'key'
+                    && name !== 'dp' && name !== 'partial') {
+                    kept.push(pair);
+                }
+            });
+
+            return cut[0] + (kept.length ? '?' + kept.join('&') : '');
+        }
+
+        function load(href, push) {
+            var mine = ++token;
+            var url  = href + (href.indexOf('?') === -1 ? '?' : '&') + 'partial=1';
+
+            open();
+            panel.setAttribute('aria-busy', 'true');
+            // The heading the dialog is labelled by has to exist for the
+            // whole time the dialog does, including while it is loading —
+            // aria-labelledby pointing at nothing leaves a modal with no
+            // accessible name for anyone arriving on it by keyboard.
+            content.innerHTML =
+                '<h2 class="sr-only" id="drillTitle">Loading records</h2>'
+                + '<div class="drawer__loading" role="status">Loading records…</div>';
+
+            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+                .then(function (r) {
+                    // A refused drill-down is a real answer -- 403 from an
+                    // expired session, 404 from a stale link -- and following
+                    // the link is the honest way to show it.
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.text();
+                })
+                .then(function (html) {
+                    if (mine !== token) { return; }
+                    content.innerHTML = html;
+                    panel.setAttribute('aria-busy', 'false');
+                    panel.scrollTop = 0;
+                    panel.focus();
+
+                    if (push && window.history && history.pushState) {
+                        history.pushState({ drill: true, href: href }, '', href);
+                    }
+                })
+                .catch(function () {
+                    if (mine !== token) { return; }
+                    // Whatever went wrong, the URL is a real page. Go to it
+                    // rather than leaving an empty drawer open.
+                    window.location.href = href;
+                });
+        }
+
+        // One listener for the whole page, so a drill link inside the drawer
+        // -- the pager -- works exactly like one on the report behind it.
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest && e.target.closest('a[data-drill]');
+            if (!link) { return; }
+
+            // Leave the modified clicks alone: somebody holding a modifier is
+            // asking for a new tab, and a drawer is not one.
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+                return;
+            }
+
+            e.preventDefault();
+            if (!isOpen()) { opener = link; }
+            load(link.href, true);
+        });
+
+        Array.prototype.forEach.call(
+            drawer.querySelectorAll('[data-drill-close]'),
+            function (el) { el.addEventListener('click', function () { close(true); }); }
+        );
+
+        document.addEventListener('keydown', function (e) {
+            if (!isOpen()) { return; }
+
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                close(true);
+                return;
+            }
+
+            // Focus stays inside while the dialog is modal. Wrapped rather
+            // than clamped, so Shift+Tab from the first element reaches the
+            // last instead of escaping to the page underneath.
+            if (e.key !== 'Tab') { return; }
+
+            var focusable = panel.querySelectorAll(
+                'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (!focusable.length) { return; }
+
+            var first = focusable[0];
+            var last  = focusable[focusable.length - 1];
+
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        });
+
+        window.addEventListener('popstate', function (e) {
+            if (e.state && e.state.drill && e.state.href) {
+                load(e.state.href, false);
+            } else {
+                close(false);
+            }
+        });
+    }
+
+    /**
+     * A chart segment, drilled.
+     *
+     * The card carries a `drill` block beside its data: a URL template and
+     * one key per label, in the same order the labels are in. Clicking a bar
+     * or a slice resolves the key at that index and follows the link the
+     * table row underneath would have followed -- so the picture and the
+     * table drill to the same place, because they drill through the same
+     * array.
+     */
+    function chartDrill(canvas, config) {
+        var drill = config.drill;
+        if (!drill || !drill.url || !drill.keys) { return null; }
+
+        return function (event, elements) {
+            if (!elements || !elements.length) { return; }
+
+            var index = elements[0].index;
+            var key   = drill.keys[index];
+            if (key === undefined || key === null || key === '') { return; }
+
+            var href = drill.url.replace('__KEY__', encodeURIComponent(key));
+            var link = document.createElement('a');
+            link.href = href;
+            link.setAttribute('data-drill', '');
+            // Routed through the same delegated listener as every other drill
+            // link, so the drawer, the history entry and the focus handling
+            // are the ones already written rather than a second copy.
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
     }
 
     // ─── Boot ──────────────────────────────────────────────────────────
@@ -456,21 +676,35 @@
     }
 
     /**
-     * The active report, brought into view.
+     * The chosen item in a horizontal track, brought into view.
      *
-     * The tab strip scrolls horizontally below about 900px, and "Performance"
-     * is the eighth of eight. Landing on it and finding the strip parked at
-     * "Overview" reads as though the page opened on the wrong report. Jumped,
-     * not animated: a strip that slides on every page load is motion nobody
-     * asked for, and it would fight prefers-reduced-motion.
+     * Both of the workspace's scrolling tracks need this, and for the same
+     * reason. The tab strip scrolls horizontally below about 900px and
+     * "Performance" is the eighth of eight, so landing on it and finding the
+     * strip parked at "Overview" reads as though the page opened on the wrong
+     * report. The period track scrolls on a phone and "This year" is the last
+     * of seven, so without this a reader would have to scroll a control bar
+     * sideways to find out which period the figures below it cover.
+     *
+     * Jumped, not animated: a strip that slides on every page load is motion
+     * nobody asked for, and it would fight prefers-reduced-motion.
      */
-    function centreActiveTab() {
-        var nav = document.querySelector('.rtabs');
-        var active = nav && nav.querySelector('[data-report-tab-active]');
-        if (!nav || !active || nav.scrollWidth <= nav.clientWidth) { return; }
-        nav.scrollLeft = Math.max(
+    function centreActive(trackSelector, activeSelector) {
+        var track = document.querySelector(trackSelector);
+        var active = track && track.querySelector(activeSelector);
+        if (!track || !active || track.scrollWidth <= track.clientWidth) { return; }
+
+        // Measured between the two boxes rather than from offsetLeft, which
+        // is relative to the nearest *positioned* ancestor. Neither track is
+        // positioned, so offsetLeft was being measured from <body> and
+        // included the sidebar and the page's own padding: on a 390px screen
+        // the eighth tab landed 15px past the right edge of the strip that
+        // had just scrolled to show it.
+        var delta = active.getBoundingClientRect().left - track.getBoundingClientRect().left;
+
+        track.scrollLeft = Math.max(
             0,
-            active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2
+            track.scrollLeft + delta - (track.clientWidth - active.offsetWidth) / 2
         );
     }
 
@@ -478,7 +712,9 @@
         init();
         bindPrint();
         bindDisclosures();
-        centreActiveTab();
+        bindDrilldown();
+        centreActive('.rtabs', '[data-report-tab-active]');
+        centreActive('.rrange', '.rrange__btn.is-active');
     }
 
     if (document.readyState === 'loading') {

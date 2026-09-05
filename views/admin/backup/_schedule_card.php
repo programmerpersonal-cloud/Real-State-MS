@@ -7,7 +7,14 @@
  * because a date next to a switch that is off is a promise the system has not
  * made.
  *
- * Expects: $schedules, $canManage
+ * The footer is the other half of that honesty and the more important half.
+ * A schedule row describes an intention; only the scheduler's heartbeat says
+ * whether anything is carrying it out. This card once showed "Active — next
+ * 03 Sep, 04:00" for two days after that time had passed, because nothing had
+ * ever been installed to act on it and nothing on the page could tell. The
+ * footer now reports the heartbeat, so "on" and "running" are never conflated.
+ *
+ * Expects: $schedules, $scheduler, $canManage
  */
 $dayNames = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday',
              5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
@@ -75,13 +82,51 @@ $ordinal = static function (int $n): string {
         </ul>
     </div>
 
-    <?php /* Said plainly because it is the commonest way a backup schedule
-             silently does nothing: the rows are configured, the switch is on,
-             and no scheduler is installed to act on them. */ ?>
+    <?php
+    /* Three states, and the difference between them is the whole point:
+
+         never ran   the runner has never been installed — the schedules above
+                     are decoration, and this is a fault, not a note
+         stalled     it ran once and has stopped — the task is disabled, the
+                     machine is off, or the runner is dying before it can log
+         ticking     it checked in recently, so "Active" above means something
+
+       $anyActive gates the first two: with every schedule switched off, no
+       scheduler is meant to be running and saying so would be noise. */
+    $anyActive = false;
+    foreach ($schedules as $s) {
+        if (!empty($s['is_active'])) {
+            $anyActive = true;
+            break;
+        }
+    }
+    $sched = $scheduler ?? ['installed' => false, 'stale' => false, 'ago' => '—', 'tick_count' => 0];
+    ?>
     <div class="card__footer">
-        <span class="card__footer-note">
-            <i class="bi bi-terminal" aria-hidden="true"></i>
-            Schedules fire from the command-line runner, never from a browser.
-        </span>
+        <?php if ($anyActive && !$sched['installed']): ?>
+            <span class="card__footer-note text-danger">
+                <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+                <strong>The scheduler has never run.</strong>
+                These schedules will not fire until the backup runner is installed as a
+                scheduled task &mdash; see Backup Settings.
+            </span>
+        <?php elseif ($anyActive && $sched['stale']): ?>
+            <span class="card__footer-note text-danger">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                <strong>The scheduler has stopped.</strong>
+                Last checked in <?= sanitize($sched['ago']) ?>; it should check in every few minutes.
+            </span>
+        <?php elseif ($sched['installed']): ?>
+            <span class="card__footer-note">
+                <i class="bi bi-broadcast" aria-hidden="true"></i>
+                Scheduler checked in <?= sanitize($sched['ago']) ?>
+                &middot; <?= number_format((int) $sched['tick_count']) ?> checks so far
+            </span>
+        <?php else: ?>
+            <span class="card__footer-note">
+                <i class="bi bi-terminal" aria-hidden="true"></i>
+                Schedules fire from the command-line runner, never from a browser.
+            </span>
+        <?php endif ?>
     </div>
 </div>

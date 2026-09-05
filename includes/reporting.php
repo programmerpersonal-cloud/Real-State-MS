@@ -691,6 +691,38 @@ function reportUrl(array $window, array $filters, array $overrides = []): string
     return APP_URL . '/index.php?' . http_build_query(reportQueryParams($window, $filters, $overrides));
 }
 
+/**
+ * A drill-down URL: the same report, the same period, the same filters, plus
+ * the metric being asked about.
+ *
+ * Built on reportUrl() rather than beside it, which is what makes §10's
+ * promise structural: a drill-down inherits the parent report's context
+ * because it is *the same query string* with two parameters added, not
+ * because somebody remembered to copy the filters across. A period, a custom
+ * range, a comparison and five filter chips all travel without this function
+ * knowing what any of them are.
+ *
+ * The key is whatever names the slice — a stream, a status, a chart bucket, a
+ * property id. It is not validated here: this builds links, and a link the
+ * application wrote is no more trustworthy than one somebody typed by the
+ * time it comes back. ReportDrilldown and CoreAnalytics check it on arrival.
+ */
+function reportDrillUrl(
+    array $window,
+    array $filters,
+    string $tab,
+    string $metric,
+    string $key = '',
+    array $overrides = []
+): string {
+    return reportUrl($window, $filters, [
+        'tab'    => $tab,
+        'action' => 'drill',
+        'metric' => $metric,
+        'key'    => $key === '' ? null : $key,
+    ] + $overrides);
+}
+
 // ─── Data quality ──────────────────────────────────────────────────────
 //
 // These do not correct anything. They count the rows where the database

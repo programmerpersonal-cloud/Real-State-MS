@@ -18,8 +18,18 @@ if ($resolvedViewFile && file_exists($resolvedViewFile)) {
     $__viewOutput = ob_get_clean();
 }
 ?>
+<?php
+/* The rail's appearance is a server-rendered attribute, not a class the
+   browser adds later. It has to be on <html> before the first stylesheet
+   resolves a single --sidebar-* token, or a dark rail paints light and
+   then flips — and unlike the collapsed width, there is no localStorage
+   read to do here: this is an installation setting, so the server already
+   knows the answer. */
+$railTheme  = railTheme();
+$railAccent = railAccent();
+?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-rail-theme="<?= $railTheme ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,6 +39,17 @@ if ($resolvedViewFile && file_exists($resolvedViewFile)) {
     <link rel="preload" href="<?= VENDOR_URL ?>/bootstrap-icons/fonts/bootstrap-icons.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="<?= VENDOR_URL ?>/bootstrap-icons/bootstrap-icons.min.css">
     <?php $bundle = 'app'; require VIEWS_PATH . '/components/styles.php'; ?>
+
+    <?php /* After the bundle, not before it. rail.css declares the accent on
+             :root as its own default, and this declaration has to out-rank
+             that one — at equal specificity, later wins, and "later" here
+             means after the <link> that carries it.
+
+             It is safe to interpolate for one reason: railAccent() returns
+             #rrggbb or nothing else, and the pattern that guarantees it is
+             in includes/functions.php. Everything else the rail draws is
+             derived from this single value. */ ?>
+    <style>:root{--sidebar-accent:<?= $railAccent ?>}</style>
 </head>
 <?php
 /* Fetched once, here, because both the rail and the topbar want it: the bell

@@ -9,14 +9,9 @@
     <link rel="preload" href="<?= VENDOR_URL ?>/raleway/fonts/raleway-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="<?= VENDOR_URL ?>/bootstrap-icons/fonts/bootstrap-icons.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="<?= VENDOR_URL ?>/bootstrap-icons/bootstrap-icons.min.css">
-    <?php /* The first frame of the property panel is the largest thing this
-             page paints, and it is discovered late — the browser only meets
-             it after the stylesheets. Preloading just the first one moves it
-             forward without pulling the rest of the slideshow into the
-             critical path; the others are lazy and arrive afterwards. */ ?>
-    <?php if (!empty($showcase[0]['image'])): ?>
-    <link rel="preload" as="image" href="<?= sanitize($showcase[0]['image']) ?>" fetchpriority="high">
-    <?php endif ?>
+    <?php /* No image preload. The brand panel is a gradient now, so the
+             largest thing this page paints is drawn by the stylesheet that
+             is already in the critical path. */ ?>
     <?php $bundle = 'auth'; require VIEWS_PATH . '/components/styles.php'; ?>
 </head>
 <body class="auth-page">

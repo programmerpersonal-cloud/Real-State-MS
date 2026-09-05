@@ -18,6 +18,62 @@ require_once __DIR__ . '/Analytics.php';
 
 class CoreAnalytics extends Analytics
 {
+    // ─── Shared predicates ─────────────────────────────────────────────
+    //
+    // Every one of these was, until Phase 10, written out again in each
+    // method that needed it -- six copies of the live-lease test alone,
+    // identical but for the subquery alias. Drill-down is what made that
+    // untenable: a panel claiming to list "the 3 occupied properties" has to
+    // select the rows the tile counted, and the only way to guarantee that is
+    // for both to ask the same question through the same code.
+    //
+    // `$tag` keeps the subquery aliases distinct so these can appear more
+    // than once in a statement, and nest, without colliding.
+
+    /**
+     * The three commercial states, as SQL a property row can be tested with.
+     *
+     * All three are proved by a record -- a live lease, an unexpired hold, a
+     * completed sale -- rather than by properties.status, which approved
+     * decision 5 established is not maintained.
+     *
+     * @return array{leased:string,held:string,sold:string}
+     */
+    private function commercialState(string $tag, string $p = 'p'): array
+    {
+        return [
+            'leased' => "EXISTS (SELECT 1 FROM leases {$tag}_l
+                                 WHERE {$tag}_l.property_id = {$p}.id
+                                   AND {$tag}_l.status = 'active'
+                                   AND {$tag}_l.end_date >= :w_today)",
+            'held'   => "EXISTS (SELECT 1 FROM reservations {$tag}_r
+                                 WHERE {$tag}_r.property_id = {$p}.id
+                                   AND {$tag}_r.status IN ('active','confirmed')
+                                   AND {$tag}_r.expiry_date >= :w_today)",
+            'sold'   => "EXISTS (SELECT 1 FROM sales {$tag}_s
+                                 WHERE {$tag}_s.property_id = {$p}.id AND {$tag}_s.status = 'completed')",
+        ];
+    }
+
+    /**
+     * The rentable universe -- approved decision 1's denominator, as SQL.
+     *
+     * Not archived, approved, lettable by type, not withdrawn, and not
+     * already sold. The drill-down behind the occupancy tile selects from
+     * exactly this, which is why the list it shows can never be longer or
+     * shorter than the figure it was opened from.
+     */
+    private function rentableWhere(string $tag, string $p = 'p'): string
+    {
+        $state = $this->commercialState($tag, $p);
+
+        return "{$p}.is_archived = 0
+              AND {$p}.approval_status = 'approved'
+              AND {$p}.property_type IN ('rent', 'both')
+              AND {$p}.status <> 'inactive'
+              AND NOT {$state['sold']}";
+    }
+
     // ─── Decision 1 · Occupancy ────────────────────────────────────────
 
     /**
@@ -57,25 +113,16 @@ class CoreAnalytics extends Analytics
         [$scope, $scopeParams]   = $this->scope('property', 'p');
         [$filterSql, $filterParams] = $this->propertyFilters('p');
 
-        $liveLease = "EXISTS (SELECT 1 FROM leases oc_l
-                              WHERE oc_l.property_id = p.id
-                                AND oc_l.status = 'active'
-                                AND oc_l.end_date >= :w_today)";
+        $liveLease = $this->commercialState('oc')['leased'];
         $anyActive = "EXISTS (SELECT 1 FROM leases oc_a
                               WHERE oc_a.property_id = p.id AND oc_a.status = 'active')";
-        $soldOff   = "EXISTS (SELECT 1 FROM sales oc_s
-                              WHERE oc_s.property_id = p.id AND oc_s.status = 'completed')";
 
         $row = $this->row("
             SELECT COUNT(*) AS rentable,
                    COALESCE(SUM({$liveLease}), 0) AS occupied,
                    COALESCE(SUM({$anyActive}), 0) AS active_any
             FROM properties p
-            WHERE p.is_archived = 0
-              AND p.approval_status = 'approved'
-              AND p.property_type IN ('rent', 'both')
-              AND p.status <> 'inactive'
-              AND NOT {$soldOff}
+            WHERE {$this->rentableWhere('oc')}
               AND ({$scope})
               {$filterSql}
         ", $scopeParams + $filterParams + [':w_today' => $this->window['today']]);
@@ -572,16 +619,7 @@ class CoreAnalytics extends Analytics
         [$scope, $scopeParams]      = $this->scope('property', 'p');
         [$filterSql, $filterParams] = $this->propertyFilters('p');
 
-        $liveLease = "EXISTS (SELECT 1 FROM leases iv_l
-                              WHERE iv_l.property_id = p.id
-                                AND iv_l.status = 'active'
-                                AND iv_l.end_date >= :w_today)";
-        $heldNow   = "EXISTS (SELECT 1 FROM reservations iv_r
-                              WHERE iv_r.property_id = p.id
-                                AND iv_r.status IN ('active','confirmed')
-                                AND iv_r.expiry_date >= :w_today)";
-        $soldOff   = "EXISTS (SELECT 1 FROM sales iv_s
-                              WHERE iv_s.property_id = p.id AND iv_s.status = 'completed')";
+        ['leased' => $liveLease, 'held' => $heldNow, 'sold' => $soldOff] = $this->commercialState('iv');
 
         $row = $this->row("
             SELECT COUNT(*) AS total,
@@ -643,7 +681,7 @@ class CoreAnalytics extends Analytics
             FROM properties p
             WHERE p.is_archived = 0 AND ({$scope}) {$filterSql}
             GROUP BY p.status
-            ORDER BY c DESC
+            ORDER BY c DESC, p.status ASC
         ", $scopeParams + $filterParams);
     }
 
@@ -846,16 +884,7 @@ class CoreAnalytics extends Analytics
         // request, which is why it can be interpolated at all.
         $limit = max(1, min(50, $limit));
 
-        $liveLease = "EXISTS (SELECT 1 FROM leases tp_l
-                              WHERE tp_l.property_id = p.id
-                                AND tp_l.status = 'active'
-                                AND tp_l.end_date >= :w_today)";
-        $heldNow   = "EXISTS (SELECT 1 FROM reservations tp_r
-                              WHERE tp_r.property_id = p.id
-                                AND tp_r.status IN ('active','confirmed')
-                                AND tp_r.expiry_date >= :w_today)";
-        $soldOff   = "EXISTS (SELECT 1 FROM sales tp_s
-                              WHERE tp_s.property_id = p.id AND tp_s.status = 'completed')";
+        ['leased' => $liveLease, 'held' => $heldNow, 'sold' => $soldOff] = $this->commercialState('tp');
 
         return $this->rows("
             SELECT p.id,
@@ -1263,7 +1292,7 @@ class CoreAnalytics extends Analytics
             $where = "m.status IN ({$open})";
             // FIELD() puts urgent first and low last, then oldest first
             // inside each level — the order somebody working the queue wants.
-            $order = "FIELD(m.priority,'urgent','high','medium','low'), m.created_at ASC";
+            $order = "FIELD(m.priority,'urgent','high','medium','low'), m.created_at ASC, m.id ASC";
         }
 
         return $this->rows("
@@ -1577,7 +1606,7 @@ class CoreAnalytics extends Analytics
               AND ({$scope})
               {$filterSql}
             GROUP BY p.category
-            ORDER BY value DESC
+            ORDER BY value DESC, p.category ASC
         ", $params + $filterParams + $this->periodParams());
     }
 
@@ -2110,16 +2139,7 @@ class CoreAnalytics extends Analytics
         [$scope, $scopeParams]      = $this->scope('property', 'p');
         [$filterSql, $filterParams] = $this->propertyFilters('p');
 
-        $liveLease = "EXISTS (SELECT 1 FROM leases ps_l
-                              WHERE ps_l.property_id = p.id
-                                AND ps_l.status = 'active'
-                                AND ps_l.end_date >= :w_today)";
-        $heldNow   = "EXISTS (SELECT 1 FROM reservations ps_r
-                              WHERE ps_r.property_id = p.id
-                                AND ps_r.status IN ('active','confirmed')
-                                AND ps_r.expiry_date >= :w_today)";
-        $soldOff   = "EXISTS (SELECT 1 FROM sales ps_s
-                              WHERE ps_s.property_id = p.id AND ps_s.status = 'completed')";
+        ['leased' => $liveLease, 'held' => $heldNow, 'sold' => $soldOff] = $this->commercialState('ps');
 
         $row = $this->row("
             SELECT COUNT(*) AS total,
@@ -2189,12 +2209,7 @@ class CoreAnalytics extends Analytics
         [$scope, $scopeParams]      = $this->scope('property', 'p');
         [$filterSql, $filterParams] = $this->propertyFilters('p');
 
-        $liveLease = "EXISTS (SELECT 1 FROM leases pg_l
-                              WHERE pg_l.property_id = p.id
-                                AND pg_l.status = 'active'
-                                AND pg_l.end_date >= :w_today)";
-        $soldOff   = "EXISTS (SELECT 1 FROM sales pg_s
-                              WHERE pg_s.property_id = p.id AND pg_s.status = 'completed')";
+        ['leased' => $liveLease, 'sold' => $soldOff] = $this->commercialState('pg');
 
         $rows = $this->rows("
             SELECT {$column} AS grp,
@@ -2307,16 +2322,7 @@ class CoreAnalytics extends Analytics
         $limit  = max(1, min(100, $limit));
         $offset = max(0, min(100000, $offset));
 
-        $liveLease = "EXISTS (SELECT 1 FROM leases pt_l
-                              WHERE pt_l.property_id = p.id
-                                AND pt_l.status = 'active'
-                                AND pt_l.end_date >= :w_today)";
-        $heldNow   = "EXISTS (SELECT 1 FROM reservations pt_r
-                              WHERE pt_r.property_id = p.id
-                                AND pt_r.status IN ('active','confirmed')
-                                AND pt_r.expiry_date >= :w_today)";
-        $soldOff   = "EXISTS (SELECT 1 FROM sales pt_s
-                              WHERE pt_s.property_id = p.id AND pt_s.status = 'completed')";
+        ['leased' => $liveLease, 'held' => $heldNow, 'sold' => $soldOff] = $this->commercialState('pt');
 
         // Revenue as a correlated subquery rather than a join, so one payment
         // row can never multiply a property row -- the table promises one row
@@ -2622,7 +2628,10 @@ class CoreAnalytics extends Analytics
               {$filterSql}
               {$methodSql}
             GROUP BY py.payment_method
-            ORDER BY amount DESC
+            -- Tied amounts broke ties by whatever order the optimiser felt
+            -- like; the method name settles it so the chart legend and the
+            -- table under it are the same on every refresh.
+            ORDER BY amount DESC, py.payment_method ASC
         ", $scopeParams + $filterParams + $methodParams + $this->periodParams());
 
         $out = [];
@@ -2673,7 +2682,7 @@ class CoreAnalytics extends Analytics
               {$filterSql}
               {$methodSql}
             GROUP BY py.payment_type, py.reference_type
-            ORDER BY records DESC, amount DESC
+            ORDER BY records DESC, amount DESC, py.payment_type ASC, py.reference_type ASC
         ", $scopeParams + $filterParams + $methodParams + $this->periodParams());
 
         $out = [];
@@ -2864,14 +2873,18 @@ class CoreAnalytics extends Analytics
     }
 
     /**
-     * The one collected-revenue query, shared by every figure that needs it.
+     * The three rules of approved decision 2, as a WHERE clause.
      *
-     * Written once so the three rules of approved decision 2 cannot be
-     * remembered in one place and forgotten in another.
+     * Split out from revenueQuery() in Phase 10 so the drill-down behind a
+     * revenue tile selects rows through the *same* predicate the tile was
+     * summed through. A second copy of these rules, however carefully
+     * transcribed, would be a second definition of collected revenue -- and
+     * the first time one of them changed, the panel would stop listing the
+     * payments its own headline had counted.
      *
      * @return array{0:string,1:array}
      */
-    private function revenueQuery(?string $referenceType, bool $previous = false): array
+    private function revenueWhere(?string $referenceType, bool $previous = false): array
     {
         [$scope, $scopeParams]      = $this->scope('payment', 'py', 'p');
         [$filterSql, $filterParams] = $this->propertyFilters('p');
@@ -2890,11 +2903,7 @@ class CoreAnalytics extends Analytics
 
         $types = $this->revenueTypeList();
 
-        $sql = "
-            SELECT COALESCE(SUM(py.amount), 0)
-            FROM payments py
-            LEFT JOIN properties p ON py.property_id = p.id
-            WHERE py.status = 'paid'
+        $where = "py.status = 'paid'
               AND py.payment_date IS NOT NULL
               AND py.payment_date <= :w_today
               AND {$this->withinPeriod('py.payment_date')}
@@ -2902,9 +2911,1314 @@ class CoreAnalytics extends Analytics
               AND ({$scope})
               {$streamSql}
               {$filterSql}
-              {$methodSql}
-        ";
+              {$methodSql}";
 
-        return [$sql, $params];
+        return [$where, $params];
     }
+
+    /**
+     * The one collected-revenue query, shared by every figure that needs it.
+     *
+     * Written once so the three rules of approved decision 2 cannot be
+     * remembered in one place and forgotten in another.
+     *
+     * @return array{0:string,1:array}
+     */
+    private function revenueQuery(?string $referenceType, bool $previous = false): array
+    {
+        [$where, $params] = $this->revenueWhere($referenceType, $previous);
+
+        return ["
+            SELECT COALESCE(SUM(py.amount), 0)
+            FROM payments py
+            LEFT JOIN properties p ON py.property_id = p.id
+            WHERE {$where}
+        ", $params];
+    }
+
+    // ═══ Drill-down ════════════════════════════════════════════════════
+    //
+    // One question runs through this whole section: which rows produced that
+    // figure? Not "which rows look like they should have" -- the actual ones.
+    //
+    // That is why every method below builds its WHERE clause out of the same
+    // predicates the aggregates are built from, rather than restating them.
+    // revenueWhere() is approved decision 2; commercialState() is decision 1
+    // and 5; the schedule and ledger bases below are decision 4's two
+    // ledgers, kept apart here exactly as they are kept apart there. A
+    // drill-down is meant to *explain* a KPI, and a panel that reinterprets
+    // the figure it was opened from explains nothing.
+    //
+    // `$mode` and `$key` arrive from the browser and are never trusted. Each
+    // method matches its mode against a list written here and returns nothing
+    // for anything else: an unrecognised mode is a programming error or an
+    // attack, and the safe answer to both is no rows.
+    //
+    // Every method is bounded. A drill-down is a panel, not a data dump, and
+    // the caller pages through it.
+
+    /** Limits this class chose. A request supplies a page number, never these. */
+    private function bounds(int $limit, int $offset): array
+    {
+        return [max(1, min(100, $limit)), max(0, min(100000, $offset))];
+    }
+
+    // ─── Payments ──────────────────────────────────────────────────────
+
+    /**
+     * The payments-report ledger base: every payment dated in the window,
+     * inside the reader's scope and the report's filters.
+     *
+     * Identical to what paymentActivity(), paymentStatusBreakdown(),
+     * paymentMethodBreakdown(), paymentClassificationMatrix() and
+     * paymentRecords() all select over -- which is what lets a drill-down
+     * from any of those five land on the rows that particular figure counted.
+     *
+     * @return array{0:string,1:array}
+     */
+    private function paymentLedgerWhere(): array
+    {
+        [$scope, $scopeParams]      = $this->scope('payment', 'py', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+        [$methodSql, $methodParams] = $this->paymentMethodFilter('py');
+
+        return [
+            "py.payment_date IS NOT NULL
+              AND {$this->withinPeriod('py.payment_date')}
+              AND ({$scope})
+              {$filterSql}
+              {$methodSql}",
+            $scopeParams + $filterParams + $methodParams + $this->periodParams(),
+        ];
+    }
+
+    /**
+     * The predicate behind one payments figure.
+     *
+     * `collected` and `stream` come from revenueWhere() rather than from the
+     * ledger base, and the difference is the whole of approved decision 2:
+     * collected revenue is a narrower set than "payments in this window", and
+     * a drill-down that showed the wider one would be listing money the tile
+     * had deliberately excluded.
+     *
+     * @return array{0:string,1:array}|null null when the mode is not one of ours
+     */
+    private function paymentDrillWhere(string $mode, string $key): ?array
+    {
+        // Revenue and its streams are decision 2's set, not the ledger's.
+        if ($mode === 'collected') {
+            return $this->revenueWhere(null);
+        }
+        if ($mode === 'stream') {
+            return in_array($key, [REPORT_STREAM_RENTAL, REPORT_STREAM_SALE, 'reservation'], true)
+                ? $this->revenueWhere($key)
+                : null;
+        }
+
+        [$base, $params] = $this->paymentLedgerWhere();
+
+        switch ($mode) {
+            case 'all':
+                return [$base, $params];
+
+            // Every paid record dated today or earlier, whatever its type --
+            // the "money received" tile, which is deliberately wider than
+            // collected revenue.
+            case 'received':
+                return [$base . " AND py.status = 'paid' AND py.payment_date <= :w_today", $params];
+
+            case 'cancelled':
+                return [$base . " AND py.status = 'cancelled'", $params];
+
+            case 'status':
+                if (!in_array($key, REPORT_PAYMENT_STATUSES, true)) {
+                    return null;
+                }
+                $params[':d_status'] = $key;
+                return [$base . " AND COALESCE(py.status, 'pending') = :d_status", $params];
+
+            case 'method':
+                // '' is a real answer here: the breakdown reports records with
+                // no method recorded as their own row rather than folding
+                // them into 'other', so the drill-down has to be able to
+                // select them.
+                if ($key === '') {
+                    return [$base . " AND (py.payment_method IS NULL OR py.payment_method = '')", $params];
+                }
+                if (!in_array($key, REPORT_PAYMENT_METHODS, true)) {
+                    return null;
+                }
+                $params[':d_method'] = $key;
+                return [$base . " AND py.payment_method = :d_method", $params];
+
+            // "rent|lease" -- one cell of the classification matrix.
+            case 'class':
+                $parts = explode('|', $key);
+                if (count($parts) !== 2) {
+                    return null;
+                }
+                $params[':d_type'] = $parts[0];
+                $params[':d_ref']  = $parts[1];
+                return [$base . " AND py.payment_type = :d_type AND py.reference_type = :d_ref", $params];
+
+            // The rows where payment_type and reference_type name different
+            // kinds of contract. The same three pairs reportPaymentMismatches()
+            // counts -- a deposit, a refund or a late fee can legitimately
+            // hang off either kind and is not a conflict.
+            //
+            // Like 'future', this cannot be built on the ledger base. The
+            // detector is not window-bounded and carries no property or
+            // method filter: a payment filed against the wrong kind of
+            // contract is wrong whichever period is on screen, and the panel
+            // has to list the same rows the count counted. Building it on the
+            // window made a tile reading 1 open a panel reading none.
+            case 'mismatch':
+                [$mScope, $mParams] = $this->scope('payment', 'py', 'p');
+
+                return [
+                    "py.status <> 'cancelled'
+                      AND (
+                        (py.reference_type = 'lease' AND py.payment_type = 'sale')
+                        OR (py.reference_type = 'sale' AND py.payment_type = 'rent')
+                        OR (py.reference_type = 'reservation' AND py.payment_type IN ('rent','sale'))
+                      )
+                      AND ({$mScope})",
+                    $mParams,
+                ];
+
+            // Paid, but dated after today.
+            //
+            // The one arm that cannot be built on the ledger base, and the
+            // reason is the whole point of the figure: these records are
+            // dated *after* the window ends, so a predicate bounded by the
+            // window excludes every one of them and the panel behind a
+            // $500 tile came back empty. futureDatedExcluded() is not
+            // window-bounded either, and carries no method filter, so this
+            // transcribes it rather than the ledger.
+            case 'future':
+                [$fScope, $fParams]   = $this->scope('payment', 'py', 'p');
+                [$fFilter, $fFilterP] = $this->propertyFilters('p');
+                $fTypes = $this->revenueTypeList();
+
+                return [
+                    "py.status = 'paid'
+                      AND py.payment_date IS NOT NULL
+                      AND py.payment_date > :w_today
+                      AND py.payment_type IN ({$fTypes})
+                      AND ({$fScope})
+                      {$fFilter}",
+                    $fParams + $fFilterP + [':w_today' => $this->window['today']],
+                ];
+
+            // One bucket of the activity chart. The grain is the window's,
+            // never the request's; only the bucket key is bound.
+            case 'bucket':
+                $params[':d_bucket'] = $key;
+                return [$base . " AND {$this->bucket('py.payment_date')} = :d_bucket", $params];
+
+            // One property's collected revenue -- the figure the top-earners
+            // table ranks on, so this uses decision 2's set and not the
+            // ledger's.
+            case 'property':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                [$where, $revParams] = $this->revenueWhere(null);
+                $revParams[':d_property'] = $id;
+                return [$where . " AND py.property_id = :d_property", $revParams];
+
+            // One revenue bucket, on decision 2's set rather than the
+            // ledger's, so it reconciles with the revenue chart above it.
+            case 'revenue_bucket':
+                [$where, $revParams] = $this->revenueWhere(null);
+                $revParams[':d_bucket'] = $key;
+                return [$where . " AND {$this->bucket('py.payment_date')} = :d_bucket", $revParams];
+        }
+
+        return null;
+    }
+
+    /**
+     * Payment records behind one figure.
+     *
+     * The column list is paymentRecords()' own, so the drill-down table and
+     * the report's own record table show a row the same way.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function drillPayments(string $mode, string $key, int $limit = 25, int $offset = 0): array
+    {
+        $resolved = $this->paymentDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params]  = $resolved;
+        [$limit, $offset]  = $this->bounds($limit, $offset);
+
+        return $this->rows("
+            SELECT py.id, py.payment_code, py.payment_date, py.amount,
+                   py.payment_type, py.reference_type, py.reference_id,
+                   py.payment_method, py.status, py.receipt_number,
+                   py.property_id, p.title AS property_title, p.property_code,
+                   c.full_name AS customer_name,
+                   u.full_name AS received_by_name
+            FROM payments py
+            LEFT JOIN properties p ON py.property_id = p.id
+            LEFT JOIN customers  c ON py.customer_id = c.id
+            LEFT JOIN users      u ON py.received_by = u.id
+            WHERE {$where}
+            ORDER BY py.payment_date DESC, py.id DESC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params);
+    }
+
+    /**
+     * How many records and how much money sit behind one figure.
+     *
+     * The amount is what makes a drill-down checkable: the panel prints it
+     * beside the figure it was opened from, and the two either agree or the
+     * reader has found something worth reporting.
+     *
+     * @return array{records:int,amount:float}
+     */
+    public function drillPaymentsTotal(string $mode, string $key): array
+    {
+        $resolved = $this->paymentDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        [$where, $params] = $resolved;
+
+        $row = $this->row("
+            SELECT COUNT(*) AS records, COALESCE(SUM(py.amount), 0) AS amount
+            FROM payments py
+            LEFT JOIN properties p ON py.property_id = p.id
+            WHERE {$where}
+        ", $params);
+
+        return ['records' => (int) ($row['records'] ?? 0), 'amount' => (float) ($row['amount'] ?? 0)];
+    }
+
+    // ─── Rent schedules ────────────────────────────────────────────────
+
+    /**
+     * The rent-ledger base: scheduled instalments on tenancies in scope.
+     *
+     * This is the *other* ledger. rentLedger() reports expected, settled,
+     * outstanding and arrears from payment_schedules, and approved decision 4
+     * forbids adding them to anything out of `payments`. Drill-downs keep the
+     * two apart the same way: nothing in this method touches the payments
+     * table, and nothing in paymentDrillWhere() touches schedules.
+     *
+     * @return array{0:string,1:array}
+     */
+    private function scheduleWhere(): array
+    {
+        [$leaseScope, $leaseParams] = $this->scope('lease', 'l', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        return [
+            "({$leaseScope}) {$filterSql}",
+            $leaseParams + $filterParams + $this->periodParams(),
+        ];
+    }
+
+    /**
+     * The predicate behind one rent-ledger figure.
+     *
+     * Each arm is lifted from the matching CASE in rentLedger(), including
+     * which of them are window-bounded and which are running balances.
+     * Expected and settled are bounded by the due date; outstanding, arrears
+     * and not-yet-due are the state of the schedule today and are not.
+     *
+     * @return array{0:string,1:array}|null
+     */
+    private function scheduleDrillWhere(string $mode, string $key): ?array
+    {
+        [$base, $params] = $this->scheduleWhere();
+        $inPeriod = $this->withinPeriod('ps.due_date');
+
+        switch ($mode) {
+            case 'expected':
+                return [$base . " AND {$inPeriod}", $params];
+
+            case 'settled':
+                return [$base . " AND ps.status = 'paid' AND {$inPeriod}", $params];
+
+            // Running balances. No period bound, exactly as rentLedger()
+            // computes them -- the schedule records the state a row is in
+            // now, not the state it was in in July.
+            case 'outstanding':
+                return [$base . " AND ps.status <> 'paid'", $params];
+
+            case 'arrears':
+                return [$base . " AND ps.status IN ('overdue','partial')", $params];
+
+            case 'overdue':
+                return [$base . " AND ps.status = 'overdue'", $params];
+
+            case 'not_yet_due':
+                return [$base . " AND ps.status = 'pending'", $params];
+
+            case 'bucket':
+                $params[':d_bucket'] = $key;
+                return [$base . " AND {$this->bucket('ps.due_date')} = :d_bucket", $params];
+
+            case 'settled_bucket':
+                $params[':d_bucket'] = $key;
+                return [
+                    $base . " AND ps.status = 'paid' AND {$this->bucket('ps.due_date')} = :d_bucket",
+                    $params,
+                ];
+
+            case 'property':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_property'] = $id;
+                return [$base . " AND p.id = :d_property AND {$inPeriod}", $params];
+
+            case 'lease':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_lease'] = $id;
+                return [$base . " AND l.id = :d_lease", $params];
+        }
+
+        return null;
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function drillSchedules(string $mode, string $key, int $limit = 25, int $offset = 0): array
+    {
+        $resolved = $this->scheduleDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params] = $resolved;
+        [$limit, $offset] = $this->bounds($limit, $offset);
+
+        return $this->rows("
+            SELECT ps.id, ps.due_date, ps.paid_date, ps.amount, ps.penalty, ps.status,
+                   ps.amount + ps.penalty AS due_total,
+                   DATEDIFF(:w_today, ps.due_date) AS days_late,
+                   l.id AS lease_id, l.lease_code,
+                   p.id AS property_id, p.title AS property_title, p.property_code,
+                   c.full_name AS tenant_name
+            FROM payment_schedules ps
+            JOIN leases l     ON ps.lease_id = l.id
+            JOIN properties p ON l.property_id = p.id
+            LEFT JOIN customers c ON l.customer_id = c.id
+            WHERE {$where}
+            ORDER BY ps.due_date DESC, ps.id DESC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params + [':w_today' => $this->window['today']]);
+    }
+
+    /**
+     * Records and money behind one rent-ledger figure.
+     *
+     * `settled` sums ps.amount and everything else sums amount + penalty,
+     * which looks inconsistent and is not: rentLedger() does exactly this.
+     * A penalty is owed but was never scheduled, so it belongs in what is
+     * expected and outstanding and not in what was settled.
+     *
+     * @return array{records:int,amount:float}
+     */
+    public function drillSchedulesTotal(string $mode, string $key): array
+    {
+        $resolved = $this->scheduleDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        [$where, $params] = $resolved;
+        $sum = in_array($mode, ['settled', 'settled_bucket'], true)
+            ? 'ps.amount'
+            : 'ps.amount + ps.penalty';
+
+        $row = $this->row("
+            SELECT COUNT(*) AS records, COALESCE(SUM({$sum}), 0) AS amount
+            FROM payment_schedules ps
+            JOIN leases l     ON ps.lease_id = l.id
+            JOIN properties p ON l.property_id = p.id
+            WHERE {$where}
+        ", $params);
+
+        return ['records' => (int) ($row['records'] ?? 0), 'amount' => (float) ($row['amount'] ?? 0)];
+    }
+
+    // ─── Properties ────────────────────────────────────────────────────
+
+    /**
+     * The predicate behind one portfolio figure.
+     *
+     * Occupancy's arms select from rentableWhere() and the rest from the
+     * approved-and-unarchived register, because those are the two different
+     * denominators the report uses and conflating them is the mistake the
+     * Phase 0 audit found. Nothing here reads properties.status as a
+     * commercial state.
+     *
+     * @return array{0:string,1:array}|null
+     */
+    private function propertyDrillWhere(string $mode, string $key): ?array
+    {
+        [$scope, $scopeParams]      = $this->scope('property', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $params   = $scopeParams + $filterParams + [':w_today' => $this->window['today']];
+        $state    = $this->commercialState('dp');
+        $rentable = $this->rentableWhere('dr');
+        $approved = "p.is_archived = 0 AND p.approval_status = 'approved'";
+        $tail     = " AND ({$scope}) {$filterSql}";
+
+        switch ($mode) {
+            // Approved decision 1's denominator and its two halves.
+            case 'rentable':
+                return [$rentable . $tail, $params];
+            case 'occupied':
+                return [$rentable . " AND {$state['leased']}" . $tail, $params];
+            case 'vacant':
+                return [$rentable . " AND NOT {$state['leased']}" . $tail, $params];
+
+            // Commercial state across approved inventory -- portfolioState().
+            case 'sold':
+                return [$approved . " AND {$state['sold']}" . $tail, $params];
+            case 'state_occupied':
+                return [$approved . " AND NOT {$state['sold']} AND {$state['leased']}" . $tail, $params];
+            case 'reserved':
+                return [
+                    $approved . " AND NOT {$state['sold']} AND NOT {$state['leased']}"
+                    . " AND {$state['held']}" . $tail,
+                    $params,
+                ];
+            case 'available':
+                return [
+                    $approved . " AND NOT {$state['sold']} AND NOT {$state['leased']}"
+                    . " AND NOT {$state['held']}" . $tail,
+                    $params,
+                ];
+
+            // Lifecycle -- inventory()'s own arms, on the whole register.
+            case 'approved':
+                return [$approved . $tail, $params];
+            case 'pending':
+                return ["p.is_archived = 0 AND p.approval_status = 'pending'" . $tail, $params];
+            case 'rejected':
+                return ["p.is_archived = 0 AND p.approval_status = 'rejected'" . $tail, $params];
+            case 'withdrawn':
+                return ["p.is_archived = 0 AND p.status = 'inactive'" . $tail, $params];
+            case 'archived':
+                return ["p.is_archived = 1" . $tail, $params];
+            case 'all':
+                return ["p.is_archived = 0" . $tail, $params];
+
+            case 'category':
+                if (!in_array($key, REPORT_CATEGORIES, true)) {
+                    return null;
+                }
+                $params[':d_category'] = $key;
+                return [$approved . " AND p.category = :d_category" . $tail, $params];
+
+            case 'intent':
+                if (!in_array($key, ['rent', 'sale', 'both'], true)) {
+                    return null;
+                }
+                $params[':d_intent'] = $key;
+                return [$approved . " AND p.property_type = :d_intent" . $tail, $params];
+
+            case 'location':
+                // Measured against the locations this reader's own portfolio
+                // actually holds, which is the same allowlist the filter is
+                // validated through.
+                if (!in_array($key, reportLocationOptions(), true)) {
+                    return null;
+                }
+                $params[':d_location'] = $key;
+                return [$approved . " AND p.location = :d_location" . $tail, $params];
+
+            case 'property':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_property'] = $id;
+                return ["p.id = :d_property" . $tail, $params];
+        }
+
+        return null;
+    }
+
+    /**
+     * Properties behind one figure, with the revenue each collected in the
+     * window.
+     *
+     * Same columns portfolioTable() shows, and the revenue subquery is the
+     * same correlated one -- a join to a one-to-many would multiply a
+     * property row per payment and quietly break the count the panel is
+     * being checked against.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function drillProperties(string $mode, string $key, int $limit = 25, int $offset = 0): array
+    {
+        $resolved = $this->propertyDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params]       = $resolved;
+        [$limit, $offset]       = $this->bounds($limit, $offset);
+        [$payScope, $payParams] = $this->scope('payment', 'py', 'pp');
+        $state                  = $this->commercialState('dl');
+        $types                  = $this->revenueTypeList();
+
+        $revenue = "(SELECT COALESCE(SUM(py.amount), 0)
+                       FROM payments py
+                       LEFT JOIN properties pp ON py.property_id = pp.id
+                      WHERE py.property_id = p.id
+                        AND py.status = 'paid'
+                        AND py.payment_date IS NOT NULL
+                        AND py.payment_date <= :w_today
+                        AND py.payment_date BETWEEN :w_from AND :w_to
+                        AND py.payment_type IN ({$types})
+                        AND ({$payScope}))";
+
+        return $this->rows("
+            SELECT p.id, p.property_code, p.title, p.category, p.property_type,
+                   p.location, p.status AS recorded_status, p.approval_status,
+                   p.agent_id, u.full_name AS agent_name,
+                   {$state['sold']}   AS is_sold,
+                   {$state['leased']} AS is_occupied,
+                   {$state['held']}   AS is_reserved,
+                   {$revenue}         AS revenue
+            FROM properties p
+            LEFT JOIN users u ON p.agent_id = u.id
+            WHERE {$where}
+            ORDER BY revenue DESC, p.property_code ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params + $payParams + $this->periodParams());
+    }
+
+    public function drillPropertiesCount(string $mode, string $key): int
+    {
+        $resolved = $this->propertyDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return 0;
+        }
+
+        [$where, $params] = $resolved;
+
+        return $this->count("SELECT COUNT(*) FROM properties p WHERE {$where}", $params);
+    }
+
+    // ─── Leases ────────────────────────────────────────────────────────
+
+    /**
+     * The predicate behind one tenancy figure.
+     *
+     * The expiry arms are leaseExpiryBuckets()' own boundaries. "Expired"
+     * means still flagged active with an end date in the past, which is a
+     * record that has not caught up rather than a tenancy that is running.
+     *
+     * @return array{0:string,1:array}|null
+     */
+    private function leaseDrillWhere(string $mode, string $key): ?array
+    {
+        [$scope, $scopeParams]      = $this->scope('lease', 'l', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $params = $scopeParams + $filterParams + [':w_today' => $this->window['today']];
+        $tail   = " AND ({$scope}) {$filterSql}";
+        $live   = "l.status = 'active' AND l.end_date >= :w_today";
+
+        switch ($mode) {
+            case 'active':
+                return [$live . $tail, $params];
+
+            case 'attention':
+                return [
+                    "l.status = 'active' AND l.end_date <= DATE_ADD(:w_today, INTERVAL 60 DAY)" . $tail,
+                    $params,
+                ];
+
+            // leaseExpiryBuckets()' five bands, transcribed. They are
+            // *exclusive*: "within 30 days" starts where "within 7" stops, so
+            // the five add up to the active book exactly once. Reading them
+            // as cumulative — the obvious mistake, and the one this made
+            // before the reconciliation caught it — puts the same lease in
+            // three panels and makes none of them agree with its own tile.
+            case 'expiring':
+                $bands = [
+                    'expired' => "l.end_date < :w_today",
+                    'd7'      => "l.end_date >= :w_today
+                                  AND l.end_date <= DATE_ADD(:w_today, INTERVAL 7 DAY)",
+                    'd30'     => "l.end_date > DATE_ADD(:w_today, INTERVAL 7 DAY)
+                                  AND l.end_date <= DATE_ADD(:w_today, INTERVAL 30 DAY)",
+                    'd60'     => "l.end_date > DATE_ADD(:w_today, INTERVAL 30 DAY)
+                                  AND l.end_date <= DATE_ADD(:w_today, INTERVAL 60 DAY)",
+                    'beyond'  => "l.end_date > DATE_ADD(:w_today, INTERVAL 60 DAY)",
+                ];
+                if (!isset($bands[$key])) {
+                    return null;
+                }
+                return ["l.status = 'active' AND {$bands[$key]}" . $tail, $params];
+
+            // The "expiring soon" tile, which is the three bands inside sixty
+            // days added together — and deliberately not the fourth: a lease
+            // already past its end date has not "expired soon", it has gone.
+            case 'expiring_soon':
+                return [
+                    "l.status = 'active' AND l.end_date >= :w_today"
+                    . " AND l.end_date <= DATE_ADD(:w_today, INTERVAL 60 DAY)" . $tail,
+                    $params,
+                ];
+
+            case 'property':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_property'] = $id;
+                return [$live . " AND p.id = :d_property" . $tail, $params];
+
+            case 'agent':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_agent'] = $id;
+                return [$live . " AND p.agent_id = :d_agent" . $tail, $params];
+
+            // Leases written in the window, by whoever created the record --
+            // agentPerformance()'s own attribution for that column.
+            case 'created_by':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_agent'] = $id;
+                return [
+                    "l.created_by = :d_agent AND {$this->withinPeriod('DATE(l.created_at)')}" . $tail,
+                    $params + $this->periodParams(),
+                ];
+        }
+
+        return null;
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function drillLeases(string $mode, string $key, int $limit = 25, int $offset = 0): array
+    {
+        $resolved = $this->leaseDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params] = $resolved;
+        [$limit, $offset] = $this->bounds($limit, $offset);
+
+        return $this->rows("
+            SELECT l.id, l.lease_code, l.start_date, l.end_date, l.rent_amount, l.status,
+                   DATEDIFF(l.end_date, :w_today) AS days_left,
+                   p.id AS property_id, p.title AS property_title, p.property_code,
+                   c.full_name AS tenant_name,
+                   COALESCE(SUM(CASE WHEN ps.status <> 'paid'
+                                     THEN ps.amount + ps.penalty END), 0) AS outstanding,
+                   COALESCE(SUM(CASE WHEN ps.status IN ('overdue','partial')
+                                     THEN ps.amount + ps.penalty END), 0) AS arrears
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            LEFT JOIN customers c ON l.customer_id = c.id
+            LEFT JOIN payment_schedules ps ON ps.lease_id = l.id
+            WHERE {$where}
+            GROUP BY l.id, l.lease_code, l.start_date, l.end_date, l.rent_amount, l.status,
+                     p.id, p.title, p.property_code, c.full_name
+            ORDER BY l.end_date ASC, l.id ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params);
+    }
+
+    /** @return array{records:int,amount:float} rent roll, not a balance */
+    public function drillLeasesTotal(string $mode, string $key): array
+    {
+        $resolved = $this->leaseDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        [$where, $params] = $resolved;
+
+        $row = $this->row("
+            SELECT COUNT(*) AS records, COALESCE(SUM(l.rent_amount), 0) AS amount
+            FROM leases l
+            JOIN properties p ON l.property_id = p.id
+            WHERE {$where}
+        ", $params);
+
+        return ['records' => (int) ($row['records'] ?? 0), 'amount' => (float) ($row['amount'] ?? 0)];
+    }
+
+    // ─── Sales ─────────────────────────────────────────────────────────
+
+    /**
+     * The predicate behind one sales figure.
+     *
+     * `completed` carries the `sale_date <= today` that salesSummary() puts
+     * on it, and that clause is load-bearing: a deal marked completed with a
+     * date next month is counted by neither, and the summary reports those
+     * separately as future_completed rather than folding them in.
+     *
+     * @return array{0:string,1:array}|null
+     */
+    private function saleDrillWhere(string $mode, string $key): ?array
+    {
+        [$scope, $scopeParams]      = $this->scope('sale', 's', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $params = $scopeParams + $filterParams + $this->periodParams();
+        $base   = "s.sale_date IS NOT NULL AND {$this->withinPeriod('s.sale_date')}"
+                . " AND ({$scope}) {$filterSql}";
+
+        switch ($mode) {
+            case 'all':
+                return [$base, $params];
+
+            case 'completed':
+                return [$base . " AND s.status = 'completed' AND s.sale_date <= :w_today", $params];
+
+            case 'future_completed':
+                return [$base . " AND s.status = 'completed' AND s.sale_date > :w_today", $params];
+
+            case 'status':
+                if (!in_array($key, ['pending', 'completed', 'cancelled'], true)) {
+                    return null;
+                }
+                $params[':d_status'] = $key;
+                return [$base . " AND s.status = :d_status", $params];
+
+            case 'bucket':
+                $params[':d_bucket'] = $key;
+                return [$base . " AND {$this->bucket('s.sale_date')} = :d_bucket", $params];
+
+            case 'completed_bucket':
+                $params[':d_bucket'] = $key;
+                return [
+                    $base . " AND s.status = 'completed' AND s.sale_date <= :w_today"
+                    . " AND {$this->bucket('s.sale_date')} = :d_bucket",
+                    $params,
+                ];
+
+            case 'category':
+                if (!in_array($key, REPORT_CATEGORIES, true)) {
+                    return null;
+                }
+                $params[':d_category'] = $key;
+                return [$base . " AND p.category = :d_category", $params];
+
+            case 'property':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_property'] = $id;
+                return [$base . " AND p.id = :d_property", $params];
+
+            case 'agent':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_agent'] = $id;
+                return [
+                    $base . " AND s.agent_id = :d_agent AND s.status = 'completed'"
+                    . " AND s.sale_date <= :w_today",
+                    $params,
+                ];
+        }
+
+        return null;
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function drillSales(string $mode, string $key, int $limit = 25, int $offset = 0): array
+    {
+        $resolved = $this->saleDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params] = $resolved;
+        [$limit, $offset] = $this->bounds($limit, $offset);
+
+        return $this->rows("
+            SELECT s.id, s.sale_code, s.sale_date, s.sale_amount, s.commission_amount,
+                   s.payment_type, s.status,
+                   p.id AS property_id, p.title AS property_title, p.property_code, p.category,
+                   c.full_name AS buyer_name,
+                   u.full_name AS agent_name
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            LEFT JOIN customers c ON s.customer_id = c.id
+            LEFT JOIN users u ON s.agent_id = u.id
+            WHERE {$where}
+            ORDER BY s.sale_date DESC, s.id DESC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params);
+    }
+
+    /** @return array{records:int,amount:float} contract value, never cash */
+    public function drillSalesTotal(string $mode, string $key): array
+    {
+        $resolved = $this->saleDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        [$where, $params] = $resolved;
+
+        $row = $this->row("
+            SELECT COUNT(*) AS records, COALESCE(SUM(s.sale_amount), 0) AS amount
+            FROM sales s
+            JOIN properties p ON s.property_id = p.id
+            WHERE {$where}
+        ", $params);
+
+        return ['records' => (int) ($row['records'] ?? 0), 'amount' => (float) ($row['amount'] ?? 0)];
+    }
+
+    // ─── Reservations ──────────────────────────────────────────────────
+
+    /**
+     * The predicate behind one reservation figure.
+     *
+     * Live means unexpired whatever the status column says, and lapsed means
+     * the opposite -- still marked active, expiry date gone by. That is
+     * reservationSummary()'s distinction and the reason the two are never
+     * added. Current state, so none of these is window-bounded.
+     *
+     * @return array{0:string,1:array}|null
+     */
+    private function reservationDrillWhere(string $mode, string $key): ?array
+    {
+        [$scope, $scopeParams]      = $this->scope('reservation', 'r', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $params = $scopeParams + $filterParams + [':w_today' => $this->window['today']];
+        $tail   = " AND ({$scope}) {$filterSql}";
+        $held   = "r.status IN ('active','confirmed')";
+
+        switch ($mode) {
+            case 'all':
+                return ["1 = 1" . $tail, $params];
+            case 'live':
+                return [$held . " AND r.expiry_date >= :w_today" . $tail, $params];
+            case 'lapsed':
+                return [$held . " AND r.expiry_date < :w_today" . $tail, $params];
+            case 'expired':
+                return ["r.status = 'expired'" . $tail, $params];
+            case 'cancelled':
+                return ["r.status = 'cancelled'" . $tail, $params];
+            case 'property':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_property'] = $id;
+                return ["p.id = :d_property" . $tail, $params];
+        }
+
+        return null;
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function drillReservations(string $mode, string $key, int $limit = 25, int $offset = 0): array
+    {
+        $resolved = $this->reservationDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params] = $resolved;
+        [$limit, $offset] = $this->bounds($limit, $offset);
+
+        return $this->rows("
+            SELECT r.id, r.reservation_code, r.reservation_date, r.expiry_date,
+                   r.deposit_amount, r.status,
+                   DATEDIFF(r.expiry_date, :w_today) AS days_left,
+                   p.id AS property_id, p.title AS property_title, p.property_code,
+                   c.full_name AS customer_name
+            FROM reservations r
+            JOIN properties p ON r.property_id = p.id
+            LEFT JOIN customers c ON r.customer_id = c.id
+            WHERE {$where}
+            ORDER BY r.expiry_date ASC, r.id ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params);
+    }
+
+    /** @return array{records:int,amount:float} deposits held, never revenue */
+    public function drillReservationsTotal(string $mode, string $key): array
+    {
+        $resolved = $this->reservationDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        [$where, $params] = $resolved;
+
+        $row = $this->row("
+            SELECT COUNT(*) AS records, COALESCE(SUM(r.deposit_amount), 0) AS amount
+            FROM reservations r
+            JOIN properties p ON r.property_id = p.id
+            WHERE {$where}
+        ", $params);
+
+        return ['records' => (int) ($row['records'] ?? 0), 'amount' => (float) ($row['amount'] ?? 0)];
+    }
+
+    // ─── Maintenance ───────────────────────────────────────────────────
+
+    /**
+     * The predicate behind one maintenance figure.
+     *
+     * The split that runs through the whole report runs through here too:
+     * `raised` and `completed` are period figures on created_at and
+     * completion_date, and everything describing the queue is current state
+     * with no window on it at all.
+     *
+     * @return array{0:string,1:array}|null
+     */
+    private function maintenanceDrillWhere(string $mode, string $key): ?array
+    {
+        [$scope, $scopeParams]      = $this->scope('maintenance', 'm', 'p');
+        [$filterSql, $filterParams] = $this->propertyFilters('p');
+
+        $params = $scopeParams + $filterParams + $this->periodParams();
+        $tail   = " AND ({$scope}) {$filterSql}";
+        $open   = "'" . implode("','", self::MAINTENANCE_OPEN) . "'";
+        $age    = "DATEDIFF(:w_today, DATE(m.created_at))";
+
+        switch ($mode) {
+            case 'all':
+                return ["1 = 1" . $tail, $params];
+
+            case 'raised':
+                return [$this->withinPeriod('DATE(m.created_at)') . $tail, $params];
+
+            case 'raised_urgent':
+                return [
+                    $this->withinPeriod('DATE(m.created_at)')
+                    . " AND m.priority IN ('high','urgent')" . $tail,
+                    $params,
+                ];
+
+            case 'completed':
+                return [
+                    "m.status = 'completed' AND m.completion_date IS NOT NULL"
+                    . " AND m.completion_date <= :w_today"
+                    . " AND {$this->withinPeriod('m.completion_date')}" . $tail,
+                    $params,
+                ];
+
+            case 'open':
+                return ["m.status IN ({$open})" . $tail, $params];
+            case 'open_urgent':
+                return ["m.status IN ({$open}) AND m.priority IN ('high','urgent')" . $tail, $params];
+            case 'open_unassigned':
+                return ["m.status IN ({$open}) AND m.assigned_to IS NULL" . $tail, $params];
+            case 'in_progress':
+                return ["m.status = 'in_progress'" . $tail, $params];
+            case 'awaiting':
+                return ["m.status IN ('new','under_review')" . $tail, $params];
+            case 'completed_ever':
+                return ["m.status = 'completed'" . $tail, $params];
+
+            case 'status':
+                if (!in_array($key, self::MAINTENANCE_STATUSES, true)) {
+                    return null;
+                }
+                $params[':d_status'] = $key;
+                return ["m.status = :d_status" . $tail, $params];
+
+            case 'priority':
+                if (!in_array($key, ['urgent', 'high', 'medium', 'low'], true)) {
+                    return null;
+                }
+                $params[':d_priority'] = $key;
+                return ["m.status IN ({$open}) AND m.priority = :d_priority" . $tail, $params];
+
+            // maintenanceAgeing()'s own four bands, on the open queue.
+            case 'age':
+                $bands = [
+                    'd3'  => "{$age} BETWEEN 0 AND 3",
+                    'd7'  => "{$age} BETWEEN 4 AND 7",
+                    'd14' => "{$age} BETWEEN 8 AND 14",
+                    'd15' => "{$age} > 14",
+                ];
+                if (!isset($bands[$key])) {
+                    return null;
+                }
+                return ["m.status IN ({$open}) AND {$bands[$key]}" . $tail, $params];
+
+            case 'bucket':
+                $params[':d_bucket'] = $key;
+                return [$this->bucket('DATE(m.created_at)') . " = :d_bucket" . $tail, $params];
+
+            case 'completed_bucket':
+                $params[':d_bucket'] = $key;
+                return [
+                    "m.status = 'completed' AND m.completion_date IS NOT NULL"
+                    . " AND {$this->bucket('m.completion_date')} = :d_bucket" . $tail,
+                    $params,
+                ];
+
+            // Only requests that can actually carry a resolution time. The
+            // report refuses to average over anything else and so does this.
+            case 'resolved':
+                return [
+                    "m.status = 'completed' AND m.completion_date IS NOT NULL"
+                    . " AND m.completion_date >= DATE(m.created_at)" . $tail,
+                    $params,
+                ];
+
+            case 'property':
+                $id = (int) $key;
+                if ($id <= 0) {
+                    return null;
+                }
+                $params[':d_property'] = $id;
+                return ["p.id = :d_property" . $tail, $params];
+        }
+
+        return null;
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function drillMaintenance(string $mode, string $key, int $limit = 25, int $offset = 0): array
+    {
+        $resolved = $this->maintenanceDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params] = $resolved;
+        [$limit, $offset] = $this->bounds($limit, $offset);
+
+        return $this->rows("
+            SELECT m.id, m.request_code, m.issue_type, m.priority, m.status,
+                   DATE(m.created_at) AS raised_on, m.completion_date,
+                   m.cost_estimate, m.actual_cost,
+                   DATEDIFF(:w_today, DATE(m.created_at)) AS age_days,
+                   CASE WHEN m.completion_date IS NOT NULL
+                        THEN DATEDIFF(m.completion_date, DATE(m.created_at)) END AS resolution_days,
+                   p.id AS property_id, p.title AS property_title, p.property_code,
+                   staff.full_name AS assigned_name
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            LEFT JOIN users staff ON m.assigned_to = staff.id
+            WHERE {$where}
+            ORDER BY FIELD(m.priority,'urgent','high','medium','low'), m.created_at ASC, m.id ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params + [':w_today' => $this->window['today']]);
+    }
+
+    /** @return array{records:int,amount:float} recorded cost, where there is one */
+    public function drillMaintenanceTotal(string $mode, string $key): array
+    {
+        $resolved = $this->maintenanceDrillWhere($mode, $key);
+        if ($resolved === null) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        [$where, $params] = $resolved;
+
+        $row = $this->row("
+            SELECT COUNT(*) AS records, COALESCE(SUM(m.actual_cost), 0) AS amount
+            FROM maintenance_requests m
+            JOIN properties p ON m.property_id = p.id
+            WHERE {$where}
+        ", $params);
+
+        return ['records' => (int) ($row['records'] ?? 0), 'amount' => (float) ($row['amount'] ?? 0)];
+    }
+
+    // ─── Performance ───────────────────────────────────────────────────
+
+    /**
+     * Whether this reader may break out figures for a given agent.
+     *
+     * reportAgentOptions() is the desk for an administrator and the reader
+     * alone for an agent, so this is the same check the ?agent= filter is
+     * validated through -- an agent asking for a colleague's records is
+     * refused here exactly as they are refused there, rather than being
+     * quietly served an empty panel that confirms the colleague exists.
+     */
+    private function agentInScope(int $agentId): bool
+    {
+        return $agentId > 0 && isset(reportAgentOptions()[$agentId]);
+    }
+
+    /**
+     * The revenue predicate for one agent's column on the desk table.
+     *
+     * Three different attributions, and they are different on purpose:
+     * rental and sales revenue follow the *property's* assigned agent, and
+     * "received at desk" follows whoever took the money. agentPerformance()
+     * says so in the table's own footnote; the drill-down inherits it rather
+     * than picking one.
+     *
+     * @return array{0:string,1:array}|null
+     */
+    private function agentRevenueWhere(int $agentId, string $measure): ?array
+    {
+        [$scope, $scopeParams] = $this->scope('payment', 'py', 'p');
+        $types  = $this->revenueTypeList();
+        $params = $scopeParams + $this->periodParams() + [':d_agent' => $agentId];
+
+        $paid = "py.status = 'paid'
+              AND py.payment_date IS NOT NULL
+              AND py.payment_date <= :w_today
+              AND {$this->withinPeriod('py.payment_date')}
+              AND py.payment_type IN ({$types})
+              AND ({$scope})";
+
+        switch ($measure) {
+            case 'rental_revenue':
+                return [$paid . " AND py.reference_type = 'lease' AND p.agent_id = :d_agent", $params];
+            case 'sales_revenue':
+                return [$paid . " AND py.reference_type = 'sale' AND p.agent_id = :d_agent", $params];
+            case 'revenue_received':
+                return [$paid . " AND py.received_by = :d_agent", $params];
+        }
+
+        return null;
+    }
+
+    /**
+     * The payments behind one agent's revenue column.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function drillAgentPayments(int $agentId, string $measure, int $limit = 25, int $offset = 0): array
+    {
+        if (!$this->agentInScope($agentId)) {
+            return [];
+        }
+
+        $resolved = $this->agentRevenueWhere($agentId, $measure);
+        if ($resolved === null) {
+            return [];
+        }
+
+        [$where, $params] = $resolved;
+        [$limit, $offset] = $this->bounds($limit, $offset);
+
+        // JOIN rather than LEFT JOIN for the two property-attributed columns:
+        // a payment on no property has no assigned agent and belongs to
+        // nobody's row, which is exactly what unattributedRevenue() counts.
+        $join = $measure === 'revenue_received'
+            ? 'LEFT JOIN properties p ON py.property_id = p.id'
+            : 'JOIN properties p ON py.property_id = p.id';
+
+        return $this->rows("
+            SELECT py.id, py.payment_code, py.payment_date, py.amount,
+                   py.payment_type, py.reference_type, py.reference_id,
+                   py.payment_method, py.status, py.receipt_number,
+                   py.property_id, p.title AS property_title, p.property_code,
+                   c.full_name AS customer_name,
+                   u.full_name AS received_by_name
+            FROM payments py
+            {$join}
+            LEFT JOIN customers c ON py.customer_id = c.id
+            LEFT JOIN users     u ON py.received_by = u.id
+            WHERE {$where}
+            ORDER BY py.payment_date DESC, py.id DESC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $params);
+    }
+
+    /** @return array{records:int,amount:float} */
+    public function drillAgentPaymentsTotal(int $agentId, string $measure): array
+    {
+        if (!$this->agentInScope($agentId)) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        $resolved = $this->agentRevenueWhere($agentId, $measure);
+        if ($resolved === null) {
+            return ['records' => 0, 'amount' => 0.0];
+        }
+
+        [$where, $params] = $resolved;
+        $join = $measure === 'revenue_received'
+            ? 'LEFT JOIN properties p ON py.property_id = p.id'
+            : 'JOIN properties p ON py.property_id = p.id';
+
+        $row = $this->row("
+            SELECT COUNT(*) AS records, COALESCE(SUM(py.amount), 0) AS amount
+            FROM payments py
+            {$join}
+            WHERE {$where}
+        ", $params);
+
+        return ['records' => (int) ($row['records'] ?? 0), 'amount' => (float) ($row['amount'] ?? 0)];
+    }
+
+    /**
+     * The properties one agent manages -- the "Managed" column.
+     *
+     * Unarchived and assigned to them, which is agentPerformance()'s own
+     * count and deliberately not the approved-inventory universe: the column
+     * describes the desk, not the shop window.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function drillAgentProperties(int $agentId, int $limit = 25, int $offset = 0): array
+    {
+        if (!$this->agentInScope($agentId)) {
+            return [];
+        }
+
+        [$scope, $scopeParams] = $this->scope('property', 'p');
+        [$limit, $offset]      = $this->bounds($limit, $offset);
+        $state                 = $this->commercialState('da');
+
+        return $this->rows("
+            SELECT p.id, p.property_code, p.title, p.category, p.property_type,
+                   p.location, p.status AS recorded_status, p.approval_status,
+                   p.agent_id, u.full_name AS agent_name,
+                   {$state['sold']}   AS is_sold,
+                   {$state['leased']} AS is_occupied,
+                   {$state['held']}   AS is_reserved,
+                   NULL AS revenue
+            FROM properties p
+            LEFT JOIN users u ON p.agent_id = u.id
+            WHERE p.is_archived = 0 AND p.agent_id = :d_agent AND ({$scope})
+            ORDER BY p.property_code ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ", $scopeParams + [':d_agent' => $agentId, ':w_today' => $this->window['today']]);
+    }
+
+    public function drillAgentPropertiesCount(int $agentId): int
+    {
+        if (!$this->agentInScope($agentId)) {
+            return 0;
+        }
+
+        [$scope, $scopeParams] = $this->scope('property', 'p');
+
+        return $this->count("
+            SELECT COUNT(*) FROM properties p
+            WHERE p.is_archived = 0 AND p.agent_id = :d_agent AND ({$scope})
+        ", $scopeParams + [':d_agent' => $agentId]);
+    }
+
 }

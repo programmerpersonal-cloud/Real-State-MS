@@ -64,6 +64,7 @@ foreach ($fdRows as $fdR) {
     <?php if ($fdRows): ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">Paid payments dated after today, held out of collected revenue until their date arrives.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Dated</th>

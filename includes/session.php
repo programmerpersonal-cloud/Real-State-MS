@@ -4,7 +4,13 @@
  * Session Management
  */
 
-if (session_status() === PHP_SESSION_NONE) {
+/* A command-line process has no browser, no cookie and nobody to keep a
+   session for. Starting one there writes a sess_* file into the save path on
+   every invocation — the backup scheduler alone would leave a few hundred a
+   week — and gains nothing: $_SESSION is still a perfectly ordinary array for
+   the handful of shared helpers that read $_SESSION['user_id'], and every one
+   of them uses ?? or isset(). Web requests are unchanged. */
+if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
     // Secure session cookie parameters
     session_set_cookie_params([
         'lifetime' => SESSION_LIFETIME,

@@ -4,8 +4,14 @@
  * Everything on this page works without a line of this file. Navigation is
  * links, sending is a form POST, reacting is a form POST, the attachment menu
  * is a <details> disclosure, and the mobile takeover is two CSS rules keyed
- * off the URL. There is no fetch, no XHR, no WebSocket and no
- * JSON endpoint anywhere in this module.
+ * off the URL.
+ *
+ * There is exactly one exception, and it is section 12: a single held fetch
+ * against ?page=messages&action=poll, so a message the other participant
+ * sends appears without anyone pressing reload. It is still an enhancement —
+ * with it switched off the page is precisely what it was, correct when
+ * rendered and refreshed by a reload — and it adds no second renderer: the
+ * server answers with the same partials the full page is built from.
  *
  * What follows adds conveniences on top, and each reveals itself only once it
  * is known to work — so a reader without JavaScript, or on a browser missing
@@ -20,6 +26,9 @@
  *   7. an emoji picker that inserts into the field
  *   8. voice recording, which hands its result to the ordinary form
  *   9. a filter over the recipient list
+ *  10. a permanent send button beside a permanent microphone
+ *  11. a real transport for voice notes
+ *  12. live updates — new messages arrive without a reload
  *
  * Loaded through $extraScripts in views/messages/index.php.
  */
@@ -209,9 +218,15 @@
        Both open the same <details> menu the ⋯ button opens, so there is one
        menu with one set of rules rather than three implementations. Neither
        is the only way in: the button is always there. */
-    var bubbles = Array.prototype.slice.call(document.querySelectorAll('[data-msg]'));
-
-    bubbles.forEach(function (bubble) {
+    /* A function rather than a one-off loop, because the stream is now
+       re-rendered in place when a message arrives (section 12) and the
+       bubbles that come back need the same handlers the original ones got.
+       Called once at load with the whole document, and again with just the
+       stream after every swap. */
+    function enhanceBubbles(scope) {
+        Array.prototype.slice.call(
+            (scope || document).querySelectorAll('[data-msg]')
+        ).forEach(function (bubble) {
         var menu = bubble.querySelector('[data-msg-menu]');
         if (!menu) { return; }
 
@@ -251,7 +266,10 @@
 
         bubble.addEventListener('touchend', cancel, { passive: true });
         bubble.addEventListener('touchcancel', cancel, { passive: true });
-    });
+        });
+    }
+
+    enhanceBubbles(document);
 
     /* ── 7. Emoji ───────────────────────────────────────────────────────
        A curated list built here rather than a dependency: no library, no
@@ -479,9 +497,13 @@
        Nothing is fetched or decoded: the bars are a scrubber styled as a
        waveform, drawn server-side and marked aria-hidden, and `preload` stays
        at metadata so opening a thread does not pull every recording in it. */
-    var players = Array.prototype.slice.call(document.querySelectorAll('[data-msg-voice]'));
-
-    players.forEach(function (root) {
+    /* Re-appliable for the same reason enhanceBubbles() is: a swapped-in
+       stream brings new <audio> elements with it, and each needs its own
+       transport before the native controls are taken away. */
+    function enhanceVoice(scope) {
+        Array.prototype.slice.call(
+            (scope || document).querySelectorAll('[data-msg-voice]')
+        ).forEach(function (root) {
         var audio = root.querySelector('[data-msg-voice-audio]');
         var ui    = root.querySelector('[data-msg-voice-ui]');
         if (!audio || !ui || typeof audio.play !== 'function') { return; }
@@ -534,9 +556,14 @@
         audio.addEventListener('play', function () {
             // One at a time. Two recordings talking over each other is not a
             // feature anybody asked for.
-            players.forEach(function (other) {
-                var a = other.querySelector('[data-msg-voice-audio]');
-                if (a && a !== audio && !a.paused) { a.pause(); }
+            /* Asked of the document at press time rather than of a list
+               captured at load: after a swap the other players on the page
+               are different elements from the ones this handler was built
+               beside. */
+            Array.prototype.slice.call(
+                document.querySelectorAll('[data-msg-voice-audio]')
+            ).forEach(function (a) {
+                if (a !== audio && !a.paused) { a.pause(); }
             });
             icon(true);
         });
@@ -572,5 +599,253 @@
         seek.addEventListener('change', scrub);
 
         if (totEl && isFinite(audio.duration)) { totEl.textContent = clock(audio.duration); }
-    });
+        });
+    }
+
+    enhanceVoice(document);
+
+    /* ── 12. Live updates ───────────────────────────────────────────────
+       The one thing on this page that talks to the server without a form.
+
+       The problem it solves: a message was saved correctly and read back
+       correctly, but the *other* browser never asked again, so it kept
+       showing the thread as it stood when the page was rendered. Sending
+       worked; delivery only happened on reload.
+
+       How it works, in one paragraph. The server has a route,
+       ?page=messages&action=poll, that takes a cheap fingerprint of this
+       user's inbox and the open conversation and then *waits* — holding the
+       request for up to fifteen seconds, re-checking about once a second —
+       answering the moment the fingerprint moves. So this loop is one idle
+       connection, not a request every second, and a message lands on the
+       other screen in about a second. When the answer does come it carries
+       the two panels already rendered as HTML by the very same partials the
+       full page uses, so nothing about a bubble or a row is built twice.
+
+       Why the whole stream is replaced rather than new bubbles appended:
+       appending means this file has to know how a bubble is built, how a run
+       of consecutive messages is grouped, when a day divider belongs and what
+       a read receipt looks like — a second renderer that would drift from the
+       PHP one, and drift silently. Replacing what the server just rendered
+       makes a duplicate impossible and a missed message impossible: the
+       stream is not patched, it *is* the server's answer.
+
+       What it deliberately does not do:
+
+         · it does not poll while the tab is hidden — nobody is reading, and
+           marking messages read behind someone's back would turn the other
+           side's ticks blue for a message that was never seen
+         · it does not poll after ten minutes without a keypress, click or
+           scroll — an abandoned tab must not hold a worker open, nor keep a
+           session alive that the timeout should have ended
+         · it does not touch the composer, the search box or the filters, so
+           a half-typed message, a caret and an open menu all survive
+         · it does not replace the stream while an editor is open (?edit=),
+           because that would throw away text somebody is in the middle of
+
+       Everything here is an enhancement. With JavaScript off, or if the
+       endpoint fails, the page is exactly what it was: a thread that is
+       correct when rendered and refreshes when reloaded. */
+    var live = document.querySelector('[data-msg-live]');
+
+    if (live && window.fetch && window.AbortController) {
+        var itemsBox = document.querySelector('[data-msg-items]');
+        var totalBox = document.querySelector('[data-msg-total]');
+
+        /* The fingerprint the page on screen was rendered from, stamped into
+           the markup by the controller. Starting from it rather than from
+           nothing is what stops the first poll answering "everything changed"
+           and re-rendering, one second after load, exactly what is already
+           there. */
+        var sig = live.getAttribute('data-poll-sig') || '';
+
+        var IDLE_LIMIT   = 10 * 60 * 1000;   // stop after this long untouched
+        var RECONNECT    = 250;              // between a held poll and the next
+        var BACKOFF_MAX  = 30000;
+
+        var pending  = null;    // the AbortController of the request in flight
+        var busy     = false;   // a request is out; do not start a second
+        var timer    = null;
+        var failures = 0;
+        var halted   = false;   // set only when there is no point asking again
+        var touched  = Date.now();
+
+        var awake = function () {
+            return document.visibilityState !== 'hidden'
+                && (Date.now() - touched) < IDLE_LIMIT;
+        };
+
+        var schedule = function (ms) {
+            if (timer) { clearTimeout(timer); }
+            timer = setTimeout(poll, ms);
+        };
+
+        /* The poll URL is this page's own query string with the action
+           swapped. That is deliberate: filter, search, p, before and find all
+           describe which slice of the inbox and the thread is on screen, and
+           the server has to render the same slice back. `compose` is dropped
+           because the recipient picker is never part of an update and
+           building it would cost a query for markup nobody sees. */
+        var pollUrl = function () {
+            var q = new URLSearchParams(window.location.search);
+            q.set('page', 'messages');
+            q.set('action', 'poll');
+            q.delete('compose');
+            q.set('sig', sig);
+            q.set('wait', '1');
+            q.set('visible', document.visibilityState === 'hidden' ? '0' : '1');
+            return window.location.pathname + '?' + q.toString();
+        };
+
+        /* Swap the history in place.
+
+           Scroll is preserved by intent rather than by number: someone
+           reading the newest message stays pinned to the newest message, and
+           someone who has scrolled up to read something older keeps that
+           older thing where it was, however much arrives below it. */
+        var swapStream = function (html) {
+            if (!stream) { return; }
+
+            var pinned = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 80;
+            var above  = stream.scrollHeight - stream.scrollTop;
+
+            stream.innerHTML = html;
+
+            // The new bubbles need the handlers the old ones had.
+            enhanceBubbles(stream);
+            enhanceVoice(stream);
+
+            stream.scrollTop = pinned
+                ? stream.scrollHeight
+                : stream.scrollHeight - above;
+        };
+
+        var apply = function (data) {
+            // innerHTML, and only ever with markup this application rendered
+            // and escaped through sanitize(). Nothing typed by a user reaches
+            // this line without having been through the same partials the
+            // full page render uses.
+            if (typeof data.total === 'string' && totalBox) {
+                totalBox.innerHTML = data.total;
+            }
+            if (typeof data.items === 'string' && itemsBox) {
+                itemsBox.innerHTML = data.items;
+            }
+            if (typeof data.stream === 'string') {
+                swapStream(data.stream);
+            }
+        };
+
+        function poll() {
+            timer = null;
+
+            if (halted) { return; }
+
+            // Asleep: no request at all. The listeners below wake it the
+            // moment the tab is looked at or touched again.
+            if (!awake()) { return; }
+
+            busy    = true;
+            pending = new AbortController();
+
+            fetch(pollUrl(), {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' },
+                signal: pending.signal
+            }).then(function (res) {
+                /* A session that has timed out answers with a redirect to the
+                   login page, which is HTML. Reloading hands the reader the
+                   real login screen instead of leaving a thread that has
+                   quietly stopped moving. */
+                var type = res.headers.get('content-type') || '';
+                if (type.indexOf('application/json') === -1) {
+                    halted = true;
+                    window.location.reload();
+                    return null;
+                }
+                return res.json();
+            }).then(function (data) {
+                busy = false;
+                if (!data) { return; }
+
+                // Access ended while the tab sat open — a lease closed, an
+                // account deactivated. The ordinary route explains it
+                // properly; this one only knows to step aside.
+                if (data.reload) {
+                    halted = true;
+                    window.location.reload();
+                    return;
+                }
+
+                failures = 0;
+
+                if (data.sig) { sig = data.sig; }
+                if (data.changed) { apply(data); }
+
+                schedule(RECONNECT);
+            }).catch(function (err) {
+                busy = false;
+
+                // An abort is this file's own doing — a navigation, or the
+                // tab being hidden — and is not a failure.
+                if (err && err.name === 'AbortError') { return; }
+
+                failures++;
+                schedule(Math.min(BACKOFF_MAX, 1000 * Math.pow(2, failures)));
+            });
+        }
+
+        /* Waking up. Any of these means someone is there, so the clock on the
+           idle ceiling restarts; if the loop had stopped, it starts again at
+           once rather than waiting out a timer. */
+        var wake = function () {
+            touched = Date.now();
+            if (!halted && !timer && !busy) { schedule(0); }
+        };
+
+        /* mousemove is in the list deliberately. Without it, someone who has
+           been reading a long thread for ten minutes without clicking
+           anything would find the updates had quietly stopped — which is the
+           bug this file exists to fix, arriving by a different door. wake()
+           is a timestamp and two boolean checks, so firing it on move costs
+           nothing worth measuring. */
+        ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel'].forEach(function (evt) {
+            document.addEventListener(evt, wake, { passive: true });
+        });
+        window.addEventListener('focus', wake);
+        if (stream) {
+            stream.addEventListener('scroll', wake, { passive: true });
+        }
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') {
+                // Let the held request go rather than leaving a worker
+                // waiting on a reader who has switched away.
+                if (pending) { pending.abort(); pending = null; }
+                if (timer) { clearTimeout(timer); timer = null; }
+            } else {
+                wake();
+            }
+        });
+
+        // Nothing held open across a navigation.
+        window.addEventListener('pagehide', function () {
+            halted = true;
+            if (pending) { pending.abort(); }
+            if (timer) { clearTimeout(timer); }
+        });
+
+        /* Coming back through the browser's Back button can restore this page
+           from the back/forward cache rather than re-running it, in which
+           case pagehide has already stopped the loop and nothing would start
+           it again — a thread that looks live and is not. */
+        window.addEventListener('pageshow', function (e) {
+            if (e && e.persisted) {
+                halted = false;
+                wake();
+            }
+        });
+
+        schedule(0);
+    }
 }());

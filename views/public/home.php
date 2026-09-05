@@ -355,6 +355,33 @@ $hasListings   = !empty($spotlightProperty) || !empty($featuredProperties);
 </section>
 
 <!-- ══════════════════════════════════════════════════════════
+     HOW IT WORKS — placed after the inventory and before the
+     argument for it: by here a visitor has seen what is on the
+     platform, and the question they have not had answered is what
+     happens once they act on it.
+
+     section--tint rather than the muted/plain alternation the
+     sections around it trade back and forth. This one explains a
+     process while its neighbours show stock, and giving it the
+     next ground in the rhythm would have made it read as more of
+     the same.
+     ══════════════════════════════════════════════════════════ -->
+<section class="section section--tint">
+    <div class="site-container">
+        <div class="section-head" data-reveal>
+            <span class="eyebrow">How it works</span>
+            <h2 class="section-title">Two ways to use <?= sanitize(companyName()) ?></h2>
+            <p class="section-lede">
+                Whether you are looking for somewhere to live or you already own the
+                building, the path is short and you always know whose desk it is on.
+            </p>
+        </div>
+
+        <?php require VIEWS_PATH . '/public/components/how_it_works.php'; ?>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
      WHY US
      ══════════════════════════════════════════════════════════ -->
 <section class="section <?= empty($categoryCounts) ? 'section--muted' : '' ?>">
@@ -635,9 +662,18 @@ $hasListings   = !empty($spotlightProperty) || !empty($featuredProperties);
                 <h2 class="cta__title">
                     <?= $hasListings ? 'Ready to find your next address?' : 'Ready to list your first property?' ?>
                 </h2>
+                <?php /* The heading and the buttons either side of this already
+                         change with the session; the sentence between them did
+                         not, so a signed-in visitor was invited to create the
+                         account they were reading the page with. */ ?>
                 <p class="cta__desc">
-                    Create a free account to save properties, request viewings and track your
-                    enquiries — or talk to our team about listing with <?= sanitize(companyName()) ?>.
+                    <?php if (isLoggedIn()): ?>
+                        Pick up where you left off — your saved properties, enquiries and
+                        viewings are all in your dashboard, and our team is a message away.
+                    <?php else: ?>
+                        Create a free account to save properties, request viewings and track your
+                        enquiries — or talk to our team about listing with <?= sanitize(companyName()) ?>.
+                    <?php endif; ?>
                 </p>
             </div>
             <div class="cta__actions">

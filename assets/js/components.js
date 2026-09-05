@@ -261,6 +261,9 @@ function initRowMenu(menu) {
 
   const items = () => Array.from(list.querySelectorAll('.row-menu__item'));
 
+  // Where the list lives while closed, so it can be put back there.
+  const home = list.parentNode;
+
   /**
    * Place the menu against the trigger.
    *
@@ -304,6 +307,20 @@ function initRowMenu(menu) {
 
   const open = () => {
     closeRowMenus(list);
+    // Moved to <body> for as long as it is open, and this is not tidiness.
+    //
+    // position:fixed resolves against the viewport ONLY while no ancestor
+    // establishes a containing block — and transform, filter, backdrop-filter,
+    // perspective, contain and will-change all establish one. .prop-card lifts
+    // on hover with translateY(-2px), so on the grid view the coordinates
+    // place() computes in viewport space were re-based onto the card and threw
+    // the menu far off screen. It reappeared the moment the pointer left the
+    // card, because the transform went with it: open the menu and see nothing,
+    // move the mouse away and there it is.
+    //
+    // Fixing the one card would have left the next hover effect to rediscover
+    // this. In <body> there is no ancestor left to ask.
+    if (list.parentNode !== document.body) document.body.appendChild(list);
     list.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
     // Measured only once visible: a hidden element has no size to measure.
@@ -317,6 +334,9 @@ function initRowMenu(menu) {
     trigger.setAttribute('aria-expanded', 'false');
     window.removeEventListener('scroll', repin, { capture: true });
     window.removeEventListener('resize', repin);
+    // Back where the markup put it, so the DOM at rest matches the source and
+    // a menu whose row is later removed goes with its row.
+    if (home && list.parentNode !== home) home.appendChild(list);
     if (focusTrigger) trigger.focus();
   };
 
@@ -332,7 +352,7 @@ function initRowMenu(menu) {
   // Arrow keys walk the list and Escape returns to the trigger. Without this
   // a keyboard user can tab in but has no way out that does not walk through
   // every remaining action.
-  menu.addEventListener('keydown', (e) => {
+  const onKeydown = (e) => {
     if (e.key === 'Escape' && !list.hidden) { e.preventDefault(); close(true); return; }
     if (list.hidden && e.target === trigger && (e.key === 'ArrowDown' || e.key === 'Enter')) {
       e.preventDefault();
@@ -351,7 +371,10 @@ function initRowMenu(menu) {
       ? (at + 1) % all.length
       : (at <= 0 ? all.length - 1 : at - 1);
     all[next].focus();
-  });
+  };
+
+  menu.addEventListener('keydown', onKeydown);
+  list.addEventListener('keydown', onKeydown);
 }
 
 // One document listener for all of them, rather than one per menu.

@@ -28,6 +28,11 @@ $pyFiltered = reportFilterCount($filters) > 0;
 $pyCarry    = !empty($compare) ? ['compare' => '1'] : [];
 $pyReset    = reportUrl($window, [], ['tab' => 'payments'] + $pyCarry);
 $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['tab' => $tab] + $pyCarry);
+/* Every drill-down on this page carries the period, the comparison and the
+   filters above, because it is built from the same window and filters the
+   figures were. Nothing is copied across by hand. */
+$pyDrill = static fn(string $metric, string $key = ''): string
+    => reportDrillUrl($window, $filters, 'payments', $metric, $key, $pyCarry);
 ?>
 
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
@@ -45,6 +50,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'icon'    => 'bi-receipt',
         'tone'    => 'primary',
         'context' => 'Transactions dated in this period — a count, not an amount',
+        'drill'   => $pyDrill('records'),
         'spark'   => array_map(static fn(array $b): float => (float) $b['total'], $activitySeries['count']),
         'delta'   => $previousActivity !== null
             ? reportDelta((float) $activity['records'], (float) $previousActivity['records'])
@@ -66,6 +72,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'value'   => formatCurrency((float) $activity['received']),
         'icon'    => 'bi-inbox',
         'tone'    => 'info',
+        'drill'   => $pyDrill('received'),
         'context' => sprintf(
             '%d paid %s dated today or earlier — all types',
             (int) $activity['received_records'],
@@ -93,7 +100,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             ? formatCurrency((float) $activity['received'] - (float) $activity['collected'])
               . ' of the received total is deposits or refunds'
             : 'Same as received — no deposits or refunds in this period',
-        'url'     => $pyLink('financial'),
+        'drill'   => $pyDrill('collected'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -112,6 +119,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
                 (int) $futureDated['count'] === 1 ? 'record' : 'records'
             )
             : 'No future-dated payments',
+        'drill'   => $pyDrill('future'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -123,6 +131,13 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'context' => (int) $reviewFlags > 0
             ? 'Classification, timing and completeness flags combined'
             : 'Nothing flagged on these records',
+        /* Deliberately not drillable. This tile adds three different
+           detectors — classification conflicts, records dated ahead and
+           ledger integrity flags — and there is no single set of rows that
+           is all three. Each component is drillable where it is reported on
+           its own; a panel here would have to invent a union nobody
+           counted. §20: a metric that is not naturally drillable does not
+           get a forced drill-down. */
     ];
     require dirname(__DIR__) . '/_kpi.php';
     ?>
@@ -166,6 +181,8 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'unit'     => 'currency',
         'labels'   => array_column($activitySeries['amount'], 'label'),
         'series'   => $pySeries,
+        'drill'    => ['metric' => 'bucket',
+                       'keys'   => array_column($activitySeries['amount'], 'bucket')],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No payment was dated in this period.',
         'size'   => 'feature',
@@ -186,6 +203,8 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             'data'  => array_map(static fn(array $b): float => (float) $b['total'], $activitySeries['count']),
             'tone'  => '--purple',
         ]],
+        'drill'    => ['metric' => 'bucket',
+                       'keys'   => array_column($activitySeries['amount'], 'bucket')],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No payment was dated in this period.',
         'size'   => 'feature',
@@ -233,6 +252,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
                 $pyStatusDrawn
             ),
         ]],
+        'drill'    => ['metric' => 'status', 'keys' => array_column($pyStatusDrawn, 'status')],
         'label_heading' => 'Status',
         'empty'    => 'No payment was dated in this period.',
         'size'   => 'standard',
@@ -263,6 +283,7 @@ $pyLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             'data'  => array_map(static fn(array $r): float => (float) $r['amount'], $pyMethodDrawn),
             'tone'  => '--primary',
         ]],
+        'drill'    => ['metric' => 'method', 'keys' => array_column($pyMethodDrawn, 'method')],
         'label_heading' => 'Method',
         'empty'    => 'No payment was dated in this period, so no method has been used.',
         'size'   => 'standard',

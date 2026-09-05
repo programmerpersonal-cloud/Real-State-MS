@@ -61,6 +61,7 @@ foreach ($rqRows as $rqR) {
 
     <div class="table-wrap">
         <table class="table">
+            <caption class="sr-only">Reservations that still stand or have lapsed, soonest to expire first.</caption>
             <thead>
                 <tr>
                     <th scope="col">Property</th>

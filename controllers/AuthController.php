@@ -80,6 +80,11 @@ class AuthController
         // two can be switched without a page load, and that panel is built
         // from the same allow-list the submission is checked against.
         $roleOptions = $this->selfServiceRoleOptions();
+        // Read and cleared here for the same reason register() does it: the
+        // errors belong to the request that was just rejected, and leaving
+        // them in the session would mark the fields again on the next visit.
+        $formErrors  = $_SESSION['form_errors'] ?? [];
+        unset($_SESSION['form_errors']);
         $showcase    = $this->showcaseProperties();
 
         require VIEWS_PATH . '/auth/login.php';
@@ -198,22 +203,46 @@ class AuthController
     {
         $login    = sanitize($_POST['login'] ?? '');
         $password = $_POST['password'] ?? '';
+        $failUrl  = APP_URL . '/index.php?page=login';
 
-        // Validation
+        /* A rejected sign-in comes back with the identifier still in the box.
+           It used to come back empty: the failure path set a flash and
+           redirected without preserving anything, so someone who mistyped a
+           password retyped their email address as well — and on a phone, with
+           a password manager that had already filled both, that is the point
+           where people give up and reset something.
+
+           The password is the one thing deliberately not preserved. It is
+           never written to the session here, exactly as rejectForm() refuses
+           to write it, so a failed attempt leaves no secret in server-side
+           storage waiting for the next request. */
+        unset($_SESSION['form_errors']);
         $errors = [];
-        if (empty($login)) $errors[] = 'Email or username is required.';
-        if (empty($password)) $errors[] = 'Password is required.';
+        if ($login === '') {
+            addFieldError($errors, 'login', 'Enter your email address or username.');
+        }
+        if ($password === '') {
+            addFieldError($errors, 'password', 'Enter your password.');
+        }
 
-        if (!empty($errors)) {
-            setFlash('error', implode(' ', $errors));
-            redirect(APP_URL . '/index.php?page=login');
+        // Both of these are keyed to a field, so rejectForm() raises no
+        // banner: each message travels back to the box it is about.
+        if ($errors) {
+            rejectForm($errors, ['login' => $login], $failUrl);
         }
 
         $result = $this->userModel->authenticate($login, $password);
 
         if (!$result['success']) {
+            /* Deliberately not attached to a field. authenticate() answers
+               "these credentials do not work" without ever saying which half
+               was wrong, and that is what stops this form being used to
+               discover which addresses hold accounts. A message pinned under
+               the email box would undo it by implication. So it stays a
+               panel-level alert — and the identifier is still preserved. */
+            $_SESSION['form_data'] = ['login' => $login];
             setFlash('error', $result['error']);
-            redirect(APP_URL . '/index.php?page=login');
+            redirect($failUrl);
         }
 
         $user = $result['user'];
@@ -267,8 +296,14 @@ class AuthController
         if (strlen($data['password']) < 8) {
             addFieldError($errors, 'password', 'Choose a password of at least 8 characters.');
         }
+        /* From the shared ruleset rather than written out here. The browser
+           already refuses this mismatch with validationMessage('passwordMatch')
+           (components.js), so a hard-coded sentence in this file meant one rule
+           on one field answering in two different languages depending on
+           whether scripting had run. The ruleset is the single definition;
+           this asks it. */
         if ($data['password'] !== $confirmPassword) {
-            addFieldError($errors, 'confirm_password', 'The two passwords do not match.');
+            addFieldError($errors, 'confirm_password', validationMessage('passwordMatch'));
         }
 
         if ($errors) {

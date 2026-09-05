@@ -156,6 +156,10 @@
 .rhead__ctx-sub{
   font-size:var(--fs-2xs);color:var(--text-muted);
   font-variant-numeric:tabular-nums;white-space:nowrap;
+  /* Never paint over the column next door. Where the range genuinely
+     does not fit, wrapping is handled at the narrow breakpoint below;
+     this is the backstop for a longer date format or a wider font. */
+  min-width:0;
 }
 .rhead__partial{
   font-size:var(--fs-2xs);font-weight:600;
@@ -185,6 +189,12 @@
 .rtoolbar__main{
   display:flex;align-items:center;gap:var(--space-4);
   flex-wrap:wrap;
+  /* Column-gap stays at space-4 so the controls keep their rhythm; the
+     row-gap tightens, because at 1280 and 1440 the actions fold under
+     the period track and the fold was reading as a gap between two
+     bars rather than as one bar on two lines. Declared after the
+     shorthand, which would otherwise reset it. */
+  row-gap:var(--space-2);
 }
 .rtoolbar__group{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-width:0}
 .rtoolbar__actions{
@@ -307,8 +317,51 @@
 .rtoggle.is-on .rtoggle__track{background:var(--primary);border-color:var(--primary)}
 .rtoggle.is-on .rtoggle__knob{transform:translateX(12px)}
 
+/* A row's identity is a proper noun, not a column label.
+
+   .table th in components.css sets text-transform:uppercase, which is
+   correct for the labels in a <thead> and wrong for the <th scope="row">
+   every report table uses to carry the record's name. Agent and property
+   names were rendering in full caps -- harder to read, and the single
+   thing on these pages that looked like an admin template.
+
+   Codes are unaffected either way: PAY-20260815-B4083 is already
+   uppercase and stays so. */
+.report .table tbody th,
+.drill .table tbody th{
+  text-transform:none;
+  letter-spacing:normal;
+}
+
 .rfilters{flex:0 0 auto}
 .rtoolbar__print{white-space:nowrap}
+
+/* Export menu. The disclosure, the trigger and the panel are the
+   toolbar's own components — this only styles what is inside the
+   panel, which is a list of destinations rather than a form. Narrower
+   than the filter popover because three labels do not need 420px. */
+.rexport{flex:0 0 auto}
+.rexport__menu{width:min(292px,calc(100vw - 32px));padding:var(--space-3)}
+.rexport__item{
+  display:flex;align-items:flex-start;gap:var(--space-3);
+  padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-sm);
+  color:var(--text);text-decoration:none;
+  transition:background var(--transition-fast),color var(--transition-fast);
+}
+.rexport__item:hover,
+.rexport__item:focus-visible{background:var(--primary-tint);color:var(--primary-ink)}
+.rexport__icon{font-size:1.05rem;line-height:1.3;color:var(--primary);flex:0 0 auto}
+.rexport__item:hover .rexport__icon{color:var(--primary-ink)}
+.rexport__text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rexport__label{font-size:var(--fs-sm);font-weight:600}
+.rexport__hint{font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.35}
+.rexport__item:hover .rexport__hint{color:inherit;opacity:.8}
+.rexport__foot{
+  margin:var(--space-3) 0 0;padding-top:var(--space-3);
+  border-top:1px solid var(--border);
+  font-size:var(--fs-2xs);color:var(--text-subtle);line-height:1.45;
+}
 
 
 /* ═══ 5 · Section headings ═══════════════════════════════════════
@@ -592,10 +645,37 @@
 .tp-badge--first{background:var(--primary-tint);color:var(--primary-ink);border-color:var(--primary-border)}
 .tp-name{font-weight:600;color:var(--text)}
 .tp-name:hover{color:var(--primary)}
+/* The property title is the target a reader actually aims at in these
+   tables, and it measured 17px tall. Vertical padding on an inline link
+   grows the hit box without touching the line box, so the row height is
+   unchanged; 4px each side takes it to 25. The code beneath it gets the
+   same treatment through .is-drill, and the pair is hit-tested rather
+   than assumed — two stacked links whose boxes overlap would steal each
+   other's clicks, which is worse than either being small. */
+.tp-name{padding-block:5px}
 /* The small line under a record's name. Prose by default -- five phases
    reused it for "Apartment", "3 overdue" and "over a fortnight", and a
    monospaced sentence reads as a machine identifier. --id is the family
    for the things that really are codes. */
+/* .hash is a shared component and computes to 10.9px, which is under the
+   smallest label size this module uses. It is a record reference — the
+   thing a reader copies into another screen to check a figure — so it is
+   raised to the module's own meta token here rather than in components.css,
+   where the change would land on every other register in the product. */
+.report .hash,
+.drawer .hash{font-size:var(--fs-2xs)}
+
+/* A reference is one token, and breaking PAY-20260815-B4083 across three
+   lines does not make it fit — it makes it unreadable and the row three
+   times as tall. On a phone the drill-down table was doing exactly that
+   rather than using the horizontal scroll its container already offers.
+   Keeping the codes whole is what makes the table overflow, which is what
+   makes .table-wrap scroll: controlled scrolling inside the container,
+   which is the behaviour asked for, instead of crushed columns.
+   Titles still wrap — they are prose and they should. */
+.drawer .hash,
+.drawer .tp-code{white-space:nowrap}
+
 .tp-code{
   font-size:var(--fs-2xs);color:var(--text-subtle);
   margin-top:2px;line-height:var(--lh-snug);
@@ -662,7 +742,7 @@
    column manager hides columns and a colspan cannot shrink with them. */
 .perf__when{
   display:block;margin-top:2px;
-  font-size:.65rem;font-weight:500;letter-spacing:.02em;
+  font-size:var(--fs-2xs);font-weight:500;letter-spacing:.02em;
   text-transform:none;color:var(--text-muted);
 }
 .perf__who{min-width:180px}
@@ -856,7 +936,7 @@
   min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pill);
   background:var(--surface-3);color:var(--text-muted);
   border:1px solid var(--border);
-  font-size:.65rem;font-weight:700;line-height:16px;text-align:center;
+  font-size:var(--fs-2xs);font-weight:700;line-height:16px;text-align:center;
   font-variant-numeric:tabular-nums;
 }
 .dq__row--critical .dq__badge{background:var(--danger-bg);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 28%,transparent)}
@@ -983,7 +1063,20 @@
 /* ═══ 21 · Narrow widths ═════════════════════════════════════════ */
 @media (max-width:1024px){
   .rgrid--wide{grid-template-columns:1fr}
-  .rhead__context{width:100%;gap:var(--space-4)}
+  /* Two columns rather than three stacked blocks. At 390 this took the
+     masthead from 306px to roughly 200px, which is the difference
+     between a phone opening on a page of labels and opening on the
+     report. Nothing is hidden and no type is shrunk. */
+  .rhead__context{
+    width:100%;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:var(--space-3) var(--space-4);
+  }
+  .rhead__ctx{min-width:0}
+  /* The period is the one a reader checks first and the one with the
+     longest value, so it keeps the full width. */
+  .rhead__context .rhead__ctx:first-child{grid-column:1 / -1}
 }
 
 @media (max-width:900px){
@@ -1000,9 +1093,24 @@
   .rtoolbar__actions .rfilters .toolbar__filters{flex:1 1 160px}
   .rtoolbar__actions .toolbar__filter-trigger{width:100%;justify-content:center}
   .rtoolbar__actions .rtoggle{flex:1 1 auto;justify-content:center}
+  .rtoolbar__actions .rexport{flex:1 1 140px}
   .rtoolbar__print{flex:1 1 auto;justify-content:center}
-  .rrange{width:100%}
-  .rrange__btn{flex:1 1 auto;justify-content:center}
+  /* One scrolling row, like the tab strip above it. Wrapping eight
+     pills into a 3-column grid spent 160px and left a ragged last row;
+     scrolling spends 42px and keeps the chosen period visible, which is
+     the only one a reader is looking for. */
+  .rrange{
+    width:100%;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .rrange::-webkit-scrollbar{display:none}
+  .rrange__btn{flex:0 0 auto;justify-content:center;white-space:nowrap}
+  /* The custom-range disclosure is the one item that must not scroll
+     out of reach, so it stays put at the end of the track. */
+  .rrange__custom{flex:0 0 auto}
   /* Static below this width, so the anchoring question does not arise
      and the panel simply pushes the bar taller. */
   .rrange__panel{position:static;width:auto;right:auto;box-shadow:none;padding:var(--space-3) 0 0}
@@ -1025,7 +1133,18 @@
   .rrange__fields{grid-template-columns:1fr}
   .rhead__lead{gap:var(--space-2)}
   .rhead__mark{width:var(--control-h-sm);height:var(--control-h-sm);font-size:.95rem}
-  .rhead__context{flex-direction:column;gap:var(--space-3)}
+  /* The strip is a two-column grid from 1024 down — deliberately, so a
+     phone opens on the report rather than on a page of labels — which is
+     why there is no flex-direction here: it would be ignored on a grid
+     container, as the rule that used to sit here was.
+
+     What did need fixing is the text inside those columns. .rhead__ctx-sub
+     is nowrap, which is right on a desktop where a date range broken over
+     two lines reads as two dates. At 390px the comparison range is 256px
+     of text in a 177px column, so it ran 79px into the column beside it
+     and painted over "Everything you have access to". Below 480 the range
+     wraps instead: two lines of one date beats one line of two. */
+  .rhead__ctx-sub{white-space:normal}
   .rhead__ctx + .rhead__ctx{border-left:none;padding-left:0;margin-left:0}
   /* A wrapped doughnut legend needs the room the chart box was
      reserving for it. */
@@ -1084,4 +1203,413 @@
 
 @media (prefers-reduced-motion:reduce){
   .kpi,.kpi--link:hover{transition:none;transform:none}
+}
+
+
+/* ═══ 22 · Drill-down ════════════════════════════════════════════
+   Which records produced that figure.
+
+   The affordance is deliberately quiet. Every drillable figure on
+   this page is already a link, and the workspace has forty of them —
+   giving each an underline, an icon and a hover lift would turn a
+   report into a page of buttons. What marks them instead is a hairline
+   that appears under the value on hover and a caret that was always
+   there at 40% opacity. Enough to find, not enough to shout. */
+
+.is-drill{position:relative;cursor:pointer}
+
+/* 5px above and below takes a 14px line to a 24px target. Applied to the
+   inline drill links inside tables, where each cell holds one and there is
+   room in the cell's own padding for it — so nothing reflows and no two
+   targets can overlap. */
+.rdata__table .is-drill,
+.table .is-drill,
+.dcx__table .is-drill{
+  /* inline-block, because a target has two dimensions: the count cells
+     hold a single digit and were 19px wide however tall they got, and
+     min-width does not apply to a non-replaced inline box. Each of these
+     is the only link in its cell, so taking it out of the text flow
+     changes no wrapping. */
+  display:inline-block;
+  min-width:24px;
+  padding-block:5px;
+}
+.is-drill::after{
+  content:"\f285";                    /* bi-chevron-right */
+  font-family:bootstrap-icons;
+  font-size:.62em;
+  margin-left:.35em;
+  opacity:.4;
+  vertical-align:baseline;
+  transition:opacity var(--transition-fast),transform var(--transition-fast);
+  display:inline-block;
+}
+.is-drill:hover::after,
+.is-drill:focus-visible::after{opacity:.9;transform:translateX(2px)}
+
+/* On a KPI tile the whole card is the target, so the caret rides beside
+   the value rather than trailing the label. */
+.kpi--link .kpi__value{border-bottom:1px solid transparent;transition:border-color var(--transition-fast)}
+.kpi--link:hover .kpi__value{border-bottom-color:var(--primary-border)}
+
+/* A chart whose segments drill says so with the cursor, which is the
+   only affordance a canvas can carry. */
+.rchart--drill canvas{cursor:pointer}
+
+/* ── The drawer ────────────────────────────────────────────────── */
+
+.drawer{position:fixed;inset:0;z-index:200;display:flex;justify-content:flex-end}
+.drawer[hidden]{display:none}
+
+.drawer__scrim{
+  position:absolute;inset:0;
+  background:rgba(16,34,44,.42);
+  backdrop-filter:blur(2px);
+  animation:drawerFade var(--transition-fast) ease-out;
+}
+
+.drawer__panel{
+  position:relative;
+  display:flex;flex-direction:column;
+  width:min(920px,100%);
+  height:100%;
+  background:var(--surface);
+  border-left:1px solid var(--border);
+  box-shadow:var(--shadow-lg);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  animation:drawerIn var(--transition) cubic-bezier(.22,.61,.36,1);
+}
+.drawer__panel:focus{outline:none}
+.drawer__panel:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+
+.drawer__close{
+  position:absolute;top:var(--space-4);right:var(--space-4);
+  z-index:2;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--text-muted);
+  cursor:pointer;
+  transition:color var(--transition-fast),border-color var(--transition-fast);
+}
+.drawer__close:hover{color:var(--text);border-color:var(--border-strong)}
+.drawer__close:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+.drawer__content{flex:1 1 auto;min-height:0}
+.drawer__loading{padding:var(--space-8) var(--space-6);color:var(--text-muted);font-size:var(--fs-sm)}
+
+/* The page underneath must not scroll behind an open drawer. */
+body.has-drawer{overflow:hidden}
+
+@keyframes drawerIn{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes drawerFade{from{opacity:0}to{opacity:1}}
+
+@media (prefers-reduced-motion:reduce){
+  .drawer__panel,.drawer__scrim{animation:none}
+}
+
+/* ── The panel ─────────────────────────────────────────────────── */
+
+.drill{display:flex;flex-direction:column;min-height:100%}
+.drill__head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--space-5);flex-wrap:wrap;
+  padding:var(--space-6) var(--space-6) var(--space-4);
+  padding-right:calc(var(--space-6) + 40px);
+  border-bottom:1px solid var(--border);
+}
+.drill__titles{min-width:0}
+.drill__eyebrow{
+  margin:0 0 4px;
+  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--text-muted);
+}
+.drill__title{margin:0;font-size:var(--fs-h4);font-weight:650;line-height:1.25;color:var(--text)}
+
+/* The reconciliation line: the figure this panel adds up to, so it can
+   be checked against the tile it was opened from without leaving. */
+.drill__figure{margin:0;text-align:right;flex:0 0 auto}
+.drill__figure-value{display:block;font-size:var(--fs-h3);font-weight:700;line-height:1.1;color:var(--text)}
+.drill__figure-note{display:block;margin-top:2px;font-size:var(--fs-2xs);color:var(--text-muted)}
+
+.drill__explain{
+  margin:0;
+  padding:var(--space-3) var(--space-6);
+  background:var(--surface-2,var(--bg));
+  border-bottom:1px solid var(--border);
+  font-size:var(--fs-xs);line-height:1.55;color:var(--text-muted);
+}
+
+.drill__body{flex:1 1 auto;padding:var(--space-5) var(--space-6);min-width:0}
+.drill__body .table-wrap{margin:0}
+
+.drill__pager{
+  display:flex;align-items:center;justify-content:center;gap:var(--space-4);
+  margin-top:var(--space-5);
+}
+.drill__pager-state{font-size:var(--fs-2xs);color:var(--text-muted)}
+
+.drill__foot{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:var(--space-4);flex-wrap:wrap;
+  padding:var(--space-4) var(--space-6);
+  border-top:1px solid var(--border);
+  background:var(--surface-2,var(--bg));
+}
+.drill__foot-note{margin:0;font-size:var(--fs-2xs);color:var(--text-subtle);line-height:1.5}
+.drill__exports{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
+.drill__exports-label{font-size:var(--fs-2xs);color:var(--text-muted);margin-right:2px}
+
+/* The same panel as a page of its own, for a direct link or no script. */
+.drill-page{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-xs);
+  overflow:hidden;
+}
+.drill-page .drill{min-height:0}
+
+/* ── Mobile ────────────────────────────────────────────────────── */
+
+@media (max-width:768px){
+  /* Full sheet. A 920px drawer on a 390px screen is a page that has
+     been made harder to read, not a panel. */
+  .drawer__panel{width:100%;border-left:none;animation-name:drawerUp}
+  .drill__head{
+    padding:var(--space-5) var(--space-4) var(--space-3);
+    padding-right:calc(var(--space-4) + 40px);
+  }
+  .drill__figure{text-align:left;width:100%}
+  .drill__explain{padding:var(--space-3) var(--space-4)}
+  .drill__body{padding:var(--space-4) var(--space-4)}
+  .drill__foot{padding:var(--space-4)}
+  .drawer__close{top:var(--space-3);right:var(--space-3)}
+  @keyframes drawerUp{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+}
+
+@media print{
+  /* A drawer is a control surface. What prints is the report. */
+  .drawer{display:none!important}
+}
+
+
+/* ═══ 23 · Executive decision center ═════════════════════════════
+   What the figures below mean, before the figures themselves.
+
+   Restrained on purpose. This band sits above five rows of KPIs and
+   charts, and anything with a gradient, a shadow or a saturated fill
+   would win an argument with the report it is introducing. What it
+   gets instead is one hairline per column, a tone carried on a 2px
+   rule, and type doing the hierarchy. */
+
+.dc{
+  display:flex;flex-direction:column;gap:var(--space-4);
+  margin-bottom:var(--space-2);
+}
+
+/* The one-sentence verdict. A reader should not have to count four
+   columns to find out whether anything is wrong. */
+.dc__summary{
+  display:flex;align-items:flex-start;gap:var(--space-3);
+  padding:var(--space-3) var(--space-4);
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:3px solid var(--primary);
+  border-radius:var(--radius);
+}
+.dc__summary-mark{
+  display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 auto;width:26px;height:26px;
+  border-radius:var(--radius-sm);
+  background:var(--primary-tint);color:var(--primary);
+  font-size:.9rem;
+}
+.dc__summary-mark--clear{background:var(--primary-tint);color:var(--success)}
+.dc__summary-text{margin:0;font-size:var(--fs-sm);line-height:1.5;color:var(--text-muted)}
+.dc__summary-text strong{color:var(--text);font-weight:650}
+
+.dc__grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:var(--space-3);
+}
+
+/* ── A column ──────────────────────────────────────────────────── */
+
+.dccol{
+  display:flex;flex-direction:column;min-width:0;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+}
+.dccol__head{
+  padding:var(--space-3) var(--space-4);
+  border-bottom:1px solid var(--border);
+  /* Two lines of lead text, reserved whether or not this column's lead
+     needs them. Measured, not guessed: at 1440 the Risk column wraps and
+     the other three do not, which started its first card 17px below
+     theirs and broke the band into four unaligned lists. */
+  min-height:82px;
+}
+.dccol__title{
+  display:flex;align-items:center;gap:8px;
+  margin:0;font-size:var(--fs-xs);font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--text);
+}
+.dccol__icon{font-size:.95rem;color:var(--text-muted)}
+.dccol__count{
+  margin-left:auto;
+  min-width:20px;padding:1px 6px;
+  border-radius:var(--radius-pill);
+  background:var(--bg);border:1px solid var(--border);
+  font-size:var(--fs-2xs);font-weight:700;color:var(--text-muted);
+  text-align:center;
+}
+.dccol__lead{margin:4px 0 0;font-size:var(--fs-2xs);color:var(--text-subtle);line-height:1.45}
+
+/* An honest empty column. Not styled as an error, because it is not one. */
+.dccol__empty{
+  margin:0;padding:var(--space-5) var(--space-4);
+  font-size:var(--fs-xs);color:var(--text-subtle);line-height:1.5;
+}
+
+.dccol__list{list-style:none;margin:0;padding:0}
+
+/* ── A finding ─────────────────────────────────────────────────── */
+
+.dcitem{
+  padding:var(--space-3) var(--space-4);
+  border-left:2px solid transparent;
+}
+.dcitem + .dcitem{border-top:1px solid var(--border)}
+.dcitem--success{border-left-color:var(--success)}
+.dcitem--info{border-left-color:var(--info)}
+.dcitem--warning{border-left-color:var(--warning)}
+.dcitem--danger{border-left-color:var(--danger)}
+
+.dcitem__head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:var(--space-2);
+}
+.dcitem__title{font-size:var(--fs-sm);font-weight:600;color:var(--text);min-width:0}
+.dcitem__value{
+  font-size:var(--fs-sm);font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.dcitem__text{margin:4px 0 0;font-size:var(--fs-2xs);line-height:1.5;color:var(--text-muted)}
+
+.dcitem__foot{
+  display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;
+  margin-top:var(--space-2);
+  font-size:var(--fs-2xs);
+}
+
+/* Severity in words, with the dot as a second channel rather than the
+   only one. Nothing here is conveyed by colour alone. */
+.dcitem__sev{display:inline-flex;align-items:center;gap:5px;font-weight:700;letter-spacing:.02em}
+.dcitem__dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.dcitem__sev--success{color:var(--success)}
+.dcitem__sev--info{color:var(--info)}
+.dcitem__sev--warning{color:var(--warning)}
+.dcitem__sev--danger{color:var(--danger)}
+
+.dcitem__count,
+.dcitem__detail{color:var(--text-subtle)}
+.dcitem__detail{flex:1 1 100%;line-height:1.45}
+
+.dcitem__link{
+  display:inline-flex;align-items:center;gap:2px;
+  min-height:24px;
+  margin-left:auto;
+  font-weight:600;color:var(--primary);text-decoration:none;white-space:nowrap;
+}
+.dcitem__link:hover{text-decoration:underline}
+.dcitem__link:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:2px}
+
+/* ── Look at next ──────────────────────────────────────────────── */
+
+.dccol--action .dccol__head{background:var(--bg)}
+.dcnext{list-style:none;margin:0;padding:0;counter-reset:none}
+.dcnext__item + .dcnext__item{border-top:1px solid var(--border)}
+.dcnext__link{
+  display:flex;align-items:center;gap:var(--space-3);
+  padding:var(--space-3) var(--space-4);
+  color:var(--text);text-decoration:none;
+  transition:background var(--transition-fast);
+}
+.dcnext__link:hover{background:var(--primary-tint)}
+.dcnext__link:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.dcnext__rank{
+  flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:var(--radius-pill);
+  background:var(--bg);border:1px solid var(--border);
+  font-size:var(--fs-2xs);font-weight:700;color:var(--text-muted);
+}
+.dcnext__body{display:flex;flex-direction:column;gap:1px;min-width:0}
+.dcnext__title{font-size:var(--fs-xs);font-weight:600}
+.dcnext__value{font-size:var(--fs-2xs);color:var(--text-muted);font-variant-numeric:tabular-nums}
+.dcnext__chev{margin-left:auto;color:var(--text-subtle);font-size:.9rem;flex:0 0 auto}
+
+/* ── Cross-report band ─────────────────────────────────────────── */
+
+.dcx{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+}
+.dcx__title{
+  margin:0;padding:var(--space-3) var(--space-4);
+  border-bottom:1px solid var(--border);
+  font-size:var(--fs-xs);font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--text);
+}
+.dcx__table{margin:0}
+.dcx__table .is-drill{
+  display:inline-flex;align-items:center;gap:4px;
+  min-height:24px;padding-inline:8px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:var(--fs-2xs);font-weight:600;color:var(--primary);
+  text-decoration:none;
+  transition:background var(--transition-fast),border-color var(--transition-fast);
+}
+.dcx__table .is-drill:hover{background:var(--primary-tint);border-color:var(--primary-border)}
+.dcx__table .is-drill:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.dcx__note{font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.45}
+
+/* ── Responsive: the reports module's own breakpoints ──────────── */
+
+@media (max-width:1200px){
+  .dc__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media (max-width:768px){
+  /* Two columns down to the phone breakpoint rather than one from 768.
+     A tablet held in portrait has 768px and four single-file columns
+     wasted half of it; the cards are comfortable at ~330px. */
+  .dc__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dc__summary{padding:var(--space-3)}
+  .dcitem__head{flex-wrap:wrap}
+  .dcitem__value{margin-left:auto}
+  /* The link goes full width rather than being squeezed into a corner
+     nobody can tap. */
+  .dcitem__link{margin-left:0;flex:1 1 100%;margin-top:2px}
+  .dcx__note{display:none}
+}
+
+@media (max-width:560px){
+  .dc__grid{grid-template-columns:1fr}
+}
+
+@media print{
+  /* The verdict prints; the ranked action list is a set of links and
+     does not. */
+  .dccol--action,.dcitem__link{display:none!important}
+  .dc__grid{grid-template-columns:repeat(3,1fr)}
+  .dc,.dccol,.dcx{break-inside:avoid;page-break-inside:avoid}
+  .dccol,.dcx,.dc__summary{box-shadow:none}
 }

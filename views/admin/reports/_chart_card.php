@@ -48,6 +48,8 @@
  *   loading  bool    render the skeleton instead
  *   filtered bool    whether filters are narrowing this card
  *   resetUrl string  offered when filtered and empty
+ *   drill      array optional ['metric'=>string,'keys'=>string[]]; makes each
+ *                    segment and each table row open the records behind it
  *   share      bool  add a percent-of-total column to the data table
  *   stacked    bool  bar charts: stack the datasets
  *   horizontal bool  bar charts: lay the categories down the y axis
@@ -101,6 +103,31 @@ $ccHeight = (int) ($ccC['height'] ?? ($ccSizes[$ccC['size'] ?? 'standard'] ?? $c
  * So a rate is empty only when every bucket is null, and an absolute is empty
  * when every bucket is null or zero. The distinction between null and zero is
  * already carried faithfully from the model; this is where it earns its keep. */
+/* Drill-down, where the card has one.
+
+   A card declares `drill` as a metric plus one key per label, in the same
+   order the labels are in. Both the canvas and the data table below it read
+   that single array, which is what stops the picture and the table from
+   drilling to two different places -- the failure mode you get the moment
+   each builds its own link. A card with no `drill` block invites no click.
+
+   Expects $window, $filters and $reportTab in scope, which every tab body
+   already has from the controller's payload. */
+$ccDrill = null;
+if (!empty($ccC['drill']['metric']) && !empty($ccC['drill']['keys']) && isset($window, $filters)) {
+    $ccDrill = [
+        'url'  => reportDrillUrl(
+            $window,
+            $filters,
+            (string) ($reportTab ?? 'overview'),
+            (string) $ccC['drill']['metric'],
+            '__KEY__',
+            !empty($compare) ? ['compare' => '1'] : []
+        ),
+        'keys' => array_values($ccC['drill']['keys']),
+    ];
+}
+
 $ccRate    = $ccUnit === 'percent';
 $ccHasData = false;
 foreach ($ccSeries as $ccS) {
@@ -229,6 +256,7 @@ if ($ccSummary === '' && $ccHasData) {
                 'series'     => $ccSeries,
                 'stacked'    => !empty($ccC['stacked']),
                 'horizontal' => !empty($ccC['horizontal']),
+                'drill'      => $ccDrill,
             ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
             <div class="rcard__foot">
@@ -259,8 +287,23 @@ if ($ccSummary === '' && $ccHasData) {
                             </thead>
                             <tbody>
                                 <?php foreach ($ccLabels as $ccI => $ccLabel): ?>
+                                    <?php /* The row header is the drill link.
+                                             A canvas cannot be reached by
+                                             keyboard and a click target that
+                                             exists only inside one is a
+                                             feature half the readers do not
+                                             have. */ ?>
                                     <tr>
-                                        <th scope="row"><?= sanitize((string) $ccLabel) ?></th>
+                                        <th scope="row">
+                                            <?php if ($ccDrill !== null && ($ccDrill['keys'][$ccI] ?? '') !== ''): ?>
+                                                <a class="is-drill" data-drill
+                                                   href="<?= sanitize(str_replace('__KEY__', rawurlencode((string) $ccDrill['keys'][$ccI]), $ccDrill['url'])) ?>">
+                                                    <?= sanitize((string) $ccLabel) ?>
+                                                </a>
+                                            <?php else: ?>
+                                                <?= sanitize((string) $ccLabel) ?>
+                                            <?php endif ?>
+                                        </th>
                                         <?php foreach ($ccSeries as $ccS): ?>
                                             <?php /* `?? null`, never `?? 0`. A null in these series
                                                      means "nothing was scheduled", and ?? 0 collapsed

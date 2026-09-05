@@ -37,12 +37,16 @@
                     </li>
                 </ul>
 
-                <div class="site-footer__social">
-                    <a href="#" aria-label="<?= sanitize(companyName()) ?> on X"><i class="bi bi-twitter-x" aria-hidden="true"></i></a>
-                    <a href="#" aria-label="<?= sanitize(companyName()) ?> on Facebook"><i class="bi bi-facebook" aria-hidden="true"></i></a>
-                    <a href="#" aria-label="<?= sanitize(companyName()) ?> on Instagram"><i class="bi bi-instagram" aria-hidden="true"></i></a>
-                    <a href="#" aria-label="<?= sanitize(companyName()) ?> on LinkedIn"><i class="bi bi-linkedin" aria-hidden="true"></i></a>
-                </div>
+                <?php /* Was four links to "#" — the same dead row the utility strip
+                         carried. Both now render from social_links.php, which reads
+                         the configured accounts and omits any network that has none,
+                         so the footer can no longer promise a profile that is not
+                         there. */ ?>
+                <?php
+                $socialClass = 'site-footer__social';
+                $socialLabel = 'Follow ' . companyName();
+                require VIEWS_PATH . '/components/social_links.php';
+                ?>
             </div>
 
             <nav aria-labelledby="ft-explore">

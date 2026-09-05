@@ -534,6 +534,10 @@ INSERT INTO settings (setting_key, setting_value, setting_group) VALUES
 ('company_address', '', 'general'),
 ('company_phone', '', 'general'),
 ('company_email', '', 'general'),
+-- Navigation rail appearance. Two values, and the rest of the rail is
+-- derived from them in assets/css/rail.css.
+('rail_theme', 'light', 'appearance'),
+('rail_accent', '#0a63a8', 'appearance'),
 ('currency', 'USD', 'financial'),
 ('currency_symbol', '$', 'financial'),
 ('tax_rate', '0', 'financial'),

@@ -16,6 +16,11 @@ class SettingsController
             'icon'  => 'bi-building',
             'desc'  => 'Identity used across invoices, receipts, emails and the public website.',
         ],
+        'appearance' => [
+            'label' => 'Appearance',
+            'icon'  => 'bi-palette',
+            'desc'  => 'How the navigation rail is drawn for everyone signed in to this installation.',
+        ],
         'financial' => [
             'label' => 'Financial',
             'icon'  => 'bi-cash-stack',
@@ -48,6 +53,43 @@ class SettingsController
      * one, because it cannot recompute next_run_at after a change.
      */
     private const HIDDEN_GROUPS = ['backup'];
+
+    /**
+     * Rail surface modes — value => [label, help].
+     *
+     * Three, not two. "Auto" is the one people actually want on a laptop
+     * that already switches at dusk, and leaving it out means an
+     * administrator picking dark for everyone including the half of the
+     * office that does not want it.
+     */
+    public const RAIL_THEMES = [
+        'light' => ['Light', 'A near-white rail with hairline dividers.'],
+        'dark'  => ['Dark',  'A charcoal rail. The rest of the page stays light.'],
+        'auto'  => ['Auto',  'Follows each person’s system appearance.'],
+    ];
+
+    /**
+     * Accent presets — hex => name.
+     *
+     * A starting point, not a limit: the field beside them takes any
+     * #rrggbb. They exist because "pick a colour" with nothing on offer is
+     * how an interface ends up accented in whatever the colour picker
+     * opened on.
+     *
+     * Any of them is safe in either surface mode, and so is anything an
+     * administrator types instead — the rail never puts text in the accent.
+     * See the derivation notes at the top of assets/css/rail.css.
+     */
+    public const RAIL_ACCENTS = [
+        '#0a63a8' => 'Architect Blue',
+        '#4f46e5' => 'Indigo',
+        '#7c3aed' => 'Violet',
+        '#0f766e' => 'Teal',
+        '#15803d' => 'Forest',
+        '#b45309' => 'Amber',
+        '#be123c' => 'Rose',
+        '#3f4653' => 'Graphite',
+    ];
 
     /** Currency presets — value => [name, symbol]. */
     public const CURRENCIES = [
@@ -104,6 +146,19 @@ class SettingsController
             'company_logo' => [
                 'label' => 'Company Logo', 'type' => 'logo', 'max' => 255, 'full' => true,
                 'hint'  => 'PNG, JPG, WEBP or GIF, up to 3 MB. Shown in the sidebar, on the public site and on printed receipts. A transparent PNG looks best.',
+            ],
+
+            /* Appearance. Two keys, and that is the whole surface: everything
+               else the rail draws is derived from them in rail.css. Six
+               colour pickers would give an administrator six ways to make a
+               rail nobody can read; one accent and one mode cannot fail. */
+            'rail_theme' => [
+                'label' => 'Sidebar Theme', 'type' => 'theme', 'full' => true,
+                'hint'  => 'Applies to everyone signed in to this installation. The page beside the sidebar stays light in every mode.',
+            ],
+            'rail_accent' => [
+                'label' => 'Accent Colour', 'type' => 'color', 'full' => true,
+                'hint'  => 'Used for the logo tile, the current page and the unread counts. Labels are never drawn in it, so any colour stays readable.',
             ],
 
             'currency' => [
@@ -411,6 +466,29 @@ class SettingsController
                     $errors[] = "$label has an unsupported value.";
                     return null;
                 }
+                return $value;
+
+            case 'theme':
+                if (!array_key_exists($value, self::RAIL_THEMES)) {
+                    $errors[] = "$label must be Light, Dark or Auto.";
+                    return null;
+                }
+                return $value;
+
+            case 'color':
+                // Only #rrggbb. Shorthand, named colours and rgb() are all
+                // refused — not because they would look wrong, but because
+                // this value is written into a <style> block on every signed-in
+                // page, and the narrowest input that does the job is the one
+                // that cannot be turned into something else. railAccent() in
+                // includes/functions.php applies the same test on the way out,
+                // so a row edited directly in the database is caught too.
+                $value = strtolower($value);
+                if ($value !== '' && preg_match('/^#[0-9a-f]{6}$/', $value) !== 1) {
+                    $errors[] = "$label must be a six-digit hex colour such as #0a63a8.";
+                    return null;
+                }
+                // Empty is a legitimate answer: it means "use the default".
                 return $value;
 
             default:

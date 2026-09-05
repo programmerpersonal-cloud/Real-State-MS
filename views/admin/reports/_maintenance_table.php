@@ -81,6 +81,7 @@ $muStatusTone = [
     <?php else: ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">Maintenance requests, with priority, status, age and recorded cost.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Request</th>

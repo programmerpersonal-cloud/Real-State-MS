@@ -76,6 +76,7 @@ $prMismatch = static function (array $prR): bool {
     <?php else: ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">Payments dated in this period, newest first.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Date</th>

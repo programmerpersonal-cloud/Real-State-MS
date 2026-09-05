@@ -67,6 +67,7 @@ $plUsable = !empty($plData['usable']);
 
             <div class="table-wrap">
                 <table class="table ploc__table">
+                    <caption class="sr-only">Properties by location, as recorded on the property.</caption>
                     <thead>
                         <tr>
                             <th scope="col">Location as recorded</th>

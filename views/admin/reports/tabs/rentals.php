@@ -18,6 +18,11 @@ $rnFiltered = reportFilterCount($filters) > 0;
 $rnCarry    = !empty($compare) ? ['compare' => '1'] : [];
 $rnReset    = reportUrl($window, [], ['tab' => 'rentals'] + $rnCarry);
 $rnLink     = static fn(string $tab): string => reportUrl($window, $filters, ['tab' => $tab] + $rnCarry);
+/* Every drill-down on this page carries the period, the comparison and the
+   filters above, because it is built from the same window and filters the
+   figures were. Nothing is copied across by hand. */
+$rnDrill = static fn(string $metric, string $key = ''): string
+    => reportDrillUrl($window, $filters, 'rentals', $metric, $key, $rnCarry);
 
 $rnExpected  = (float) $ledger['expected'];
 $rnSettled   = (float) $ledger['settled_on_ledger'];
@@ -54,6 +59,7 @@ $rnGone = $rnBucket($expiry, 'expired');
             ? formatCurrency((float) $summary['rent_roll']) . ' rent roll · avg '
               . formatCurrency((float) $summary['average_rent'])
             : 'No tenancy running',
+        'drill'   => $rnDrill('active'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -69,7 +75,7 @@ $rnGone = $rnBucket($expiry, 'expired');
                 (int) $occupancy['occupied'], (int) $occupancy['rentable'], (int) $occupancy['vacant']
             )
             : 'No rentable property in scope',
-        'url'     => $rnLink('properties'),
+        'drill'   => $rnDrill('occupancy'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -79,6 +85,7 @@ $rnGone = $rnBucket($expiry, 'expired');
         'icon'    => 'bi-calendar-check',
         'tone'    => 'info',
         'context' => 'Scheduled to fall due in ' . $window['label'],
+        'drill'   => $rnDrill('expected'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -95,6 +102,9 @@ $rnGone = $rnBucket($expiry, 'expired');
         'context' => $rnExpected > 0
             ? formatCurrency($rnSettled) . ' settled of ' . formatCurrency($rnExpected)
             : 'No rent scheduled in this period',
+        /* The numerator, for the same reason the Financial report's rate
+           tile drills to it: a ratio has no records of its own. */
+        'drill'   => $rnDrill('settled'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -107,6 +117,7 @@ $rnGone = $rnBucket($expiry, 'expired');
             ? formatCurrency($rnNotYetDue) . ' of it not yet due · '
               . formatCurrency($rnArrears) . ' in arrears'
             : 'All of it has fallen due',
+        'drill'   => $rnDrill('outstanding'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -120,6 +131,7 @@ $rnGone = $rnBucket($expiry, 'expired');
         'context' => $rnGone > 0
             ? sprintf('within 60 days · %d already expired', $rnGone)
             : ($rnSoon > 0 ? 'Tenancies ending within 60 days' : 'Nothing ending within 60 days'),
+        'drill'   => $rnDrill('expiring_soon'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
     ?>
@@ -160,6 +172,8 @@ $rnGone = $rnBucket($expiry, 'expired');
         ],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent was scheduled to fall due in this period.',
+        'drill'    => ['metric' => 'expected_bucket',
+                       'keys'   => array_column($ledgerSeries['expected'], 'bucket')],
         'size'   => 'feature',
         'filtered' => $rnFiltered,
         'resetUrl' => $rnReset,
@@ -183,6 +197,8 @@ $rnGone = $rnBucket($expiry, 'expired');
         'series'   => [['label' => 'Settled', 'data' => $rnRate, 'tone' => '--primary']],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent fell due in this period, so there is no collection rate to plot.',
+        'drill'    => ['metric' => 'settled_bucket',
+                       'keys'   => array_column($ledgerSeries['expected'], 'bucket')],
         'size'   => 'feature',
         'filtered' => $rnFiltered,
         'resetUrl' => $rnReset,
@@ -200,9 +216,10 @@ $rnGone = $rnBucket($expiry, 'expired');
 ]; require dirname(__DIR__) . '/_section.php'; ?>
 <div class="rgrid rgrid--wide">
     <?php
+    /* The two halves of occupancy, each drilling to the properties in it. */
     $rnOcc = array_values(array_filter([
-        ['label' => 'Occupied', 'value' => (int) $occupancy['occupied'], 'tone' => '--success'],
-        ['label' => 'Vacant',   'value' => (int) $occupancy['vacant'],   'tone' => '--text-subtle'],
+        ['label' => 'Occupied', 'key' => 'state_occupied', 'value' => (int) $occupancy['occupied'], 'tone' => '--success'],
+        ['label' => 'Vacant',   'key' => 'vacant',         'value' => (int) $occupancy['vacant'],   'tone' => '--text-subtle'],
     ], static fn(array $r): bool => $r['value'] > 0));
 
     $chart = [
@@ -217,6 +234,7 @@ $rnGone = $rnBucket($expiry, 'expired');
             'data'  => array_column($rnOcc, 'value'),
             'tones' => array_column($rnOcc, 'tone'),
         ]],
+        'drill'    => ['metric' => 'state', 'keys' => array_column($rnOcc, 'key')],
         'label_heading' => 'State',
         'empty'    => 'No rentable property is in scope for the current filters.',
         'size'   => 'standard',
@@ -244,6 +262,7 @@ $rnGone = $rnBucket($expiry, 'expired');
             'data'  => array_map('intval', array_column($rnExpiryDrawn, 'count')),
             'tone'  => '--primary',
         ]],
+        'drill'      => ['metric' => 'expiring', 'keys' => array_column($rnExpiryDrawn, 'key')],
         'label_heading' => 'Window',
         'empty'      => 'No active tenancy is in scope for the current filters.',
         'size'     => 'standard',

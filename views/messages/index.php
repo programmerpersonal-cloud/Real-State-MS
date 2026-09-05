@@ -19,7 +19,8 @@
  *   $conversations $totalCount $page $perPage $filter $filters $search
  *   $contacts $contactSource $scopeHint $emptyMessage $emptyDetail $composing $unreadTotal
  *   $conversation $participants $counterpart $thread $earlierUrl $canSend
- *   $isArchived $draft  and, when a conversation is open, $contextBlocks
+ *   $isArchived $draft $base $listSuffix $pollSignature
+ *   and, when a conversation is open, $contextBlocks
  */
 $pageStyles   = ['pages/messages'];
 $extraScripts = ['messages'];
@@ -31,7 +32,6 @@ $extraScripts = ['messages'];
    breadcrumb in the top bar still reads Messages > <name>. */
 $hidePageHeader = true;
 
-$base       = APP_URL . '/index.php?page=messages';
 $isOpen     = !empty($conversation);
 $composing  = !empty($composing);
 $hasContacts = !empty($contacts);
@@ -41,18 +41,19 @@ $hasContacts = !empty($contacts);
 // recipient picker, because both occupy the same column.
 $detailOpen = $isOpen || $composing;
 
-/* Carrying the current filter and search through every link in the workspace
-   keeps the left panel where the user put it — opening a conversation from
-   the Unread filter must not silently reset the list to All. */
-$listQuery = array_filter([
-    'filter' => ($filter ?? 'all') !== 'all' ? $filter : null,
-    'search' => ($search ?? '') !== '' ? $search : null,
-    'p'      => ($page ?? 1) > 1 ? $page : null,
-]);
-$listSuffix = $listQuery ? '&' . http_build_query($listQuery) : '';
+/* $base and $listSuffix arrive from the controller. They used to be built
+   here, which was fine while this file was the only renderer; the live
+   updater now renders _stream.php and _conversation_items.php on their own,
+   and both need the same two strings, so they come with the data instead of
+   being assembled around it. */
 ?>
 
-<div class="msg<?= $detailOpen ? ' msg--detail' : '' ?>">
+<?php /* data-msg-live is the live updater's hook, and the signature beside
+         it is the state this render corresponds to. Both sit on the wrapper
+         that already exists rather than on an element added for the purpose:
+         with JavaScript off they are two inert attributes. */ ?>
+<div class="msg<?= $detailOpen ? ' msg--detail' : '' ?>"
+     data-msg-live data-poll-sig="<?= sanitize($pollSignature ?? '') ?>">
 
     <?php /* ─── Left: the inbox ───────────────────────────────────── */ ?>
     <section class="msg__list" aria-label="Conversations">

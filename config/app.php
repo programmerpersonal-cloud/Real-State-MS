@@ -322,7 +322,36 @@ define('BACKUP_PATH', rtrim(str_replace('\\', '/', (string) env('BACKUP_PATH', d
 // swept on failure; `restore` is where an archive is expanded during a
 // restore. Neither ever holds a finished artefact — a file in temp/ is by
 // definition incomplete, which is what lets cleanup be unconditional.
-define('BACKUP_DIRS', ['full', 'database', 'files', 'temp', 'restore']);
+//
+// `logs` holds the scheduler's own record of every tick. It lives here rather
+// than beside the code because a scheduled run has no console: Task Scheduler
+// and cron both discard stdout, so a failure written only to the terminal is a
+// failure nobody will ever read. It is inside the backup root because that
+// directory is already outside the web root and already guarded.
+define('BACKUP_DIRS', ['full', 'database', 'files', 'temp', 'restore', 'logs']);
+
+// Scheduler log rotation. One active file plus this many rotated copies, each
+// capped at the size below. Bounded on purpose: an unattended process that
+// appends forever is a disk-full incident waiting for the quietest possible
+// moment to happen.
+define('BACKUP_LOG_MAX_BYTES', 2 * 1024 * 1024);   // 2 MB
+define('BACKUP_LOG_KEEP',      5);
+
+// How long the scheduler may go without checking in before the health panel
+// treats it as stopped. The runner is meant to tick every 5–15 minutes; an
+// hour of silence means the task is disabled, the machine is off, or the
+// runner is dying before it can log anything.
+//
+// Configurable because the right answer is a multiple of the tick interval,
+// and a deployment that ticks hourly would otherwise spend most of its life
+// being told the scheduler had stopped — a false alarm that repeats is how a
+// real one gets ignored.
+define('BACKUP_SCHEDULER_STALE_MINUTES', max(5, (int) env('BACKUP_SCHEDULER_STALE_MINUTES', 60)));
+
+// The name of the Windows Task Scheduler entry the installer creates and the
+// doctor looks for. One constant so the batch file, the diagnostics and the
+// documentation cannot drift apart.
+define('BACKUP_TASK_NAME', 'Saxane Backup Scheduler');
 
 // External binaries. mysqldump and mysql ship with XAMPP; a hosting panel may
 // put them elsewhere, hence the override. Resolved and checked by

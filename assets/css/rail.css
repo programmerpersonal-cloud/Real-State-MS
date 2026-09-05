@@ -1,0 +1,874 @@
+/* ================================================================
+   MARKO REAL ESTATE — NAVIGATION RAIL
+   ----------------------------------------------------------------
+   The rail used to be one hard-coded navy column declared across two
+   files: its colours in design-system.css, its shape in layout.css.
+   That worked for exactly one look. It is now themeable — light,
+   dark, or follow-the-system, with a single configurable accent — so
+   the colours and the shape have to live together in one file. This
+   is that file, and it is the only place either is declared.
+
+   Loaded by the app bundle only (views/components/styles.php), after
+   layout.css. The public and auth bundles render no rail.
+
+   ── The design ────────────────────────────────────────────────────
+   Minimal, in the Swiss/Apple sense rather than the sparse sense:
+   hairlines instead of shadows, one accent instead of a palette, and
+   air where the old rail had fills. Concretely —
+
+     · No gradients, no shadows, no coloured pill. The active row is a
+       13% wash of the accent with near-black text on it.
+     · Full-bleed hairlines between groups, edge to edge of the rail.
+       They are what makes the column read as sections rather than as
+       one list with headings sprinkled through it.
+     · 34px rows at 14.4px, weight 450 at rest and 600 when active.
+     · One accent colour, used in four places and nowhere else: the
+       brand tile, the active wash, the active icon, and the counts.
+
+   ── Why the palette is derived, not authored ──────────────────────
+   An administrator picks ONE colour in Settings. Every other value in
+   the rail is computed from it plus the chosen surface mode, because
+   asking someone to pick six colours that hold their contrast against
+   each other is asking them to do a job they did not sign up for —
+   and the sixth one is always the one that fails.
+
+   The derivation is built so it cannot fail:
+
+     · Active TEXT is never the accent. It is --sidebar-text-strong,
+       which is near-black on a light rail and near-white on a dark
+       one. So a pale yellow accent changes how the active row looks
+       and never whether it can be read.
+     · Everything drawn IN the accent is mixed toward
+       --sidebar-text-strong first. Because that token flips with the
+       theme, one formula darkens the accent on a light rail and
+       lightens it on a dark one — the mix is pulled toward whichever
+       end of the range is currently readable.
+     · Active state carries three signals — wash, icon colour and
+       font-weight — so it survives being read by someone who cannot
+       separate the accent from the surface.
+
+   color-mix() does the work, and every derived token is declared with
+   a literal fallback above the @supports block, so a browser without
+   it gets the brand-blue rail rather than an unstyled one.
+   ================================================================ */
+
+
+/* ─── Geometry ──────────────────────────────────────────────
+   Shared by both themes: only colour changes between them. */
+:root {
+  /* 226px. The rail carries a 34px row, an 18px icon column and a label
+     that ellipses — none of which needed the 252 it had. The 26px goes to
+     the content column, where a table gains most of a column for it. */
+  --sidebar-width: 226px;
+  --sidebar-icon-col: 18px;
+
+  /* The accent. This is the one value an administrator sets;
+     views/layout.php re-declares it inline from the stored setting,
+     which is why the default here is the brand blue rather than
+     anything cleverer. */
+  --sidebar-accent: #0a63a8;
+
+  --rail-pad-x: 12px;
+  --rail-row-h: 34px;
+  --rail-radius: 8px;
+}
+
+
+/* ─── Light ─────────────────────────────────────────────────
+   The default, and the mode "auto" falls back to when the OS has no
+   preference. Near-white rather than pure white so the rail reads as
+   a surface beside the --bg page rather than as a hole in it.
+
+   Contrast, measured on --sidebar-bg: resting labels 9.3:1, section
+   headings and the account meta line 4.8:1 (they are 11-12px, so the
+   4.5:1 floor applies to them, not the 3:1 large-text one), icons
+   4.8:1 against the same ground. */
+:root,
+:root[data-rail-theme="light"],
+:root[data-rail-theme="auto"] {
+  --sidebar-scheme: light;
+  --sidebar-bg: #fdfdfe;
+  --sidebar-bg-soft: #f4f5f7;
+  --sidebar-edge: #e4e6ea;
+  --sidebar-border: #ebedf0;
+  --sidebar-border-strong: #d9dce2;
+  --sidebar-text: #3f4653;
+  --sidebar-text-strong: #0f1115;
+  --sidebar-muted: #6b7280;
+  --sidebar-hover-bg: rgba(15, 17, 21, .045);
+  --sidebar-active-text: #0f1115;
+  --sidebar-tint: 13%;
+
+  /* Literal fallbacks for the three derived tokens below. These are
+     the brand blue at the same mixes color-mix() would produce, so a
+     browser without it renders the rail as designed rather than as a
+     column of unresolved var()s. */
+  --sidebar-active-bg: rgba(10, 99, 168, .13);
+  --sidebar-accent-ink: #0b4b7c;
+  --sidebar-focus: #0a4574;
+}
+
+
+/* ─── Dark ──────────────────────────────────────────────────
+   Charcoal, not navy and not black. Black would make the rail a void
+   next to the light content column; navy is a colour, and a rail that
+   picks one is arguing with whatever accent the administrator chose.
+
+   Contrast on --sidebar-bg: resting labels 8.1:1, headings and meta
+   5.5:1, active text 16.5:1. */
+:root[data-rail-theme="dark"] {
+  --sidebar-scheme: dark;
+  --sidebar-bg: #17181d;
+  --sidebar-bg-soft: #202228;
+  --sidebar-edge: rgba(255, 255, 255, .09);
+  --sidebar-border: rgba(255, 255, 255, .07);
+  --sidebar-border-strong: rgba(255, 255, 255, .14);
+  --sidebar-text: #a9b0be;
+  --sidebar-text-strong: #f6f7f9;
+  --sidebar-muted: #878f9e;
+  --sidebar-hover-bg: rgba(255, 255, 255, .055);
+  --sidebar-active-text: #ffffff;
+  /* Higher than light's 13%: the same wash over a dark ground has far
+     less to separate it from the surface, and 24% is where the row
+     starts reading as a distinct surface rather than a smudge. */
+  --sidebar-tint: 24%;
+
+  --sidebar-active-bg: rgba(24, 119, 201, .24);
+  --sidebar-accent-ink: #8cc2ee;
+  --sidebar-focus: #9ccbf1;
+}
+
+/* "Auto" is the dark palette verbatim, applied only when the OS asks
+   for it. Duplicated rather than factored out because a media query
+   cannot be added to a selector list — and the alternative, hanging
+   both palettes off a third indirection, costs more to read than
+   these twenty lines cost to keep in step. */
+@media (prefers-color-scheme: dark) {
+  :root[data-rail-theme="auto"] {
+    --sidebar-scheme: dark;
+    --sidebar-bg: #17181d;
+    --sidebar-bg-soft: #202228;
+    --sidebar-edge: rgba(255, 255, 255, .09);
+    --sidebar-border: rgba(255, 255, 255, .07);
+    --sidebar-border-strong: rgba(255, 255, 255, .14);
+    --sidebar-text: #a9b0be;
+    --sidebar-text-strong: #f6f7f9;
+    --sidebar-muted: #878f9e;
+    --sidebar-hover-bg: rgba(255, 255, 255, .055);
+    --sidebar-active-text: #ffffff;
+    --sidebar-tint: 24%;
+
+    --sidebar-active-bg: rgba(24, 119, 201, .24);
+    --sidebar-accent-ink: #8cc2ee;
+    --sidebar-focus: #9ccbf1;
+  }
+}
+
+
+/* ─── The accent, derived ───────────────────────────────────
+   Three tokens, one formula each, and the same formula serves both
+   themes because --sidebar-text-strong flips between them:
+
+     active wash  the accent at --sidebar-tint over the rail
+     accent ink   the accent pulled 32% toward the readable end —
+                  darkened on a light rail, lightened on a dark one
+     focus ring   the same, pulled slightly further
+
+   This block must come last: it re-declares the fallbacks above at
+   matching specificity, so source order is what lets it win. */
+@supports (color: color-mix(in srgb, #000, #fff)) {
+
+  :root,
+  :root[data-rail-theme="light"],
+  :root[data-rail-theme="auto"],
+  :root[data-rail-theme="dark"] {
+    --sidebar-active-bg: color-mix(in srgb, var(--sidebar-accent) var(--sidebar-tint), transparent);
+    --sidebar-accent-ink: color-mix(in srgb, var(--sidebar-accent) 68%, var(--sidebar-text-strong));
+    --sidebar-focus: color-mix(in srgb, var(--sidebar-accent) 72%, var(--sidebar-text-strong));
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   THE RAIL
+   ════════════════════════════════════════════════════════════ */
+
+.app__sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-edge);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transition: transform .25s ease;
+  /* The browser paints the rail's own scrollbar and any native
+     affordance inside it, and the page-level `color-scheme: light`
+     would hand a dark rail a light scrollbar. This follows the theme
+     instead of being pinned to either mode. */
+  color-scheme: var(--sidebar-scheme, light);
+}
+
+.app__main {
+  margin-left: var(--sidebar-width);
+}
+
+
+/* ─── Brand ─────────────────────────────────────────────────
+   One line: the mark and the name, nothing under it. The descriptor
+   that used to sit below the name said "Real Estate" on a real-estate
+   product — a second line that costs the rail 14px and tells nobody
+   anything. The row's height still tracks the topbar so the brand and
+   the breadcrumb sit on one baseline across the shell. */
+.sidebar__brand {
+  padding: 0 16px;
+  height: var(--header-height);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebar__brand-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar__title {
+  font-size: .96rem;
+  font-weight: 650;
+  color: var(--sidebar-text-strong);
+  letter-spacing: -.015em;
+  line-height: 1.2;
+  /* The company name is user-supplied and unbounded — it ellipses
+     rather than pushing the collapse control off the rail. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The mark. Flat accent fill, 8px radius, no gradient and no shadow:
+   this is the one place the rail states the accent at full strength,
+   and anything layered on top of it reads as decoration. */
+.sidebar__logo {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  background: var(--sidebar-accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: .88rem;
+  overflow: hidden;
+}
+
+/* An uploaded logo replaces the accent tile — the accent behind a mark
+   of unknown colour reads as a mistake.
+
+   The white plate is theme-conditional, and that is the point: on a
+   light rail a mark drawn for light backgrounds needs nothing behind
+   it, and a plate would box it in for no reason. On a dark rail the
+   same mark would disappear, so it gets one. */
+.sidebar__logo--image {
+  background: transparent;
+  border-radius: 6px;
+}
+
+:root[data-rail-theme="dark"] .sidebar__logo--image {
+  background: #fff;
+  padding: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-rail-theme="auto"] .sidebar__logo--image {
+    background: #fff;
+    padding: 3px;
+  }
+}
+
+.sidebar__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* The collapse control is NOT in the rail any more — it is the first
+   thing in the topbar, styled as .header__rail-toggle in layout.css.
+
+   It lived here, in the brand row, hidden until the rail was hovered.
+   That gave it three problems at once: it was invisible until you
+   guessed it was there, it had to be absolutely positioned once the
+   rail narrowed (so it floated over the logo), and the one control
+   that has to stay put moved between the two states. In the topbar it
+   is always visible, always in the same place, and the same distance
+   from the pointer whichever state the rail is in — which is where
+   every ERP that has solved this puts it. */
+
+
+/* ─── Menu ──────────────────────────────────────────────────
+   flex:1 + min-height:0 confines the scroll to the menu itself, so the
+   brand stays at the top and the account at the bottom while only the
+   list between them moves.
+
+   The scrollbar is faint at rest and firms up only while the pointer
+   is in the menu: on either theme, a bright track reads as a piece of
+   chrome sitting on top of the navigation. */
+.sidebar__nav {
+  flex: 1;
+  min-height: 0;
+  padding: 4px var(--rail-pad-x) 12px;
+  overflow-y: auto;
+  /* Explicit, and load-bearing. A box with overflow-y:auto resolves a
+     `visible` overflow-x to `auto` as well, so anything that reached past
+     the rail's edge — the collapsed-state label flyouts used to — gave the
+     menu a horizontal scrollbar and let its contents slide sideways inside
+     the collapsed column. Pinning overflow-x means that cannot happen
+     whatever a child tries to do. */
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-border-strong) transparent;
+}
+
+.sidebar__nav::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar__nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar__nav::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background var(--transition);
+}
+
+.sidebar__nav:hover::-webkit-scrollbar-thumb {
+  background: var(--sidebar-border-strong);
+}
+
+
+/* ─── Groups ────────────────────────────────────────────────
+   The hairline above each group is drawn by the group itself and bleeds
+   past the menu's own padding to both edges of the rail. Full-bleed is
+   the whole effect: a rule that stops short of the edges reads as a
+   divider inside a list, and one that reaches them reads as the join
+   between two sections. */
+.sidebar__section+.sidebar__section::before {
+  content: "";
+  display: block;
+  height: 1px;
+  background: var(--sidebar-border);
+  margin: 10px calc(var(--rail-pad-x) * -1) 2px;
+}
+
+/* The heading is a <button> when its group can collapse and a <div>
+   when it holds a single row. One rule dresses both, so the two never
+   sit at different heights in the same column. */
+.sidebar__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  font-size: .6875rem;
+  text-transform: uppercase;
+  letter-spacing: .075em;
+  line-height: 1.2;
+  color: var(--sidebar-muted);
+  padding: 10px 10px 6px;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-family: inherit;
+}
+
+/* The first group is the one holding the dashboard, and its heading
+   reads "Main Menu" — a label for the thing you are already looking
+   at. The reference rail opens straight onto its rows, and so does
+   this one. Only a non-collapsible heading is dropped: hiding a
+   working disclosure would leave its rows with no way back. */
+.sidebar__section:first-child>.sidebar__label:not(.sidebar__label--toggle) {
+  display: none;
+}
+
+.sidebar__label--toggle {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color var(--transition);
+}
+
+.sidebar__label--toggle:hover {
+  color: var(--sidebar-text-strong);
+}
+
+.sidebar__label--toggle:focus-visible {
+  outline: 2px solid var(--sidebar-focus);
+  outline-offset: -2px;
+}
+
+.sidebar__label-chev {
+  font-size: .58rem;
+  flex-shrink: 0;
+  opacity: .8;
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+
+.sidebar__label--toggle[aria-expanded="false"] .sidebar__label-chev {
+  transform: rotate(-90deg);
+}
+
+/* The collapsing panel. Height animates via grid-template-rows rather
+   than max-height: a guessed max-height either clips a long group or
+   leaves the animation idling through empty space on a short one. */
+.sidebar__items {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-base) var(--ease-standard);
+}
+
+/* The single inner child is what makes 1fr→0fr work. grid-template-rows
+   sizes the first row only; with the links as direct children every row
+   after the first is auto-sized, keeps its height, and the group never
+   collapses. min-height:0 lets that one row shrink below its content,
+   and overflow:hidden clips the rows on the way down. */
+.sidebar__items-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar__section.is-collapsed .sidebar__items {
+  grid-template-rows: 0fr;
+}
+
+
+/* ─── Rows ──────────────────────────────────────────────────
+   One shape for every item: a fixed icon column, a fixed gap and a
+   fixed min-height, so labels start on the same x and the rhythm holds
+   whether a label wraps or not. */
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 5px 10px;
+  min-height: var(--rail-row-h);
+  border-radius: var(--rail-radius);
+  color: var(--sidebar-text);
+  font-size: var(--fs-sm);
+  font-weight: 450;
+  line-height: 1.3;
+  letter-spacing: -.005em;
+  transition: background var(--transition), color var(--transition);
+  margin-bottom: 1px;
+  position: relative;
+}
+
+.sidebar__link i {
+  font-size: 1.02rem;
+  width: var(--sidebar-icon-col);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sidebar-muted);
+  transition: color var(--transition);
+}
+
+/* No transform on hover. A row shifting sideways under the cursor moves
+   its neighbours' apparent baseline and makes a settled list look
+   nervous; ground and colour say "this one" without anything moving. */
+.sidebar__link:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-strong);
+}
+
+.sidebar__link:hover i {
+  color: var(--sidebar-text-strong);
+}
+
+/* Active. Three signals, none of them a colour on its own: an accent
+   wash, the accent on the icon, and the step in weight. The text stays
+   --sidebar-active-text — near-black here, near-white on a dark rail —
+   so the accent an administrator picks can never make the current page
+   the hardest row to read. */
+.sidebar__link--active,
+.sidebar__link--active:hover {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 600;
+}
+
+.sidebar__link--active i,
+.sidebar__link--active:hover i {
+  color: var(--sidebar-accent-ink);
+}
+
+.sidebar__link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A count on a row. Tabular so 9 and 11 occupy the same width and the
+   column does not twitch as the number changes. */
+.sidebar__link-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-accent-ink);
+  font-size: .68rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.sidebar__link:focus-visible {
+  outline: 2px solid var(--sidebar-focus);
+  outline-offset: -2px;
+}
+
+
+/* ─── Account ───────────────────────────────────────────────
+   Flat on the rail rather than a bordered card. The card was doing the
+   job the divider above it already does, and two enclosures around one
+   row is what made this corner look like a widget parked in a sidebar
+   instead of the foot of it.
+
+   Opaque and outside the scroll box, so the menu passes behind the
+   divider rather than under a translucent panel. */
+.sidebar__footer {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--sidebar-border);
+  background: var(--sidebar-bg);
+}
+
+.sidebar__account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: var(--rail-radius);
+  transition: background var(--transition);
+}
+
+.sidebar__account:hover {
+  background: var(--sidebar-hover-bg);
+}
+
+.sidebar__account:focus-visible {
+  outline: 2px solid var(--sidebar-focus);
+  outline-offset: -2px;
+}
+
+.sidebar__account-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--sidebar-bg-soft);
+}
+
+/* min-width:0 is what lets the two lines ellipse instead of forcing the
+   card wider than the rail — a full name and an email are both
+   unbounded. */
+.sidebar__account-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar__account-name {
+  font-size: .82rem;
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--sidebar-text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar__account-meta {
+  font-size: .72rem;
+  line-height: 1.35;
+  color: var(--sidebar-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Present only under the pointer or on focus. The row is a link and
+   the chevron says so; at rest it is one more mark in a corner that
+   reads best with nothing extra in it. */
+.sidebar__account-chevron {
+  flex-shrink: 0;
+  font-size: .68rem;
+  color: var(--sidebar-muted);
+  opacity: 0;
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.sidebar__account:hover .sidebar__account-chevron,
+.sidebar__account:focus-visible .sidebar__account-chevron {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   COLLAPSED RAIL — 68px of icons
+   Driven by a class on <html> so the width is correct on the very
+   first paint; a rail that renders wide and then snaps narrow is worse
+   than one that never collapsed.
+
+   Three rules govern everything below:
+
+     1. Nothing may reach past the rail's edge. Labels are clipped, not
+        hidden, so every row keeps its accessible name — but the label
+        someone SEES on hover is the browser's own tooltip, driven by a
+        title attribute main.js sets when the rail narrows. The flyout
+        that used to do this job was a ::after inside a scrolling box,
+        which is what gave the collapsed menu a horizontal scrollbar
+        and let its icons slide sideways.
+     2. Nothing may move between the two states except the width. The
+        collapse control is in the topbar and never moves at all.
+     3. Every icon sits on the same centre line, brand and account
+        included, so the column reads as one row of glyphs rather than
+        as a wide rail with its contents pushed left.
+   ════════════════════════════════════════════════════════════ */
+
+.rail-collapsed .app__sidebar {
+  width: var(--rail-width-collapsed);
+}
+
+.rail-collapsed .app__main {
+  margin-left: var(--rail-width-collapsed);
+}
+
+/* ── Brand ────────────────────────────────────────────────────────
+   The tile keeps its size and its baseline; only the text beside it
+   goes. Centring is done by the same flex box that laid the row out
+   expanded, so the logo travels straight to the middle rather than
+   being re-anchored. */
+.rail-collapsed .sidebar__brand {
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.rail-collapsed .sidebar__brand-text {
+  display: none;
+}
+
+/* ── Menu ─────────────────────────────────────────────────────────
+   Symmetrical padding, so the 48px of usable width is centred in the
+   68px column and every icon lands on the rail's centre line. */
+.rail-collapsed .sidebar__nav {
+  padding: 10px;
+}
+
+/* The scrollbar gutter is suppressed, not the scrolling. Twenty-odd
+   icons still exceed a laptop's height and the wheel still moves them;
+   what a 68px column cannot afford is 5px of that width permanently
+   spent on a track, which reads as the rail being mis-sized. */
+.rail-collapsed .sidebar__nav {
+  scrollbar-width: none;
+}
+
+.rail-collapsed .sidebar__nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* The heading collapses into the divider it already sat above — one
+   hairline per group, rather than a heading squeezed to nothing beside
+   a separate rule.
+
+   display:none, not a zero height. Squeezing it shut left the heading's
+   own <span> at its natural width inside a clipped box — invisible, but
+   still measuring 108px inside a 68px column — and left seven collapsible
+   headings in the tab order as zero-height buttons a keyboard user had to
+   pass through to reach the icons. Removing them takes care of both, and
+   costs nothing: a collapsed rail forces every group open, so there is
+   nothing left for a disclosure to disclose. */
+.rail-collapsed .sidebar__label {
+  display: none;
+}
+
+.rail-collapsed .sidebar__section+.sidebar__section::before {
+  margin: 8px -10px;
+}
+
+/* Groups are always open when the rail is collapsed: there is no
+   heading left to press, so a remembered group-collapse would hide
+   icons with no way back. The two states stay independent — this
+   overrides the group state for as long as the rail is narrow and
+   restores it exactly when the rail expands. */
+.rail-collapsed .sidebar__items {
+  grid-template-rows: 1fr !important;
+}
+
+.rail-collapsed .sidebar__items-inner {
+  overflow: visible;
+}
+
+/* ── Rows ─────────────────────────────────────────────────────────
+   A square target with the icon dead centre. The icon column keeps its
+   fixed width so a wide glyph and a narrow one still share a centre. */
+.rail-collapsed .sidebar__link {
+  justify-content: center;
+  padding: 0;
+  gap: 0;
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  margin-bottom: 2px;
+}
+
+/* Clipped, not removed. The row keeps its accessible name for a screen
+   reader; what the eye loses, the title tooltip gives back. */
+.rail-collapsed .sidebar__link-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The count has no room for digits beside a centred icon, so it becomes
+   a dot pinned to the target's own corner. The screen-reader phrase
+   inside it is untouched — what is dropped is the numeral, not the
+   information. */
+.rail-collapsed .sidebar__link-count {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  margin: 0;
+  min-width: 7px;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--sidebar-accent);
+  overflow: hidden;
+  text-indent: -99px;
+}
+
+/* ── Account ──────────────────────────────────────────────────────
+   The avatar lands on the same centre line as every icon above it. */
+.rail-collapsed .sidebar__footer {
+  padding: 8px 10px;
+}
+
+.rail-collapsed .sidebar__account {
+  justify-content: center;
+  padding: 3px 0;
+  gap: 0;
+}
+
+.rail-collapsed .sidebar__account-info,
+.rail-collapsed .sidebar__account-chevron {
+  display: none;
+}
+
+/* ── Drawer width wins over collapsed width ───────────────────────
+   The rail becomes a drawer at 768px — the breakpoint responsive.css
+   uses — and collapsing means nothing to a drawer. It must be this
+   number and not a rounder one: between 769px and 1024px the rail is
+   still pinned and visible, so zeroing the content margin there would
+   slide the page underneath it. */
+@media (max-width: 768px) {
+  .rail-collapsed .app__sidebar {
+    width: var(--sidebar-width);
+  }
+
+  .rail-collapsed .app__main {
+    margin-left: 0;
+  }
+
+  .rail-collapsed .sidebar__brand {
+    padding: 0 16px;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .rail-collapsed .sidebar__brand-text,
+  .rail-collapsed .sidebar__account-info {
+    display: block;
+  }
+
+  .rail-collapsed .sidebar__nav {
+    padding: 4px var(--rail-pad-x) 12px;
+    scrollbar-width: thin;
+  }
+
+  .rail-collapsed .sidebar__link {
+    justify-content: flex-start;
+    padding: 5px 10px;
+    height: auto;
+    min-height: var(--rail-row-h);
+    gap: 11px;
+  }
+
+  .rail-collapsed .sidebar__link-text {
+    position: static;
+    width: auto;
+    height: auto;
+    clip: auto;
+    clip-path: none;
+  }
+
+  .rail-collapsed .sidebar__link-count {
+    position: static;
+    width: auto;
+    height: auto;
+    min-width: 18px;
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--sidebar-active-bg);
+    text-indent: 0;
+    margin-left: auto;
+  }
+
+  .rail-collapsed .sidebar__account {
+    justify-content: flex-start;
+    padding: 7px 8px;
+    gap: 10px;
+  }
+}
+
+
+
+/* ─── Reduced motion ────────────────────────────────────────
+   Less movement, not less function: every state still arrives where it
+   was going, it just stops travelling to get there. */
+@media (prefers-reduced-motion: reduce) {
+
+  .sidebar__link,
+  .sidebar__link i,
+  .sidebar__items,
+  .sidebar__label-chev,
+  .sidebar__account,
+  .sidebar__account-chevron {
+    transition: none;
+  }
+
+  .sidebar__account:hover .sidebar__account-chevron {
+    transform: none;
+  }
+}

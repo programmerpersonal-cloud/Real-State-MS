@@ -44,6 +44,8 @@
  *   spark    float[]  optional series for the sparkline
  *   unavailable bool  the measure cannot be derived; render it as such
  *   url      string   optional; makes the whole tile a link
+ *   drill    string   optional; a drill-down URL. Takes precedence over url,
+ *                     and opens the records behind the figure in the drawer.
  *
  * Every local in this file is prefixed, and that is not house style — it is a
  * bug fix. A partial pulled in with require shares the including view's
@@ -58,7 +60,15 @@ $kpiC       = $kpi ?? [];
 $kpiDelta   = $kpiC['delta'] ?? null;
 $kpiSpark   = array_values(array_filter($kpiC['spark'] ?? [], 'is_numeric'));
 $kpiTone    = $kpiC['tone'] ?? 'primary';
-$kpiHasLink = !empty($kpiC['url']);
+/* A tile can lead somewhere in one of two ways, and drill wins where both
+   are set. `url` sends the reader to another report — useful navigation, and
+   what these tiles did before Phase 10. `drill` opens the records behind the
+   figure, which is what somebody questioning a number actually wants; sending
+   them to a second page of aggregates instead would be answering a question
+   they did not ask. */
+$kpiDrill   = (string) ($kpiC['drill'] ?? '');
+$kpiHref    = $kpiDrill !== '' ? $kpiDrill : (string) ($kpiC['url'] ?? '');
+$kpiHasLink = $kpiHref !== '';
 $kpiTag     = $kpiHasLink ? 'a' : 'div';
 $kpiValue   = (string) ($kpiC['value'] ?? '—');
 
@@ -116,10 +126,11 @@ if (count($kpiSpark) > 1) {
 
 $kpiClasses = 'kpi kpi--' . $kpiTone
     . ($kpiHasLink ? ' kpi--link' : '')
+    . ($kpiDrill !== '' ? ' kpi--drill' : '')
     . ($kpiAlert ? ' kpi--alert' : '')
     . ($kpiUnavail ? ' kpi--unavailable' : '');
 ?>
-<<?= $kpiTag ?> class="<?= sanitize($kpiClasses) ?>"<?= $kpiHasLink ? ' href="' . sanitize((string) $kpiC['url']) . '"' : '' ?>>
+<<?= $kpiTag ?> class="<?= sanitize($kpiClasses) ?>"<?= $kpiHasLink ? ' href="' . sanitize($kpiHref) . '"' : '' ?><?= $kpiDrill !== '' ? ' data-drill' : '' ?>>
 
     <div class="kpi__label">
         <?php if ($kpiIcon !== ''): ?>

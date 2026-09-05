@@ -9,9 +9,14 @@
  * context, and on a phone context belongs after the thing it describes.
  *
  * Every figure on this page comes from the controller, which got it from
- * backupHealth(), backupStorageUsage() and the Backup model. Nothing here
- * queries, computes a percentage from a guess, or shows a placeholder that
- * looks like data.
+ * backupHealth(), backupStorageUsage(), backupSchedulerState() and the Backup
+ * model. Nothing here queries, computes a percentage from a guess, or shows a
+ * placeholder that looks like data.
+ *
+ * That rule reaches the scheduler too. A stored next_run_at is a plan, and a
+ * plan is only a fact about the future if something is running plans, so the
+ * "Next Scheduled Backup" card is qualified by the runner's heartbeat rather
+ * than printed on its own authority.
  *
  * Vars from BackupController::index().
  */
@@ -76,14 +81,31 @@ $statCards = [
         'icon'  => 'bi-patch-check',
         'tone'  => $lastVerified ? 'success' : 'warning',
     ],
+    /* This card is the one that lied. It read "Next: Sep 03, 04:00 · Daily"
+       for two days after that time had passed, because a stored next_run_at is
+       a plan and nothing here knew whether anything executes plans. The date is
+       still shown — it is what the schedule says — but a date the system cannot
+       act on is no longer dressed in the calm blue of a promise being kept. */
     [
         'label' => 'Next Scheduled Backup',
-        'value' => $nextRun ? backupScheduleWhen($nextRun['next_run_at'], 'M d, H:i') : 'Not scheduled',
+        'value' => $nextRun
+            ? ($scheduler['installed'] && !$scheduler['stale']
+                ? backupScheduleWhen($nextRun['next_run_at'], 'M d, H:i')
+                : 'Will not run')
+            : 'Not scheduled',
         'meta'  => $nextRun
-            ? ucfirst($nextRun['frequency']) . ' · ' . (backupTypes()[$nextRun['backup_type']] ?? '')
+            ? (!$scheduler['installed']
+                ? 'Scheduled for ' . backupScheduleWhen($nextRun['next_run_at'], 'M d, H:i')
+                    . ', but the scheduler has never run'
+                : ($scheduler['stale']
+                    ? 'Scheduled for ' . backupScheduleWhen($nextRun['next_run_at'], 'M d, H:i')
+                        . ', but the scheduler stopped ' . $scheduler['ago']
+                    : ucfirst($nextRun['frequency']) . ' · ' . (backupTypes()[$nextRun['backup_type']] ?? '')))
             : 'No schedule is enabled',
         'icon'  => 'bi-calendar-event',
-        'tone'  => $nextRun ? 'info' : 'warning',
+        'tone'  => $nextRun
+            ? ($scheduler['installed'] && !$scheduler['stale'] ? 'info' : 'danger')
+            : 'warning',
     ],
     [
         'label' => 'Total Backups',

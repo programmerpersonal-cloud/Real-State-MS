@@ -47,6 +47,7 @@ if (!$mpRows && !$mpTRows) {
             <div class="card__body card__body--flush">
                 <div class="table-wrap">
                     <table class="table ploc__table">
+                        <caption class="sr-only">Maintenance requests by property.</caption>
                         <thead>
                             <tr>
                                 <th scope="col">Property</th>
@@ -65,7 +66,19 @@ if (!$mpRows && !$mpTRows) {
                                         </a>
                                         <div class="tp-code"><?= sanitize(categoryLabel((string) $mpR['category'])) ?></div>
                                     </th>
-                                    <td class="cell-num"><?= number_format((int) $mpR['requests']) ?></td>
+                                    <?php /* The count is the drill link: this
+                                             table exists to say where the work
+                                             is, and "where" is a question best
+                                             answered by the requests
+                                             themselves. */ ?>
+                                    <td class="cell-num">
+                                        <a class="is-drill" data-drill
+                                           href="<?= sanitize(reportDrillUrl(
+                                               $window, $filters, 'maintenance', 'property',
+                                               (string) (int) $mpR['id'],
+                                               !empty($compare) ? ['compare' => '1'] : []
+                                           )) ?>"><?= number_format((int) $mpR['requests']) ?></a>
+                                    </td>
                                     <td class="cell-num">
                                         <?= (int) $mpR['open_requests'] > 0
                                             ? sanitize(number_format((int) $mpR['open_requests']))
@@ -125,6 +138,7 @@ if (!$mpRows && !$mpTRows) {
 
                 <div class="table-wrap">
                     <table class="table ploc__table">
+                        <caption class="sr-only">Maintenance requests by issue type, as recorded.</caption>
                         <thead>
                             <tr>
                                 <th scope="col">Type as recorded</th>

@@ -19,6 +19,11 @@
  */
 $mtFiltered = reportFilterCount($filters) > 0;
 $mtCarry    = !empty($compare) ? ['compare' => '1'] : [];
+/* Every drill-down on this page carries the period, the comparison and the
+   filters above, because it is built from the same window and filters the
+   figures were. Nothing is copied across by hand. */
+$mtDrill = static fn(string $metric, string $key = ''): string
+    => reportDrillUrl($window, $filters, 'maintenance', $metric, $key, $mtCarry);
 $mtReset    = reportUrl($window, [], ['tab' => 'maintenance'] + $mtCarry);
 
 $mtBucket = static function (array $mtB, string $mtKey): int {
@@ -46,6 +51,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         'icon'    => 'bi-tools',
         'tone'    => 'primary',
         'context' => 'Logged in ' . $window['label'] . ' — a period figure',
+        'drill'   => $mtDrill('raised'),
         'spark'   => array_map(static fn(array $b): float => (float) $b['total'], $maintSeries['raised']),
         'delta'   => $previous !== null
             ? reportDelta((float) $summary['raised'], (float) $previous['raised'])
@@ -70,6 +76,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
                 (int) $summary['awaiting'], (int) $summary['assigned'], (int) $summary['in_progress']
             )
             : 'Nothing outstanding',
+        'drill'   => $mtDrill('open'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -81,6 +88,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         'context' => (int) $summary['in_progress'] > 0
             ? 'Work has started on these'
             : 'No request has been started',
+        'drill'   => $mtDrill('in_progress'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -91,6 +99,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         'icon'    => 'bi-check2-circle',
         'tone'    => (int) $summary['completed'] > 0 ? 'success' : 'info',
         'context' => sprintf('in %s · %d completed ever', $window['label'], (int) $summary['completed_ever']),
+        'drill'   => $mtDrill('completed'),
         'delta'   => $previous !== null
             ? reportDelta((float) $summary['completed'], (float) $previous['completed'])
             : null,
@@ -109,6 +118,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
         'context' => (int) $summary['open_urgent'] > 0
             ? 'Marked high or urgent and not yet closed'
             : 'No high or urgent work outstanding',
+        'drill'   => $mtDrill('open_urgent'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -128,6 +138,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
                 (int) $resolution['resolved'], (int) $resolution['fastest'], (int) $resolution['slowest']
             )
             : 'No completed request carries a completion date',
+        'drill'   => !empty($resolution['available']) ? $mtDrill('resolved') : null,
     ];
     require dirname(__DIR__) . '/_kpi.php';
     ?>
@@ -165,6 +176,8 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
             ['label' => 'Raised',    'data' => array_map(static fn(array $b): float => (float) $b['total'], $maintSeries['raised']),    'tone' => '--warning'],
             ['label' => 'Completed', 'data' => array_map(static fn(array $b): float => (float) $b['total'], $maintSeries['completed']), 'tone' => '--success'],
         ],
+        'drill'    => ['metric' => 'bucket',
+                       'keys'   => array_column($maintSeries['raised'], 'bucket')],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No maintenance request was raised or completed in this period.',
         'size'   => 'feature',
@@ -191,6 +204,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
             'data'  => array_map(static fn(array $r): int => (int) $r['requests'], $statusMix),
             'tone'  => '--primary',
         ]],
+        'drill'      => ['metric' => 'status', 'keys' => array_column($statusMix, 'status')],
         'label_heading' => 'Status',
         'empty'      => 'No maintenance request is in scope for the current filters.',
         'size'     => 'feature',
@@ -225,6 +239,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
             'data'  => array_map(static fn(array $r): int => (int) $r['requests'], $mtPriorityDrawn),
             'tones' => array_column($mtPriorityDrawn, 'tone'),
         ]],
+        'drill'    => ['metric' => 'priority', 'keys' => array_column($mtPriorityDrawn, 'priority')],
         'label_heading' => 'Priority',
         'empty'    => 'Nothing is open, so there is no priority mix to show.',
         'size'   => 'standard',
@@ -249,6 +264,7 @@ $mtOld = $mtBucket($ageing['buckets'], 'd15');
             'data'  => array_map(static fn(array $r): int => (int) $r['requests'], $ageing['buckets']),
             'tone'  => '--primary',
         ]],
+        'drill'      => ['metric' => 'age', 'keys' => array_column($ageing['buckets'], 'key')],
         'label_heading' => 'Age',
         'empty'      => 'Nothing is open, so there is no queue to age.',
         'size'     => 'standard',

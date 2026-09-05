@@ -76,6 +76,32 @@ $GLOBALS['reportHasChart'] = false;
     </div>
 </section>
 
+<?php /* The drill-down drawer.
+
+         Empty until something is clicked, and rendered here rather than
+         injected by script so its dialog semantics, its heading and its close
+         control exist in the document from the start. reports.js fetches the
+         same URL the link points at with &partial=1 and puts the panel
+         inside; without scripting the link is simply followed and the panel
+         renders as its own page. Neither path is a fallback for the other —
+         they render the same partial. §1, §15, §18. */ ?>
+<div class="drawer" id="drillDrawer" hidden data-drill-drawer>
+    <div class="drawer__scrim" data-drill-close></div>
+    <section class="drawer__panel"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="drillTitle"
+             aria-busy="false"
+             tabindex="-1">
+        <button type="button" class="drawer__close" data-drill-close aria-label="Close drill-down">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+        <div class="drawer__content" data-drill-content>
+            <h2 class="sr-only" id="drillTitle">Drill-down</h2>
+        </div>
+    </section>
+</div>
+
 <?php if ($GLOBALS['reportHasChart']): ?>
     <?php /* Ahead of reports.js, which scripts.php prints at the end of the
              body. Both are plain synchronous tags, so Chart.js is defined by

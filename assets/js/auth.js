@@ -1,13 +1,12 @@
 /**
- * The login ↔ registration switch, and the two things that decorate it.
+ * The login ↔ registration switch, and the one thing that decorates it.
  *
  * Both forms are already on the page (see views/auth/_shell.php); this
  * only decides which one is showing and cross-fades the welcome panel.
  * Nothing here submits anything — the two forms keep their own actions,
  * their own CSRF tokens and their own server-side validation, and with
- * this file removed the switch controls are still links that work, the
- * first photograph is still shown, and registration still validates on
- * the server exactly as before.
+ * this file removed the switch controls are still links that work and
+ * registration still validates on the server exactly as before.
  *
  * Three things are worth knowing before editing:
  *
@@ -26,17 +25,34 @@
  *    fields out of the tab order and out of the accessibility tree; a
  *    faded-but-focusable form is the usual bug in this pattern.
  *
- * The other two modules are initSlideshow() — the property photographs
- * behind the welcome panel, which change every five seconds under a
- * slow continuous zoom, and stop on hover, on focus, on a dot press
- * and under reduced motion — and initStrength(), the advisory strength
- * bar under the new password. Both are scoped to this screen and
- * neither is load-bearing.
+ * The other module is initStrength(), the advisory strength bar under
+ * the new password. It is scoped to this screen and is not
+ * load-bearing: the rule that decides whether an account is created is
+ * still the server's.
+ *
+ * A third used to live here — the property slideshow behind the welcome
+ * panel. The panel is a flat brand gradient now, so the photographs,
+ * their dot controls and the two matchMedia helpers they alone needed
+ * have all gone with it.
  */
 (function () {
   'use strict';
 
   var HEIGHT_RELEASE_MS = 560;
+
+  /* Marked now rather than on DOMContentLoaded, and the difference is
+     visible. This file is a plain synchronous tag at the foot of the
+     body, so it runs while the parser is finishing and before the first
+     paint; the class is what turns the stacked layout into two steps, and
+     adding it a tick later would paint the one-step layout and then jump.
+
+     Everything keyed to .is-enhanced is therefore also the answer to
+     "what happens with scripting off": the hero and the form are both on
+     the page, as they were, and the gate's links navigate. */
+  document.querySelectorAll('[data-auth-shell]').forEach(function (shell) {
+    shell.classList.add('is-enhanced');
+    shell.querySelectorAll('[data-auth-back]').forEach(function (el) { el.hidden = false; });
+  });
 
   function initAuthShell(shell) {
     var forms = shell.querySelector('[data-auth-forms]');
@@ -44,10 +60,14 @@
 
     var panels = collect(shell, '[data-auth-panel]', 'authPanel');
     var faces  = collect(shell, '[data-auth-face]', 'authFace');
+    var gate   = shell.querySelector('[data-auth-gate]');
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     var narrow = window.matchMedia('(max-width: 1023px)');
     var titles = { login: shell.dataset.titleLogin, register: shell.dataset.titleRegister };
     var timer  = null;
+
+    // What the server opened on, for a history entry that names no step.
+    var firstStep = shell.dataset.authStep === 'form' ? 'form' : 'choose';
 
     shell.addEventListener('click', function (event) {
       var trigger = event.target.closest('[data-auth-switch]');
@@ -55,28 +75,94 @@
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
 
       var mode = trigger.getAttribute('data-auth-switch');
-      if (!panels[mode] || mode === shell.dataset.authMode) return;
+      if (!panels[mode]) return;
+
+      // Two things can be asked for here and either alone is enough to
+      // act on. The gate's "Sign In" pressed on ?page=login changes no
+      // mode at all — it is only asking for the form — and the old
+      // guard, which compared modes and gave up when they matched, let
+      // that navigate away and reload the page it was already on.
+      var wantsMode = mode !== shell.dataset.authMode;
+      var wantsStep = narrow.matches && shell.dataset.authStep !== 'form';
+      if (!wantsMode && !wantsStep) return;
 
       event.preventDefault();
-      setMode(mode, true);
+
+      // Step first: it is what takes the form out of display:none, and
+      // measuring a hidden panel for the height animation would measure
+      // zero. That animation is skipped on a step change for the same
+      // reason — the step's own transition is already covering it.
+      if (wantsStep) setStep('form');
+      if (wantsMode) setMode(mode, true, !wantsStep);
+      else focusInto(panels[mode]);
 
       // The URL follows the panel, so a refresh, a bookmark or the back
       // button all land where the person actually is.
       var href = trigger.getAttribute('href');
-      if (href && window.history.pushState) window.history.pushState({ authMode: mode }, '', href);
+      if (href && window.history.pushState) {
+        window.history.pushState({ authMode: mode, authStep: shell.dataset.authStep }, '', href);
+      }
+    });
+
+    // The way back to the gate, and a history entry with it, so the
+    // browser's own back button does the same thing this button does.
+    shell.querySelectorAll('[data-auth-back]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        setStep('choose');
+        if (window.history.pushState) {
+          window.history.pushState({ authStep: 'choose' }, '', stepUrl('choose'));
+        }
+        var first = gate && gate.querySelector('a[data-auth-switch]');
+        if (first) first.focus();
+      });
     });
 
     window.addEventListener('popstate', function () {
       var mode = modeFromLocation();
-      if (panels[mode] && mode !== shell.dataset.authMode) setMode(mode, false);
+      if (panels[mode] && mode !== shell.dataset.authMode) setMode(mode, false, true);
+      setStep(stepFromLocation());
     });
 
     /**
-     * @param {string}  mode
-     * @param {boolean} moveFocus  true when a person asked for the switch
+     * Which of the two steps a narrow screen is showing. Inert on a wide
+     * one — the CSS that reads this attribute is inside a media query —
+     * but it is still set, so a phone rotated to landscape and back finds
+     * the screen where it left it.
      */
-    function setMode(mode, moveFocus) {
-      var animate = !reduce.matches;
+    function setStep(step) {
+      if (shell.dataset.authStep === step) return;
+      shell.dataset.authStep = step;
+      if (step === 'choose') forms.style.height = '';
+    }
+
+    /** The current page URL carrying an explicit step. */
+    function stepUrl(step) {
+      var params = new URLSearchParams(window.location.search);
+      params.set('step', step);
+      return window.location.pathname + '?' + params.toString();
+    }
+
+    /**
+     * Only an explicit ?step= is believed. A history entry that names no
+     * step is the one the server rendered, and that one opened on
+     * whichever step the server chose — which is 'form' when a rejected
+     * submission left errors on the page, and going back to it must not
+     * hide them behind the gate.
+     */
+    function stepFromLocation() {
+      var step = new URLSearchParams(window.location.search).get('step');
+      return step === 'form' || step === 'choose' ? step : firstStep;
+    }
+
+    /**
+     * @param {string}  mode
+     * @param {boolean} moveFocus     true when a person asked for the switch
+     * @param {boolean} animateHeight false when the stack was hidden a
+     *                                moment ago and there is no old height
+     *                                worth animating from
+     */
+    function setMode(mode, moveFocus, animateHeight) {
+      var animate = animateHeight !== false && !reduce.matches;
       var from = forms.offsetHeight;
 
       if (animate) forms.style.transition = 'none';
@@ -172,113 +258,6 @@
   }
 
   /* ────────────────────────────────────────────────────────────────
-     The property slideshow
-
-     One photograph is visible at a time and the rest are stacked
-     behind it at opacity 0 — the swap is a class change, so a slow
-     image can never leave a blank frame between two pictures. The
-     pictures are held still: nothing pans, nothing zooms, one simply
-     replaces the next every five seconds.
-
-     Under the swap, every photograph is drifting slowly in or out.
-     That animation lives in CSS and runs continuously rather than
-     being keyed to whichever slide is showing — keyed to .is-active it
-     would restart on every swap, and the snap back to its first frame
-     is exactly what a drift like this must never do. This module only
-     decides whether it is running, by way of an .is-playing class.
-
-     There is no pause button on the panel. What stops both the
-     rotation and the zoom is everything a person does when they are
-     actually looking at it: hovering it, moving keyboard focus into
-     it, backgrounding the tab, or choosing a photograph from the dots
-     — which holds it there for good, and is the deliberate, operable
-     stop that auto-updating content is required to offer. Under
-     prefers-reduced-motion neither starts at all.
-     ──────────────────────────────────────────────────────────────── */
-  function initSlideshow(root) {
-    var slides = toArray(root.querySelectorAll('[data-slide]'));
-    // One photograph still drifts; it just never advances. The guard
-    // is on the timer below rather than here.
-    if (!slides.length) return;
-
-    var cards  = toArray(root.querySelectorAll('[data-slide-card]'));
-    var dots   = toArray(root.querySelectorAll('[data-slide-to]'));
-    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-    var every  = Math.max(1000, parseInt(root.dataset.slideshowInterval, 10) || 5000);
-
-    var index   = 0;
-    var timer   = null;
-    var stopped = false;   // asked for by a person, and remembered
-    var held    = false;   // hover / focus / hidden tab, transient
-
-    dots.forEach(function (dot) {
-      dot.addEventListener('click', function () {
-        show(parseInt(dot.getAttribute('data-slide-to'), 10) || 0);
-        // Choosing a property is a statement of interest in that one.
-        // This is also the screen's stop control, so it has to last:
-        // a rotation that resumed a few seconds later would defeat
-        // the point of having asked for this photograph.
-        stopped = true;
-        sync();
-      });
-    });
-
-    // Transient holds. These never clear `stopped`, so moving the
-    // pointer away cannot restart a slideshow somebody stopped.
-    root.addEventListener('mouseenter', function () { held = true; sync(); });
-    root.addEventListener('mouseleave', function () { held = false; sync(); });
-    root.addEventListener('focusin', function () { held = true; sync(); });
-    root.addEventListener('focusout', function () {
-      if (!root.contains(document.activeElement)) { held = false; sync(); }
-    });
-    document.addEventListener('visibilitychange', sync);
-
-    // The query is live: turning the system setting on mid-session
-    // stops the rotation rather than waiting for a reload.
-    onMediaChange(reduce, sync);
-
-    sync();
-
-    /** Show slide `next`, immediately and completely. */
-    function show(next) {
-      index = ((next % slides.length) + slides.length) % slides.length;
-
-      slides.forEach(function (el, i) { el.classList.toggle('is-active', i === index); });
-      dots.forEach(function (el, i) {
-        el.classList.toggle('is-active', i === index);
-        el.setAttribute('aria-pressed', String(i === index));
-      });
-      // Cards are keyed by slide index rather than by position: a
-      // listing with no title renders no card at all, so the two lists
-      // are not necessarily the same length.
-      cards.forEach(function (el) {
-        el.classList.toggle('is-active', parseInt(el.getAttribute('data-slide-card'), 10) === index);
-      });
-    }
-
-    /** Whether the pictures should be moving right now. */
-    function running() {
-      return !stopped && !held && !reduce.matches && !document.hidden;
-    }
-
-    function sync() {
-      window.clearInterval(timer);
-      timer = null;
-
-      var go = running();
-
-      // The zoom is moving content in its own right, so it answers to
-      // the same switch the rotation does — stopping one and leaving
-      // the other running would defeat the point of stopping either.
-      root.classList.toggle('is-playing', go);
-
-      if (go && slides.length > 1) {
-        timer = window.setInterval(function () { show(index + 1); }, every);
-      }
-    }
-  }
-
-  /* ────────────────────────────────────────────────────────────────
      Password strength
 
      Advice, not a gate. The rule that decides whether an account is
@@ -344,19 +323,8 @@
     return Math.max(1, Math.min(4, Math.ceil(points * 4 / 5)));
   }
 
-  function toArray(list) {
-    return Array.prototype.slice.call(list);
-  }
-
-  /** matchMedia listener, with the pre-Safari-14 spelling as a fallback. */
-  function onMediaChange(query, fn) {
-    if (query.addEventListener) query.addEventListener('change', fn);
-    else if (query.addListener) query.addListener(fn);
-  }
-
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-auth-shell]').forEach(initAuthShell);
-    document.querySelectorAll('[data-slideshow]').forEach(initSlideshow);
     document.querySelectorAll('[data-strength-input]').forEach(initStrength);
   });
 })();

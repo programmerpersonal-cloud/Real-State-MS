@@ -103,6 +103,111 @@
 .switch__text{font-size:var(--fs-sm);font-weight:500;color:var(--text-muted)}
 .switch input:checked ~ .switch__text{color:var(--success)}
 
+/* ─── Appearance: the sidebar theme picker ──────────────────
+   Three tiles, each drawing the rail it selects. The preview is built
+   from spans rather than an image because it has to track the accent
+   live — pick a colour below and the active row in all three tiles
+   changes with it, which is what makes the two fields read as one
+   decision instead of two unrelated ones. */
+.theme-field{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.theme-tile{
+  position:relative;display:flex;flex-direction:column;gap:10px;cursor:pointer;
+  padding:10px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface);
+  transition:border-color var(--transition),box-shadow var(--transition);
+}
+.theme-tile:hover{border-color:var(--border-strong)}
+/* The radio itself is the accessible control and stays in the tab order —
+   it is only moved out of sight, never removed. Focus is drawn on the tile
+   around it, so a keyboard user sees the same thing a mouse user clicks. */
+.theme-tile input{position:absolute;opacity:0;width:0;height:0}
+.theme-tile:has(input:checked),.theme-tile.is-selected{
+  border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)
+}
+.theme-tile:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
+
+/* The preview: a rail against a page, at about a tenth scale. */
+.theme-tile__preview{
+  display:flex;height:72px;border-radius:var(--radius-xs);overflow:hidden;
+  border:1px solid var(--border);
+}
+.theme-tile__rail{
+  width:38%;flex-shrink:0;display:flex;flex-direction:column;gap:5px;padding:7px 6px;
+}
+.theme-tile__page{flex:1;background:#f4f6f9}
+.theme-tile__brand{height:7px;width:70%;border-radius:2px;background:var(--sidebar-accent);margin-bottom:2px}
+.theme-tile__row{height:5px;border-radius:2px}
+.theme-tile__row--active{background:var(--sidebar-accent);opacity:.9}
+
+/* Each tile paints its own mode, fixed rather than themed: these are
+   pictures of the three choices, so the dark one must look dark even
+   while the installation is set to light. */
+[data-theme-tile="light"] .theme-tile__rail{background:#fdfdfe;border-right:1px solid #e4e6ea}
+[data-theme-tile="light"] .theme-tile__row{background:#dfe2e8}
+[data-theme-tile="dark"] .theme-tile__rail{background:#17181d}
+[data-theme-tile="dark"] .theme-tile__row{background:#3a3f49}
+/* Auto is the only honest way to draw "it depends": half of each. */
+[data-theme-tile="auto"] .theme-tile__rail{
+  background:linear-gradient(105deg,#fdfdfe 0 50%,#17181d 50% 100%);
+  border-right:1px solid #d9dce2;
+}
+[data-theme-tile="auto"] .theme-tile__row{background:linear-gradient(105deg,#dfe2e8 0 50%,#3a3f49 50% 100%)}
+
+.theme-tile__body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.theme-tile__name{font-size:var(--fs-sm);font-weight:600;color:var(--text)}
+.theme-tile__hint{font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.45}
+
+/* ─── Appearance: the accent picker ─────────────────────────
+   Presets first because they are the answer for almost everyone, and a
+   hex box beside them because the one person with a brand guideline
+   needs to paste a value, not hunt for it in a colour wheel. */
+.accent-field{display:flex;flex-direction:column;gap:12px}
+.accent-field__swatches{display:flex;flex-wrap:wrap;gap:8px}
+.accent-swatch{
+  position:relative;width:32px;height:32px;flex-shrink:0;cursor:pointer;
+  border-radius:50%;background:var(--swatch);
+  border:2px solid var(--surface);
+  box-shadow:0 0 0 1px var(--border-strong);
+  transition:transform var(--transition),box-shadow var(--transition);
+}
+.accent-swatch:hover{transform:scale(1.08)}
+.accent-swatch:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+.accent-swatch.is-selected{box-shadow:0 0 0 2px var(--text)}
+/* A tick, not just a ring: selection among eight coloured circles cannot
+   be carried by an outline whose contrast changes with every swatch. */
+.accent-swatch.is-selected::after{
+  content:"";position:absolute;inset:0;margin:auto;
+  width:9px;height:5px;border:2px solid #fff;border-top:0;border-right:0;
+  transform:translateY(-1px) rotate(-45deg);
+}
+
+.accent-field__custom{display:flex;align-items:center;gap:8px}
+/* The native colour well is 32px of chrome that every browser draws
+   differently; the span around it supplies the one shape they share. */
+.accent-field__well{
+  width:38px;height:38px;flex-shrink:0;border-radius:var(--radius-sm);
+  overflow:hidden;border:1px solid var(--border-strong);
+  display:flex;
+}
+.accent-field__well input[type=color]{
+  width:150%;height:150%;margin:-25%;padding:0;border:0;background:none;cursor:pointer;
+}
+.accent-field__hex{max-width:130px;font-family:var(--font-mono);text-transform:lowercase}
+.accent-field__reset{
+  background:none;border:0;padding:6px 4px;cursor:pointer;font-family:inherit;
+  font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);
+  text-decoration:underline;text-underline-offset:2px;
+  transition:color var(--transition);
+}
+.accent-field__reset:hover{color:var(--text)}
+.accent-field__reset:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:var(--radius-xs)}
+
+@media(max-width:760px){
+  .theme-field{grid-template-columns:1fr}
+  .theme-tile{flex-direction:row;align-items:center;gap:12px}
+  .theme-tile__preview{width:96px;height:56px;flex-shrink:0}
+}
+
 /* Logo upload + preview of the file chosen before it is sent */
 .logo-field{display:flex;align-items:flex-start;gap:14px}
 .logo-field__preview{

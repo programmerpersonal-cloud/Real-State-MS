@@ -200,14 +200,69 @@ class ReportController
      */
     private function render(string $tab): void
     {
-        $window  = reportWindow($_GET);
+        $vars = $this->payload($tab) + [
+            'isBuilt'      => in_array($tab, self::BUILT, true),
+            'pageTitle'    => 'Reports & Analytics',
+            'pageSubtitle' => 'Real-time portfolio intelligence and operational analytics.',
+            'breadcrumbs'  => [['label' => 'Reports'], ['label' => self::TABS[$tab]['label']]],
+        ];
+
+        renderPage(VIEWS_PATH . '/admin/reports/index.php', $vars);
+    }
+
+    /**
+     * One report's figures, resolved from the request.
+     *
+     * Extracted from render() in Phase 9 so that the export shares it rather
+     * than reconstructing it. That is the whole of "screen KPI = export KPI":
+     * both callers run this one method, so there is no second window, no
+     * second filter validation and no second set of analytics calls that
+     * could drift from the first. An export renders the array the screen
+     * would have rendered, and cannot do otherwise.
+     *
+     * @return array<string,mixed>
+     */
+    private function payload(string $tab): array
+    {
+        $vars      = $this->context($tab);
+        $analytics = $vars['analytics'];
+        $compare   = $vars['compare'];
+
+        return $vars + match ($tab) {
+            'overview'    => $this->overviewData($analytics, $compare),
+            'financial'   => $this->financialData($analytics, $compare),
+            'properties'  => $this->propertiesData($analytics, $compare),
+            'rentals'     => $this->rentalsData($analytics),
+            'sales'       => $this->salesData($analytics, $compare),
+            'maintenance' => $this->maintenanceData($analytics, $compare),
+            'payments'    => $this->paymentsData($analytics, $compare),
+            'performance' => $this->performanceData($analytics),
+            default       => [],
+        };
+    }
+
+    /**
+     * The reader's window, filters and comparison mode, resolved once.
+     *
+     * Split out from payload() in Phase 10 because a drill-down needs exactly
+     * this and none of the figures. That matters for more than tidiness: it
+     * is what makes §10 true by construction rather than by discipline. A
+     * drill-down cannot silently reset a filter or widen a period, because it
+     * never resolves either one for itself — it runs the same three lines the
+     * report ran, over the same query string.
+     *
+     * @return array<string,mixed>
+     */
+    private function context(string $tab): array
+    {
+        $window = reportWindow($_GET);
 
         // Validated first, then narrowed to what this particular report can
         // honour. Both steps matter: the first stops a bad value reaching
         // SQL, the second stops a good value being carried around by a report
         // that would silently ignore it.
-        $filters   = reportFilters($_GET);
-        $honoured  = self::filtersFor($tab);
+        $filters  = reportFilters($_GET);
+        $honoured = self::filtersFor($tab);
         foreach (array_keys(reportFilterSpec()) as $name) {
             if (!in_array($name, $honoured, true)) {
                 $filters[$name] = null;
@@ -220,33 +275,199 @@ class ReportController
         // tab change with them.
         $compare = ($_GET['compare'] ?? '') === '1';
 
-        $analytics = new CoreAnalytics($window, $filters);
+        return [
+            'reportTab' => $tab,
+            'window'    => $window,
+            'filters'   => $filters,
+            'compare'   => $compare,
+            'analytics' => new CoreAnalytics($window, $filters),
+        ];
+    }
 
-        $vars = [
-            'reportTab'    => $tab,
-            'window'       => $window,
-            'filters'      => $filters,
-            'compare'      => $compare,
-            'analytics'    => $analytics,
-            'isBuilt'      => in_array($tab, self::BUILT, true),
-            'pageTitle'    => 'Reports & Analytics',
-            'pageSubtitle' => 'Real-time portfolio intelligence and operational analytics.',
-            'breadcrumbs'  => [['label' => 'Reports'], ['label' => self::TABS[$tab]['label']]],
+    // ─── Drill-down ─────────────────────────────────────────
+
+    /**
+     * The records behind one figure.
+     *
+     * Its own authorize() call, like every other public method on this class.
+     * A drill-down is a way of reading the report and is gated exactly as
+     * reading it is — and because it reaches individual rows rather than
+     * totals, the record scope underneath matters more here than anywhere
+     * else in the module. It is the same scope: every method
+     * ReportDrilldown calls resolves it through record_access.php, so an
+     * agent opening the company arrears panel is served the arrears on their
+     * own tenancies. Not filtered down to them. Never fetched.
+     *
+     * Three allowlists stand between the query string and a query: routeFor()
+     * for the tab, ReportDrilldown::resolve() for the metric, and the
+     * model's own lists for the key. A metric that is not in the catalogue
+     * does not produce an empty table — it produces a panel saying the
+     * drill-down does not exist, which is a different and more honest answer.
+     *
+     * Answers with the panel alone when asked for a partial, and with the
+     * whole page otherwise, so the same URL works as a fetch, as a bookmark
+     * and with scripting off.
+     */
+    public function drill(): void
+    {
+        authorize('reports.view');
+
+        require_once BASE_PATH . '/models/ReportDrilldown.php';
+
+        $tab     = self::routeFor($_GET['tab'] ?? '');
+        $metric  = is_string($_GET['metric'] ?? null) ? $_GET['metric'] : '';
+        $spec    = ReportDrilldown::resolve($tab, $metric);
+        $partial = ($_GET['partial'] ?? '') === '1';
+
+        $context = $this->context($tab);
+        $key     = $this->drillKey($spec, $_GET['key'] ?? '');
+        $page    = max(1, (int) ($_GET['dp'] ?? 1));
+
+        $vars = $context + [
+            'metric'    => $metric,
+            'spec'      => $spec,
+            'drillKey'  => $key,
+            'result'    => $spec === null
+                ? null
+                : ReportDrilldown::fetch($spec, $key, $context['analytics'], $page),
+            'keyLabel'  => $spec === null ? '' : ReportDrilldown::keyLabel($spec, $key, $context['window']),
         ];
 
-        $vars += match ($tab) {
-            'overview'    => $this->overviewData($analytics, $compare),
-            'financial'   => $this->financialData($analytics, $compare),
-            'properties'  => $this->propertiesData($analytics, $compare),
-            'rentals'     => $this->rentalsData($analytics),
-            'sales'       => $this->salesData($analytics, $compare),
-            'maintenance' => $this->maintenanceData($analytics, $compare),
-            'payments'    => $this->paymentsData($analytics, $compare),
-            'performance' => $this->performanceData($analytics),
-            default       => [],
-        };
+        if ($partial) {
+            // The panel on its own, for the drawer. No layout, no session
+            // write behind it, and the same markup the full page renders.
+            header('Content-Type: text/html; charset=UTF-8');
+            header('X-Content-Type-Options: nosniff');
+            extract($vars);
+            require VIEWS_PATH . '/admin/reports/_drilldown.php';
+            exit;
+        }
 
-        renderPage(VIEWS_PATH . '/admin/reports/index.php', $vars);
+        renderPage(VIEWS_PATH . '/admin/reports/drilldown.php', $vars + [
+            'pageTitle'    => 'Reports & Analytics',
+            'pageSubtitle' => 'Real-time portfolio intelligence and operational analytics.',
+            'breadcrumbs'  => [
+                ['label' => 'Reports'],
+                ['label' => self::TABS[$tab]['label'], 'url' => reportUrl($context['window'], $context['filters'], ['tab' => $tab])],
+                ['label' => $spec === null ? 'Drill-down' : (string) $spec['label']],
+            ],
+        ]);
+    }
+
+    /**
+     * The key, measured against the catalogue's own list where it declares
+     * one.
+     *
+     * A spec that names its keys — the four commercial states, the five
+     * expiry bands — accepts nothing else, and a spec whose key is an id or
+     * a chart bucket passes it through to the model, which checks it against
+     * the reader's scope or binds it as a parameter. What never happens is a
+     * value reaching SQL because it looked reasonable here.
+     */
+    private function drillKey(?array $spec, mixed $raw): string
+    {
+        if ($spec === null || !is_string($raw)) {
+            return '';
+        }
+        if ($spec['fixed'] !== null) {
+            return (string) $spec['fixed'];
+        }
+        if (is_array($spec['keys'])) {
+            return uiPick($raw, array_keys($spec['keys']));
+        }
+
+        // Bound as a parameter, or cast to an int and checked for scope, by
+        // whichever model method receives it. Length-capped here only so a
+        // megabyte of query string cannot be handed to the database.
+        return substr($raw, 0, 64);
+    }
+
+    // ─── Export ────────────────────────────────────────────────
+
+    /**
+     * The current report, as a downloadable document.
+     *
+     * Its own authorize() call, like every other public method on this class
+     * and for the same reason: an export is a way of reading the report, so
+     * it is gated exactly as reading it is. Nothing else is trusted either —
+     * the tab is resolved through routeFor()'s allowlist, the format through
+     * reportExportFormat()'s, and the window and filters through the same
+     * reportWindow() and reportFilters() the screen uses, which is what makes
+     * an agent asking for ?agent=7 refused here exactly as they are there.
+     *
+     * No new permission was created. "May you read this report" and "may you
+     * take this report away with you" are the same question, and inventing a
+     * second one would only let the two answers drift apart.
+     */
+    public function export(): void
+    {
+        authorize('reports.view');
+
+        $format = reportExportFormat($_GET['format'] ?? '');
+        if ($format === '') {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo 'Unknown export format. Choose PDF, Excel or CSV from the report toolbar.';
+            exit;
+        }
+
+        $tab = self::routeFor($_GET['tab'] ?? '');
+
+        require_once BASE_PATH . '/models/ReportDocument.php';
+        require_once BASE_PATH . '/models/ReportExporter.php';
+
+        // A drill-down exports through the same three writers as the report
+        // it was opened from, carrying the same masthead, period and filter
+        // list -- Phase 9 built one export engine and Phase 10 hands it a
+        // narrower document rather than building a second. A metric that is
+        // not in the catalogue falls through to the whole report, which is
+        // the same answer the drill-down itself gives.
+        $document = null;
+        $slice    = '';
+        if (($_GET['drill'] ?? '') === '1') {
+            require_once BASE_PATH . '/models/ReportDrilldown.php';
+
+            $metric = is_string($_GET['metric'] ?? null) ? $_GET['metric'] : '';
+            $spec   = ReportDrilldown::resolve($tab, $metric);
+
+            if ($spec !== null) {
+                $context  = $this->context($tab);
+                $key      = $this->drillKey($spec, $_GET['key'] ?? '');
+                $result   = ReportDrilldown::fetch($spec, $key, $context['analytics'], 1);
+                $label    = ReportDrilldown::keyLabel($spec, $key, $context['window']);
+                $slice    = $result['label'] . ($label !== '' ? ' ' . $label : '');
+                $document = ReportDocument::buildDrill(
+                    $tab,
+                    $context,
+                    $spec,
+                    $key,
+                    $label,
+                    $result,
+                    $context['analytics']
+                );
+            }
+        }
+
+        $document ??= ReportDocument::build($tab, $this->payload($tab));
+        $filename = reportExportFilename($tab, $format, $slice);
+
+        // CSV is streamed, so its headers go first and its rows are written
+        // straight to the socket. The other two are built whole, which means
+        // a failure while building produces an error page rather than a
+        // truncated file with a plausible name on it.
+        if ($format === 'csv') {
+            reportExportHeaders($filename, $format);
+            ReportExporter::csv($document);
+            exit;
+        }
+
+        $bytes = $format === 'pdf'
+            ? ReportExporter::pdf($document)
+            : ReportExporter::xlsx($document);
+
+        reportExportHeaders($filename, $format, strlen($bytes));
+        echo $bytes;
+        exit;
     }
 
     /**
@@ -261,6 +482,12 @@ class ReportController
      */
     private function overviewData(CoreAnalytics $analytics, bool $compare): array
     {
+        // The rule engine behind the Decision Center. Required here rather
+        // than at the top of the file because the Overview is the only tab
+        // that renders one, and seven other reports should not pay to load
+        // a class they never call.
+        require_once BASE_PATH . '/models/ReportIntelligence.php';
+
         $occupancy    = $analytics->occupancy();
         $ledger       = $analytics->rentLedger();
         $inventory    = $analytics->inventory();
@@ -280,7 +507,35 @@ class ReportController
         $previousRevenue = $compare ? $analytics->collectedRevenue(true) : null;
         $previousSeries  = $compare ? $analytics->revenueComparisonSeries() : [];
 
+        // Phase 11's cross-report signals.
+        //
+        // The Decision Center reads the Overview's own figures for almost
+        // everything, but four of the things a manager needs to see on the
+        // front page -- tenancies running out, the maintenance queue, the
+        // sales pipeline, money dated ahead -- belong to other reports and
+        // are not otherwise on this one. They are gathered here, once, as
+        // aggregates: a fixed handful of extra round trips on this single
+        // tab rather than a query per insight. Nothing below fetches a
+        // record; the drill-downs do that when a reader asks.
+        //
+        // Kept under their own key rather than merged into the payload, so
+        // it stays visible which figures the Overview publishes and which it
+        // borrowed -- and so the Phase 9 export document, which reads the top
+        // level, is untouched by their arrival.
+        $signals = [
+            'expiry'      => $analytics->leaseExpiryBuckets(),
+            'maintenance' => $analytics->maintenanceSummary(),
+            'sales'       => $analytics->salesSummary(),
+            'futureDated' => $analytics->futureDatedExcluded(),
+            // The record counts behind two headline figures, for the
+            // cross-report band. Both come from the Phase 10 drill methods,
+            // so the count quoted here is the count the panel will show.
+            'revenueRecords'  => $analytics->drillPaymentsTotal('collected', ''),
+            'expectedRecords' => $analytics->drillSchedulesTotal('expected', ''),
+        ];
+
         return [
+            'signals'         => $signals,
             'occupancy'       => $occupancy,
             'ledger'          => $ledger,
             'inventory'       => $inventory,
@@ -380,7 +635,7 @@ class ReportController
                     (int) $ledger['overdue_count'] === 1 ? 'instalment' : 'instalments'
                 ),
                 'metric' => formatCurrency((float) $ledger['arrears']),
-                'url'    => reportUrl($window, $filter, ['tab' => 'payments']),
+                'drill'  => reportDrillUrl($window, $filter, 'financial', 'arrears'),
             ];
         }
 
@@ -393,7 +648,7 @@ class ReportController
                 'text'   => sprintf(
                     'Only %s of the rent scheduled for this period has been settled. '
                     . 'Measured against an attention threshold of 90%%, which is this '
-                    . 'report&rsquo;s own line and not a company target.',
+                    . 'report’s own line and not a company target.',
                     reportPercent($ledger['collection_rate'])
                 ),
                 'metric' => formatCurrency((float) $ledger['settled_on_ledger'])
@@ -791,7 +1046,7 @@ class ReportController
                     (int) $occupancy['rentable'] === 1 ? 'property is' : 'properties are'
                 ),
                 'metric' => reportPercent($occupancy['rate']),
-                'url'    => reportUrl($window, $filter, ['tab' => 'rentals']),
+                'drill'  => reportDrillUrl($window, $filter, 'properties', 'occupied'),
             ];
         }
 
@@ -997,7 +1252,7 @@ class ReportController
                     (int) $ledger['overdue_count'],
                     (int) $ledger['overdue_count'] === 1 ? 'instalment' : 'instalments'
                 ),
-                'url' => reportUrl($window, $filter, ['tab' => 'payments']),
+                'drill' => reportDrillUrl($window, $filter, 'rentals', 'arrears'),
             ];
         }
 
@@ -1202,7 +1457,7 @@ class ReportController
                     (int) $soldNoSale['count'] === 1 ? 'property is' : 'properties are',
                     (int) $soldNoSale['count'] === 1 ? 'it is' : 'they are'
                 ),
-                'url' => reportUrl($window, $filter, ['tab' => 'properties']),
+                'drill' => reportDrillUrl($window, $filter, 'sales', 'status', 'completed'),
             ];
         }
 
@@ -1440,7 +1695,7 @@ class ReportController
                     $occupancy['vacant'] === 1 ? 'property is' : 'properties are'
                 ),
                 'metric' => reportPercent($occupancy['rate']) . ' let',
-                'url'    => reportUrl($window, $filter, ['tab' => 'rentals']),
+                'drill'  => reportDrillUrl($window, $filter, 'overview', 'vacant'),
             ];
         }
 
@@ -1456,7 +1711,7 @@ class ReportController
                     $ledger['overdue_count'] === 1 ? 'instalment is' : 'instalments are'
                 ),
                 'metric' => formatCurrency($ledger['arrears']),
-                'url'    => reportUrl($window, $filter, ['tab' => 'payments']),
+                'drill'  => reportDrillUrl($window, $filter, 'overview', 'arrears'),
             ];
         }
 

@@ -21,8 +21,16 @@
  * for the context. The checks in here exist so a refusal explains itself.
  *
  * Everything that changes state is POST + CSRF + redirect, like the rest of
- * the application. There is no JSON endpoint and no AJAX: a message is sent by
- * submitting a form, and the page that comes back is the conversation.
+ * the application: a message is sent by submitting a form, and the page that
+ * comes back is the conversation.
+ *
+ * There is one JSON action, poll(), and it changes nothing a form does not.
+ * It exists because a page that is correct when rendered is not the same
+ * thing as a conversation — the other participant's browser has to be able to
+ * learn that something was said. See its docblock for why the answer here is
+ * a held poll rather than a socket, and note that it re-runs the same
+ * canAccessConversation() check the thread does and renders the same partials
+ * the full page does. It can show nothing show() would not.
  */
 require_once BASE_PATH . '/models/Conversation.php';
 require_once BASE_PATH . '/models/ConversationMessage.php';
@@ -42,6 +50,19 @@ class CommunicationController
         'unread'   => 'Unread',
         'archived' => 'Archived',
     ];
+
+    /**
+     * How long one poll may hold its connection open, in seconds.
+     *
+     * Comfortably under PHP's default 30s max_execution_time and under the
+     * idle timeout Apache and most proxies apply, so the request always ends
+     * on this application's terms rather than being cut off somewhere that
+     * would look to the browser like a network failure. Shorter means more
+     * requests; longer means a worker held for longer with no gain, because
+     * delivery latency is set by the check interval inside the hold, not by
+     * the length of the hold.
+     */
+    private const POLL_HOLD = 15;
 
     private Conversation $conversations;
     private ConversationMessage $messages;
@@ -89,6 +110,298 @@ class CommunicationController
         $this->messages->markReadUpTo($id);
 
         $this->render($id);
+    }
+
+    // ─── Live updates ──────────────────────────────────────────────────
+
+    /**
+     * The one endpoint the workspace polls, and the only JSON in this module.
+     *
+     * Messages were being written to the database correctly and read back
+     * correctly — the missing half was that nothing ever asked again. A page
+     * rendered at 10:00 still showed 10:00 at 10:05, so the second browser
+     * only learned about a message when its reader pressed reload.
+     *
+     * WebSockets were considered and rejected for this deployment: Apache and
+     * mod_php answer a request and end, so a socket server means a second
+     * long-running PHP process (Ratchet or similar) started and supervised
+     * beside XAMPP, its own port opened, and its own copy of the
+     * authorization rules. That is a lot of moving parts for two people
+     * typing at each other on localhost, and every one of them is a place the
+     * permission checks could drift out of step with the ones here.
+     *
+     * What this does instead is a held poll — long polling. The request does
+     * not answer straight away: it takes a cheap fingerprint of the
+     * conversation and the inbox, then waits, re-taking it about once a
+     * second until it changes or the hold runs out. A message therefore lands
+     * on the other screen within roughly a second, at the cost of one HTTP
+     * request every POLL_HOLD seconds per open tab rather than one a second.
+     * When nothing is happening it is one connection sitting idle.
+     *
+     * Three things make it safe to hold a request open in this application:
+     *
+     *   1. session_write_close() runs before the wait. PHP's session file is
+     *      locked for the life of a request, so without this a held poll
+     *      would block every other request from the same browser — including
+     *      the POST that sends the next message. It is the single most
+     *      important line in the method.
+     *   2. Only statements already prepared are re-executed in the loop, and
+     *      each is one indexed aggregate. Nothing renders until something has
+     *      actually changed.
+     *   3. The hold is bounded well under max_execution_time, and the client
+     *      reconnects, so a stalled connection costs one worker for a few
+     *      seconds rather than for ever.
+     *
+     * Authorization is not relaxed by a byte. canAccessConversation() is
+     * asked here and asked again by ConversationMessage::forConversation()
+     * when the thread is rendered, and the fragments are produced by the same
+     * partials the full page uses — so an update can never show a message the
+     * reader could not have seen by pressing reload.
+     */
+    public function poll(): void
+    {
+        // A read, so GET — and never renderPage(), because the answer is JSON
+        // and the admin layout would wrap it in a document.
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+            $this->sendJson(['ok' => false, 'error' => 'method'], 405);
+        }
+
+        // requireLogin() has already run in the router. can() rather than
+        // authorize(), because authorize() answers a refusal with an HTML 403
+        // page and this caller is parsing JSON.
+        if (!isLoggedIn() || !can('messages.view')) {
+            $this->sendJson(['ok' => false, 'error' => 'auth', 'reload' => true], 403);
+        }
+
+        $conversationId = (int) ($_GET['id'] ?? 0);
+        $clientSig      = (string) ($_GET['sig'] ?? '');
+        $wait           = ($_GET['wait'] ?? '') === '1';
+        $visible        = ($_GET['visible'] ?? '') === '1';
+
+        // The row-level check, before anything is read or waited on. A
+        // conversation that is no longer this user's — the lease ended, the
+        // participant was deactivated — answers `reload`, and the reader gets
+        // the real 403 page from the ordinary route rather than a thread that
+        // quietly stops updating.
+        if ($conversationId > 0 && !canAccessConversation($conversationId)) {
+            $this->sendJson(['ok' => false, 'error' => 'forbidden', 'reload' => true], 403);
+        }
+
+        /* Everything above needed the session; nothing below does. Releasing
+           the lock here is what keeps a held poll from blocking this
+           browser's other requests — see the note in the docblock. $_SESSION
+           stays readable in memory, which is all communicationActor() and the
+           access layer want from it. */
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        set_time_limit(self::POLL_HOLD + 30);
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('X-Accel-Buffering: no');
+
+        $signature = $this->pollSignature($conversationId);
+
+        /* The wait. A first call arrives with no fingerprint and is answered
+           at once, so a tab that has just loaded gets its baseline without
+           holding a connection for nothing. */
+        if ($wait && $clientSig !== '' && $clientSig === $signature) {
+            $deadline = microtime(true) + self::POLL_HOLD;
+            while (microtime(true) < $deadline) {
+                usleep(900000);           // ~1s: the granularity of "instant"
+
+                /* Best effort only, and worth knowing why: PHP notices a
+                   disconnected client when it next writes, and this loop
+                   writes nothing, so a tab closed mid-hold is usually
+                   reaped when the answer is finally sent rather than here.
+                   That is what bounds the hold at POLL_HOLD rather than
+                   leaving it to the client to end. */
+                if (connection_aborted()) {
+                    exit;
+                }
+                $signature = $this->pollSignature($conversationId);
+                if ($signature !== $clientSig) {
+                    break;
+                }
+            }
+        }
+
+        // Nothing moved. Say so in a few bytes and let the client come
+        // straight back — no query beyond the fingerprint has run.
+        if ($signature === $clientSig) {
+            $this->sendJson(['ok' => true, 'changed' => false, 'sig' => $signature]);
+        }
+
+        /* Something changed, so the panels are rebuilt. Reading a thread that
+           is open in front of someone is what "read" means, exactly as it
+           does in show() — but only when the tab is actually being looked at.
+           A backgrounded tab must not clear the other side's unread badge or
+           turn their single tick into a double one for a message nobody has
+           seen. */
+        if ($conversationId > 0 && $visible) {
+            $this->messages->markReadUpTo($conversationId);
+        }
+
+        /* Re-taken, because the line above has just moved a watermark and so
+           changed the very thing being fingerprinted. Handing back the older
+           value would have the client come straight back for a second render
+           of a conversation nothing else had happened to.
+
+           Deliberately re-taken *before* the panels are built rather than
+           after: a message arriving while they render then leaves the client
+           holding a fingerprint older than its markup, which costs one extra
+           refresh. Taking it afterwards would leave the client holding a
+           fingerprint newer than its markup, and that message would never
+           appear. One is a wasted round trip; the other is the bug this whole
+           endpoint exists to fix. */
+        $signature = $this->pollSignature($conversationId);
+
+        // Built after the watermark moves, so the badge and the read receipt
+        // in this very response already reflect it.
+        $view = $this->viewData($conversationId > 0 ? $conversationId : null, false);
+
+        /* The composer is never part of an update — it holds whatever the
+           reader has typed — so the draft a rejected submit left behind is
+           not consumed here. The session is closed anyway, but relying on
+           that would be relying on an accident. */
+        $view['draft'] = '';
+
+        $payload = [
+            'ok'      => true,
+            'changed' => true,
+            'sig'     => $signature,
+            'items'   => $this->fragment('_conversation_items.php', $view),
+            'total'   => $this->fragment('_unread_total.php', $view),
+        ];
+
+        /* The thread is withheld while an editor is open: ?edit= means the
+           reader is part-way through rewriting a message, and replacing the
+           stream would throw their text away. The inbox still updates, so
+           they can still see that something arrived. */
+        if ($conversationId > 0 && !empty($view['conversation']) && (int) ($_GET['edit'] ?? 0) === 0) {
+            $payload['stream'] = $this->fragment('_stream.php', $view);
+        }
+
+        $this->sendJson($payload);
+    }
+
+    /**
+     * A cheap fingerprint of everything an update would change.
+     *
+     * This is the query that runs once a second during a hold, so it is two
+     * statements of aggregates and no join to users, properties or anything
+     * else the rendered panels need. Rendering happens once, after this has
+     * moved.
+     *
+     * What it covers, and why each is here rather than left to the next page
+     * load:
+     *
+     *   the inbox    a new message in any conversation, an archive, and this
+     *                user's own watermark moving in another tab
+     *   the thread   new messages, edits, withdrawals, reactions, and both
+     *                participants' read watermarks — the last so a single
+     *                tick becomes a double one without a refresh
+     *
+     * Presence is deliberately absent. last_seen_at moves on every request
+     * either party makes, so including it would force a full re-render of
+     * both panels every minute for a dot that is already refreshed whenever
+     * anything real happens.
+     */
+    private function pollSignature(int $conversationId): string
+    {
+        $actor = communicationActor();
+        if ($actor === null) {
+            return 'gone';
+        }
+
+        // Prepared once per request and re-executed inside the hold, so a
+        // fifteen-second wait re-parses nothing.
+        static $inboxStmt = null, $threadStmt = null;
+
+        $db = getDBConnection();
+
+        if ($inboxStmt === null) {
+            $inboxStmt = $db->prepare("
+                SELECT CONCAT(
+                           COALESCE(MAX(c.last_message_id), 0), '.',
+                           COALESCE(MAX(UNIX_TIMESTAMP(c.last_message_at)), 0), '.',
+                           COUNT(*), '.',
+                           COALESCE(SUM(COALESCE(cp.last_read_message_id, 0)), 0), '.',
+                           COALESCE(SUM(cp.archived_at IS NOT NULL), 0)
+                       )
+                FROM conversations c
+                JOIN conversation_participants cp
+                  ON cp.conversation_id = c.id
+                 AND cp.user_id = :me
+                 AND cp.is_active = 1
+            ");
+        }
+
+        $inboxStmt->execute([':me' => $actor['id']]);
+        $parts = ['i' . (string) $inboxStmt->fetchColumn()];
+
+        if ($conversationId > 0) {
+            if ($threadStmt === null) {
+                $threadStmt = $db->prepare("
+                    SELECT CONCAT(
+                        (SELECT CONCAT(COALESCE(MAX(cm.id), 0), '.', COUNT(*), '.',
+                                       COALESCE(MAX(UNIX_TIMESTAMP(cm.edited_at)), 0), '.',
+                                       COALESCE(MAX(UNIX_TIMESTAMP(cm.deleted_at)), 0))
+                           FROM conversation_messages cm
+                          WHERE cm.conversation_id = :cid),
+                        '/',
+                        (SELECT CONCAT(COALESCE(MAX(mr.id), 0), '.', COUNT(*))
+                           FROM message_reactions mr
+                           JOIN conversation_messages cmr ON cmr.id = mr.message_id
+                          WHERE cmr.conversation_id = :cid),
+                        '/',
+                        (SELECT COALESCE(SUM(COALESCE(cp2.last_read_message_id, 0)), 0)
+                           FROM conversation_participants cp2
+                          WHERE cp2.conversation_id = :cid)
+                    )
+                ");
+            }
+
+            $threadStmt->execute([':cid' => $conversationId]);
+            $parts[] = 'c' . $conversationId . ':' . (string) $threadStmt->fetchColumn();
+        }
+
+        return implode('|', $parts);
+    }
+
+    /**
+     * Render one of the messages partials on its own and return the markup.
+     *
+     * The partial is named from a fixed list at the call site, never from the
+     * request, and is required from this module's own directory — there is no
+     * path here a query string can reach.
+     */
+    private function fragment(string $partial, array $vars): string
+    {
+        extract($vars, EXTR_SKIP);
+
+        ob_start();
+        require VIEWS_PATH . '/messages/' . $partial;
+
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * Answer with JSON and stop.
+     *
+     * nosniff and an explicit charset for the same reason the attachment
+     * streamer sets them: this response carries names and message previews
+     * that people typed, and a browser must never be left to guess what it is
+     * looking at.
+     */
+    private function sendJson(array $payload, int $status = 200): never
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=UTF-8');
+        header('X-Content-Type-Options: nosniff');
+
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
     }
 
     // ─── Writing ───────────────────────────────────────────────────────
@@ -544,6 +857,34 @@ class CommunicationController
      */
     private function render(?int $conversationId): void
     {
+        $view = $this->viewData($conversationId);
+
+        /* The fingerprint this page was built from, handed to the live
+           updater so its first request can wait rather than answer "all of
+           it changed" and re-render, a second after load, what the reader is
+           already looking at. */
+        $view['pollSignature'] = $this->pollSignature((int) $conversationId);
+
+        renderPage(VIEWS_PATH . '/messages/index.php', $view);
+    }
+
+    /**
+     * Everything the workspace renders from, as an array.
+     *
+     * Split out of render() so the live updater can build the same variables
+     * and hand them to the same partials. The page and the update therefore
+     * cannot disagree about what a row or a bubble looks like — there is one
+     * query set and one renderer, and the only difference is whether a layout
+     * is wrapped around the result.
+     *
+     * $withContacts is false for an update: the recipient list belongs to the
+     * compose panel, which an update never touches, and fetching it would be
+     * a query per refresh for markup nobody is going to see.
+     *
+     * @return array<string, mixed>
+     */
+    private function viewData(?int $conversationId, bool $withContacts = true): array
+    {
         // Archived is a filter rather than a separate page, so the inbox query
         // needs to know which set it is looking at.
         $filter = uiPick($_GET['filter'] ?? '', array_keys(self::FILTERS)) ?: 'all';
@@ -571,7 +912,7 @@ class CommunicationController
         // Only ever the authorized contacts — never a user directory. Fetched
         // for the compose panel, and also to decide whether offering "New
         // Message" would lead anywhere at all.
-        $contacts = can('messages.create') ? messageContacts() : [];
+        $contacts = ($withContacts && can('messages.create')) ? messageContacts() : [];
 
         // A conversation can be opened *about* something — "message my agent
         // about Villa V-102" — by arriving with the record in the query
@@ -580,7 +921,25 @@ class CommunicationController
         // rendered, and dropped again on POST.
         $composeContext = $composing ? $this->composeContext() : [];
 
+        /* The two URL fragments every link in the workspace is built from.
+           They were computed in the view, which was fine while the view was
+           the only renderer; now that the live updater renders the same
+           partials on their own, they have to arrive with the data rather
+           than be assembled around it. Carrying the filter, the search term
+           and the page through every link is what keeps the left panel where
+           the reader put it — opening a conversation from the Unread filter
+           must not silently reset the list to All. */
+        $base      = APP_URL . '/index.php?page=messages';
+        $listQuery = array_filter([
+            'filter' => $filter !== 'all' ? $filter : null,
+            'search' => $search !== '' ? $search : null,
+            'p'      => $page > 1 ? $page : null,
+        ]);
+
         $view = [
+            'base'           => $base,
+            'listSuffix'     => $listQuery ? '&' . http_build_query($listQuery) : '',
+
             'conversations'  => $conversations,
             'totalCount'     => $totalCount,
             'page'           => $page,
@@ -617,7 +976,7 @@ class CommunicationController
             $view = array_merge($view, $this->threadView($conversationId));
         }
 
-        renderPage(VIEWS_PATH . '/messages/index.php', $view);
+        return $view;
     }
 
     /**

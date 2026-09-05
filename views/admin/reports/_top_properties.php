@@ -73,6 +73,7 @@ $tpState = static function (array $tpR): array {
     <?php else: ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">The properties that collected the most revenue in this period.</caption>
                 <thead>
                     <tr>
                         <th scope="col" class="tp-rank">#</th>
@@ -101,7 +102,14 @@ $tpState = static function (array $tpR): array {
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $tpR['id']) ?>">
                                     <?= sanitize((string) $tpR['title']) ?>
                                 </a>
-                                <div class="tp-code tp-code--id"><?= sanitize((string) $tpR['property_code']) ?></div>
+                                <?php /* The code drills to the payments this property collected; the title above it still opens
+                                     the property. Two destinations, one row, and
+                                     neither takes the other's click. */ ?>
+                                <a class="tp-code tp-code--id is-drill" data-drill
+                                   href="<?= sanitize(reportDrillUrl(
+                                       $window, $filters, 'overview', 'property_revenue', (string) (int) $tpR['id'],
+                                       !empty($compare) ? ['compare' => '1'] : []
+                                   )) ?>"><?= sanitize((string) $tpR['property_code']) ?></a>
                             </td>
                             <td class="col-mid">
                                 <i class="bi <?= sanitize(categoryIcon((string) $tpR['category'])) ?> tp-cat-icon" aria-hidden="true"></i>

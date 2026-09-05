@@ -825,6 +825,7 @@ function initRailToggle() {
     btn.setAttribute('aria-pressed', String(collapsed));
     btn.setAttribute('aria-label', collapsed ? 'Expand the navigation rail' : 'Collapse the navigation rail');
     btn.title = collapsed ? 'Expand rail' : 'Collapse rail';
+    syncRailTooltips(collapsed);
   };
   sync();
 
@@ -837,6 +838,31 @@ function initRailToggle() {
     // The two states interact in exactly one place: a collapsed rail forces
     // every group open, so the inert flags have to be recomputed here.
     syncGroupInert();
+  });
+}
+
+/**
+ * Name the icons while their labels are hidden.
+ *
+ * A collapsed row still carries its label in the DOM — clipped, so a screen
+ * reader keeps it — but a sighted user is left with a glyph. The label they
+ * see is the browser's own tooltip, driven by the title attribute set here
+ * from the data-rail-label the markup already carries.
+ *
+ * The tooltip that used to do this was a CSS ::after drawn beside the row.
+ * It had to escape a box with overflow-y:auto, which resolves overflow-x to
+ * auto as well — so every flyout widened the menu's scroll area, gave the
+ * collapsed rail a horizontal scrollbar, and let the icons slide sideways
+ * inside it. A native tooltip is painted by the browser outside the document
+ * entirely, so there is nothing left to overflow.
+ *
+ * Titles are removed again on expand: a tooltip repeating a label that is
+ * already on screen is noise, and on a 26-row rail it is 26 of them.
+ */
+function syncRailTooltips(collapsed) {
+  document.querySelectorAll('.app__sidebar [data-rail-label]').forEach((el) => {
+    if (collapsed) el.setAttribute('title', el.dataset.railLabel);
+    else el.removeAttribute('title');
   });
 }
 
@@ -1855,5 +1881,87 @@ function initSettings(form) {
     });
   }
 
-  const syncAll = () => { syncLogo(); syncSwitches(); };
+  // ── Appearance: preview the rail on the rail itself ─────
+  //
+  // The sidebar being configured is three inches to the left of the
+  // controls configuring it, so there is no reason to draw a mock-up of
+  // it. Changing the theme or the accent repaints the real rail
+  // immediately; nothing is saved until Save Settings is pressed, and
+  // leaving with unsaved changes is already guarded by the dirty check
+  // above — a reload restores whatever the server still holds.
+  const themeInputs = form.querySelectorAll('[data-theme-tile] input[type="radio"]');
+  const accentField = form.querySelector('[data-accent-field]');
+  const DEFAULT_ACCENT = '#0a63a8';
+  const HEX = /^#[0-9a-f]{6}$/i;
+
+  const previewTheme = () => {
+    const chosen = form.querySelector('[data-theme-tile] input[type="radio"]:checked');
+    if (!chosen) return;
+    document.documentElement.setAttribute('data-rail-theme', chosen.value);
+    // :has() carries this in modern browsers; the class is what keeps the
+    // selected tile marked in the ones that do not support it.
+    form.querySelectorAll('[data-theme-tile]').forEach(tile => {
+      tile.classList.toggle('is-selected', tile.contains(chosen));
+    });
+  };
+
+  themeInputs.forEach(input => input.addEventListener('change', previewTheme));
+
+  const previewAccent = () => {
+    if (!accentField) return;
+    const hex = accentField.querySelector('[data-accent-hex]');
+    const picker = accentField.querySelector('[data-accent-picker]');
+    if (!hex) return;
+
+    // An empty box means "use the default" — the same reading the server
+    // gives it — so the preview shows the default rather than nothing.
+    const raw = hex.value.trim();
+    const value = raw === '' ? DEFAULT_ACCENT : raw;
+    if (!HEX.test(value)) return;   // mid-typing: leave the rail alone
+
+    const normalised = value.toLowerCase();
+    document.documentElement.style.setProperty('--sidebar-accent', normalised);
+    if (picker) picker.value = normalised;
+
+    accentField.querySelectorAll('[data-accent]').forEach(sw => {
+      const on = sw.getAttribute('data-accent').toLowerCase() === normalised;
+      sw.classList.toggle('is-selected', on);
+      sw.setAttribute('aria-pressed', String(on));
+    });
+  };
+
+  if (accentField) {
+    const hexInput = accentField.querySelector('[data-accent-hex]');
+    const picker = accentField.querySelector('[data-accent-picker]');
+
+    // The presets and the colour well both write into the hex box rather
+    // than into the rail: one field is submitted, so one field has to be
+    // the value everything else agrees with.
+    accentField.querySelectorAll('[data-accent]').forEach(sw => {
+      sw.addEventListener('click', () => {
+        if (hexInput) hexInput.value = sw.getAttribute('data-accent');
+        previewAccent();
+        setDirty(true);
+      });
+    });
+
+    // 'input' rather than 'change': dragging through the picker should
+    // repaint the rail as it moves, which is the whole point of previewing
+    // on the real thing.
+    picker?.addEventListener('input', () => {
+      if (hexInput) hexInput.value = picker.value.toLowerCase();
+      previewAccent();
+    });
+
+    hexInput?.addEventListener('input', previewAccent);
+
+    accentField.querySelector('[data-accent-reset]')?.addEventListener('click', (e) => {
+      const fallback = e.currentTarget.getAttribute('data-default') || DEFAULT_ACCENT;
+      if (hexInput) hexInput.value = fallback;
+      previewAccent();
+      setDirty(true);
+    });
+  }
+
+  const syncAll = () => { syncLogo(); syncSwitches(); previewTheme(); previewAccent(); };
 }

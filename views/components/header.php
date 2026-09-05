@@ -56,6 +56,22 @@ $notifLook = [
             <i class="bi bi-list" aria-hidden="true"></i>
         </button>
 
+        <?php /* The rail's collapse control, in the one place it can hold
+                 still. It used to sit in the rail's brand row, hidden until
+                 the rail was hovered, and had to be re-anchored over the logo
+                 once the column narrowed — so the control that changes the
+                 width moved every time the width changed.
+
+                 Here it is always visible and never moves. It is the desktop
+                 counterpart of #sidebarToggle beside it: below 768px the rail
+                 is a drawer, collapsing means nothing, and responsive.css
+                 swaps which of the two is shown. */ ?>
+        <button type="button" class="header__rail-toggle" data-rail-toggle
+                aria-label="Collapse the navigation rail" aria-pressed="false"
+                title="Collapse rail">
+            <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
+        </button>
+
         <nav class="header__breadcrumb" aria-label="Breadcrumb">
             <a href="<?= APP_URL ?>/index.php?page=dashboard" title="Dashboard" class="header__crumb-home">
                 <i class="bi bi-house-door" aria-hidden="true"></i>

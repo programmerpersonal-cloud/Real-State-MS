@@ -69,7 +69,19 @@ $insAlert = ['warning', 'danger'];
                                 <?php endif ?>
                             </div>
                             <p class="rinsight__text"><?= sanitize((string) ($insItem['text'] ?? '')) ?></p>
-                            <?php if (!empty($insItem['url'])): ?>
+                            <?php /* An insight that names a record set opens
+                                     it; one that only points at another report
+                                     still says so. The wording changes with
+                                     the destination, because "open the report"
+                                     over a panel of eleven overdue instalments
+                                     would be describing the wrong thing. */ ?>
+                            <?php if (!empty($insItem['drill'])): ?>
+                                <a class="rinsight__link" data-drill
+                                   href="<?= sanitize((string) $insItem['drill']) ?>">
+                                    <span>See the records</span>
+                                    <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
+                                </a>
+                            <?php elseif (!empty($insItem['url'])): ?>
                                 <a class="rinsight__link" href="<?= sanitize((string) $insItem['url']) ?>">
                                     <span>Open the report</span>
                                     <i class="bi bi-arrow-right-short" aria-hidden="true"></i>

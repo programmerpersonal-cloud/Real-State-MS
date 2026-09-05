@@ -24,6 +24,11 @@ $poFiltered = reportFilterCount($filters) > 0;
 $poCarry    = !empty($compare) ? ['compare' => '1'] : [];
 $poReset    = reportUrl($window, [], ['tab' => 'properties'] + $poCarry);
 $poLink     = static fn(string $tab): string => reportUrl($window, $filters, ['tab' => $tab] + $poCarry);
+/* Every drill-down on this page carries the period, the comparison and the
+   filters above, because it is built from the same window and filters the
+   figures were. Nothing is copied across by hand. */
+$poDrill = static fn(string $metric, string $key = ''): string
+    => reportDrillUrl($window, $filters, 'properties', $metric, $key, $poCarry);
 $poTotal    = (int) $state['total'];
 ?>
 
@@ -50,6 +55,7 @@ $poTotal    = (int) $state['total'];
             (int) $inventory['lifecycle']['active_listings'],
             (int) $inventory['lifecycle']['archived']
         ),
+        'drill'   => $poDrill('total'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -66,7 +72,7 @@ $poTotal    = (int) $state['total'];
                 (int) $occupancy['rentable'] === 1 ? 'property' : 'properties'
             )
             : 'No rentable property in scope',
-        'url'     => $poLink('rentals'),
+        'drill'   => $poDrill('occupancy'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -81,6 +87,7 @@ $poTotal    = (int) $state['total'];
         'context' => $poTotal > 0
             ? reportPercent(reportShare((float) $state['available'], (float) $poTotal)) . ' of approved inventory'
             : 'No approved inventory in scope',
+        'drill'   => $poDrill('state', 'available'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -92,6 +99,7 @@ $poTotal    = (int) $state['total'];
         'context' => (int) $state['reserved'] > 0
             ? 'Held on a reservation that has not expired'
             : 'No unexpired reservations',
+        'drill'   => $poDrill('state', 'reserved'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -104,7 +112,7 @@ $poTotal    = (int) $state['total'];
         'icon'    => 'bi-tag',
         'tone'    => 'purple',
         'context' => 'Properties with a completed sale on record',
-        'url'     => $poLink('sales'),
+        'drill'   => $poDrill('state', 'sold'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -118,6 +126,7 @@ $poTotal    = (int) $state['total'];
         'context' => (int) $inventory['lifecycle']['pending_approval'] > 0
             ? 'Not live inventory until an administrator signs it off'
             : 'Nothing waiting on approval',
+        'drill'   => $poDrill('lifecycle', 'pending'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
     ?>
@@ -149,10 +158,10 @@ $poTotal    = (int) $state['total'];
        completed sale. States with nothing in them are dropped from the
        picture rather than drawn as invisible slices. */
     $poCommercial = [
-        ['label' => 'Available', 'value' => (int) $state['available'], 'tone' => '--info'],
-        ['label' => 'Occupied',  'value' => (int) $state['occupied'],  'tone' => '--success'],
-        ['label' => 'Reserved',  'value' => (int) $state['reserved'],  'tone' => '--warning'],
-        ['label' => 'Sold',      'value' => (int) $state['sold'],      'tone' => '--purple'],
+        ['label' => 'Available', 'key' => 'available',       'value' => (int) $state['available'], 'tone' => '--info'],
+        ['label' => 'Occupied',  'key' => 'state_occupied',  'value' => (int) $state['occupied'],  'tone' => '--success'],
+        ['label' => 'Reserved',  'key' => 'reserved',        'value' => (int) $state['reserved'],  'tone' => '--warning'],
+        ['label' => 'Sold',      'key' => 'sold',            'value' => (int) $state['sold'],      'tone' => '--purple'],
     ];
     $poCommercial = array_values(array_filter($poCommercial, static fn(array $r): bool => $r['value'] > 0));
 
@@ -170,6 +179,7 @@ $poTotal    = (int) $state['total'];
         ]],
         'label_heading' => 'State',
         'empty'    => 'No approved property is in scope for the current filters.',
+        'drill'    => ['metric' => 'state', 'keys' => array_column($poCommercial, 'key')],
         'size'   => 'feature',
         'share'    => true,
         'filtered' => $poFiltered,
@@ -184,11 +194,11 @@ $poTotal    = (int) $state['total'];
        and archival are the row's own business and are maintained. Kept in a
        separate chart so "approved" is never mistaken for "occupied". */
     $poAdmin = [
-        ['label' => 'Approved',         'value' => (int) $inventory['lifecycle']['active_listings'],  'tone' => '--success'],
-        ['label' => 'Awaiting approval','value' => (int) $inventory['lifecycle']['pending_approval'], 'tone' => '--warning'],
-        ['label' => 'Rejected',         'value' => (int) $inventory['lifecycle']['rejected'],         'tone' => '--danger'],
-        ['label' => 'Withdrawn',        'value' => (int) $inventory['lifecycle']['withdrawn'],        'tone' => '--text-subtle'],
-        ['label' => 'Archived',         'value' => (int) $inventory['lifecycle']['archived'],         'tone' => '--purple'],
+        ['label' => 'Approved',         'key' => 'approved',  'value' => (int) $inventory['lifecycle']['active_listings'],  'tone' => '--success'],
+        ['label' => 'Awaiting approval','key' => 'pending',   'value' => (int) $inventory['lifecycle']['pending_approval'], 'tone' => '--warning'],
+        ['label' => 'Rejected',         'key' => 'rejected',  'value' => (int) $inventory['lifecycle']['rejected'],         'tone' => '--danger'],
+        ['label' => 'Withdrawn',        'key' => 'withdrawn', 'value' => (int) $inventory['lifecycle']['withdrawn'],        'tone' => '--text-subtle'],
+        ['label' => 'Archived',         'key' => 'archived',  'value' => (int) $inventory['lifecycle']['archived'],         'tone' => '--purple'],
     ];
     $poAdmin = array_values(array_filter($poAdmin, static fn(array $r): bool => $r['value'] > 0));
 
@@ -207,6 +217,7 @@ $poTotal    = (int) $state['total'];
         ]],
         'label_heading' => 'State',
         'empty'      => 'No property is in scope for the current filters.',
+        'drill'      => ['metric' => 'lifecycle', 'keys' => array_column($poAdmin, 'key')],
         'size'     => 'feature',
         'filtered'   => $poFiltered,
         'resetUrl'   => $poReset,
@@ -242,6 +253,7 @@ $poTotal    = (int) $state['total'];
             'tone'  => '--primary',
         ]],
         'label_heading' => 'Category',
+        'drill'      => ['metric' => 'category', 'keys' => array_column($composition, 'key')],
         'empty'      => 'No approved property is in scope for the current filters.',
         'size'     => 'standard',
         'share'      => true,
@@ -272,6 +284,7 @@ $poTotal    = (int) $state['total'];
                 $listingIntent
             ),
         ]],
+        'drill'    => ['metric' => 'intent', 'keys' => array_column($listingIntent, 'key')],
         'label_heading' => 'Intent',
         'empty'    => 'No approved property is in scope for the current filters.',
         'size'   => 'standard',

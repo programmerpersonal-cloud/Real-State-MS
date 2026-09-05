@@ -404,6 +404,15 @@ function dispatch(string $controllerClass, string $method): void {
 switch ($page) {
 
     case 'dashboard':
+        // The Export button in the page header. A controller for one action
+        // and no index(): the dashboard itself is still a view the router
+        // includes, and giving it a controller purely to keep symmetry would
+        // move five hundred lines for no reader's benefit.
+        if ($action === 'export') {
+            dispatch('DashboardController', 'export');
+            break;
+        }
+
         $dashboardMap = [
             'admin'       => '/views/admin/dashboard.php',
             'agent'       => '/views/agent/dashboard.php',
@@ -563,6 +572,13 @@ switch ($page) {
             'delete'     => 'deleteMessage',
             'react'      => 'react',
             'read-all'   => 'readAll',
+            // The live updater. A GET that answers with JSON rather than a
+            // page: it holds the connection until the conversation or the
+            // inbox changes, so the other participant's browser learns about
+            // a message without anyone pressing reload. It re-runs the same
+            // canAccessConversation() check the thread does and renders the
+            // same partials, so it can show nothing `show` would not.
+            'poll'       => 'poll',
             default      => 'index',
         };
         dispatch('CommunicationController', $method);
@@ -603,6 +619,29 @@ switch ($page) {
     // closed if its author forgets.
     case 'reports':
         require_once BASE_PATH . '/controllers/ReportController.php';
+
+        // Export is an action rather than a tab, so it is matched before the
+        // tab allowlist runs — routeFor() would read "export" as an unknown
+        // report and quietly serve the overview. The vocabulary the three
+        // writers share is loaded here rather than in includes/init.php: a
+        // page that is only reading the report should not pay for the code
+        // that packages it.
+        if ($action === 'export') {
+            require_once BASE_PATH . '/includes/export.php';
+            dispatch('ReportController', 'export');
+            break;
+        }
+
+        // Drill-down: the records behind one figure. Matched here for the
+        // same reason export is — routeFor() would read "drill" as an
+        // unknown report and quietly serve the overview — and answering
+        // either as a page or as a fragment from one action, so the same URL
+        // works in the drawer, in a bookmark and with scripting off.
+        if ($action === 'drill') {
+            dispatch('ReportController', 'drill');
+            break;
+        }
+
         dispatch('ReportController', ReportController::routeFor($_GET['tab'] ?? '', $action));
         break;
 

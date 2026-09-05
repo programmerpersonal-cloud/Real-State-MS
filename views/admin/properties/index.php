@@ -226,7 +226,18 @@ require __DIR__ . '/_register_tabs.php';
                                 <?= sanitize(uiLabel($p['category'])) ?>
                             </span>
                         </td>
-                        <td class="col-mid"><?= sanitize($p['owner_name'] ?: '—') ?></td>
+                        <?php /* One line, ellipsed, with the full name on the title.
+                                 A register is scanned down the property column, not the
+                                 owner one — and an owner cell that wraps a three-part name
+                                 over four lines sets the height of every row on the page
+                                 from the longest name in it. */ ?>
+                        <td class="col-mid">
+                            <?php if (!empty($p['owner_name'])): ?>
+                                <span class="cell-truncate" title="<?= sanitize($p['owner_name']) ?>"><?= sanitize($p['owner_name']) ?></span>
+                            <?php else: ?>
+                                <span class="text-subtle">—</span>
+                            <?php endif ?>
+                        </td>
                         <td class="cell-num">
                             <?php if ($price['amount'] > 0): ?>
                                 <?= formatCurrency($price['amount']) ?>

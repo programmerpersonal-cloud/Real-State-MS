@@ -50,6 +50,7 @@ foreach ($pcRows as $pcR) {
         <?php else: ?>
             <div class="table-wrap">
                 <table class="table pclass__table">
+                    <caption class="sr-only">Payment type against the contract each payment was taken on.</caption>
                     <thead>
                         <tr>
                             <th scope="col">Payment type</th>

@@ -87,6 +87,7 @@ $ltMoney = static fn($ltV): string => (float) $ltV > 0
     <?php else: ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">Tenancies, with the rent scheduled and settled against each in this period.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Property</th>

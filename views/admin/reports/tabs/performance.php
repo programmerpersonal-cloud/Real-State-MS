@@ -31,12 +31,33 @@ $rows = $agentPerf ?? [];
 
 /* A zero in a performance column is a fact, not a gap — but a wall of noughts
    reads as a broken page, so nothing is drawn where nothing happened. */
+$perfCarry = !empty($compare) ? ['compare' => '1'] : [];
+
+/* Each column drills to its own records, and the eight attributions stay
+   eight: "rent collected" opens the payments on that agent's listings and
+   "received at desk" opens the ones they personally took in, because the two
+   answer different questions and the panels must not be the same set. */
+$perfDrill = static fn(string $metric, int $agentId): string
+    => reportDrillUrl($window, $filters, 'performance', $metric, (string) $agentId, $perfCarry);
+
 $num = static fn($n): string => (int) $n > 0
     ? number_format((int) $n)
     : '<span class="text-subtle" aria-label="none">—</span>';
 $money = static fn($v): string => (float) $v > 0
     ? sanitize(formatCurrency((float) $v))
     : '<span class="text-subtle" aria-label="none">—</span>';
+
+/* A figure worth opening becomes a link; a nought does not. There is nothing
+   behind a nought to show, and a panel that can only say "no records" is a
+   promise the tile should not have made. */
+$perfCell = static function (string $text, string $metric, int $agentId, $value) use ($perfDrill): string {
+    if ((float) $value <= 0) {
+        return $text;
+    }
+
+    return '<a class="is-drill" data-drill href="' . sanitize($perfDrill($metric, $agentId)) . '">'
+         . $text . '</a>';
+};
 
 /* The leading value in each column, computed only where it means something:
    one row cannot lead a field of one, and a column of zeroes has no leader.
@@ -149,18 +170,31 @@ $leadNote = static function (string $col, $value) use ($leaders): string {
                 <tbody>
                     <?php foreach ($rows as $a): ?>
                         <tr>
-                            <th scope="row" class="perf__who"><?= uiPersonCell($a['full_name'], $a['avatar'] ?? null) ?></th>
+                            <th scope="row" class="perf__who">
+                                <?php /* Wrapped rather than handed a url:
+                                         uiPersonCell() renders its own anchor
+                                         when given one, and an anchor inside
+                                         an anchor is not markup a browser
+                                         agrees about. Without a url it
+                                         renders a span, which is safe to
+                                         wrap and keeps the drawer behaviour
+                                         every other drill link has. */ ?>
+                                <a class="is-drill" data-drill
+                                   href="<?= sanitize($perfDrill('agent_listings', (int) $a['id'])) ?>">
+                                    <?= uiPersonCell($a['full_name'], $a['avatar'] ?? null) ?>
+                                </a>
+                            </th>
                             <td class="cell-num<?= $lead('properties_managed', $a['properties_managed']) ?>">
-                                <?= $num($a['properties_managed']) ?><?= $leadNote('properties_managed', $a['properties_managed']) ?>
+                                <?= $perfCell($num($a['properties_managed']), 'agent_listings', (int) $a['id'], $a['properties_managed']) ?><?= $leadNote('properties_managed', $a['properties_managed']) ?>
                             </td>
                             <td class="cell-num<?= $lead('active_leases', $a['active_leases']) ?>">
-                                <?= $num($a['active_leases']) ?><?= $leadNote('active_leases', $a['active_leases']) ?>
+                                <?= $perfCell($num($a['active_leases']), 'agent_leases', (int) $a['id'], $a['active_leases']) ?><?= $leadNote('active_leases', $a['active_leases']) ?>
                             </td>
                             <td class="cell-num col-mid<?= $lead('leases_created', $a['leases_created']) ?>">
-                                <?= $num($a['leases_created']) ?><?= $leadNote('leases_created', $a['leases_created']) ?>
+                                <?= $perfCell($num($a['leases_created']), 'agent_written', (int) $a['id'], $a['leases_created']) ?><?= $leadNote('leases_created', $a['leases_created']) ?>
                             </td>
                             <td class="cell-num col-lo<?= $lead('sales_completed', $a['sales_completed']) ?>">
-                                <?= $num($a['sales_completed']) ?><?= $leadNote('sales_completed', $a['sales_completed']) ?>
+                                <?= $perfCell($num($a['sales_completed']), 'agent_sales', (int) $a['id'], $a['sales_completed']) ?><?= $leadNote('sales_completed', $a['sales_completed']) ?>
                                 <?php if ((int) $a['sales_completed'] > 0 && (float) $a['sales_value'] > 0): ?>
                                     <?php /* Contract value, not money received — the two
                                              are different questions and the revenue
@@ -169,13 +203,13 @@ $leadNote = static function (string $col, $value) use ($leaders): string {
                                 <?php endif ?>
                             </td>
                             <td class="cell-num tp-money<?= $lead('rental_revenue', $a['rental_revenue']) ?>">
-                                <?= $money($a['rental_revenue']) ?><?= $leadNote('rental_revenue', $a['rental_revenue']) ?>
+                                <?= $perfCell($money($a['rental_revenue']), 'agent_rental_revenue', (int) $a['id'], $a['rental_revenue']) ?><?= $leadNote('rental_revenue', $a['rental_revenue']) ?>
                             </td>
                             <td class="cell-num col-mid tp-money<?= $lead('sales_revenue', $a['sales_revenue']) ?>">
-                                <?= $money($a['sales_revenue']) ?><?= $leadNote('sales_revenue', $a['sales_revenue']) ?>
+                                <?= $perfCell($money($a['sales_revenue']), 'agent_sales_revenue', (int) $a['id'], $a['sales_revenue']) ?><?= $leadNote('sales_revenue', $a['sales_revenue']) ?>
                             </td>
                             <td class="cell-num col-lo tp-money<?= $lead('revenue_received', $a['revenue_received']) ?>">
-                                <?= $money($a['revenue_received']) ?><?= $leadNote('revenue_received', $a['revenue_received']) ?>
+                                <?= $perfCell($money($a['revenue_received']), 'agent_received', (int) $a['id'], $a['revenue_received']) ?><?= $leadNote('revenue_received', $a['revenue_received']) ?>
                             </td>
                             <td class="cell-num tp-money<?= $lead('commission_pending', $a['commission_pending']) ?>">
                                 <?= $money($a['commission_pending']) ?><?= $leadNote('commission_pending', $a['commission_pending']) ?>

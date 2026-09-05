@@ -65,6 +65,7 @@ $fpMoney = static fn($fpV): string => (float) $fpV > 0
     <?php else: ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">Rent scheduled, settled, outstanding and in arrears, by property.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Property</th>
@@ -89,7 +90,14 @@ $fpMoney = static fn($fpV): string => (float) $fpV > 0
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $fpR['id']) ?>">
                                     <?= sanitize((string) $fpR['title']) ?>
                                 </a>
-                                <div class="tp-code tp-code--id"><?= sanitize((string) $fpR['property_code']) ?></div>
+                                <?php /* The code drills to the instalments scheduled on it; the title above it still opens
+                                     the property. Two destinations, one row, and
+                                     neither takes the other's click. */ ?>
+                                <a class="tp-code tp-code--id is-drill" data-drill
+                                   href="<?= sanitize(reportDrillUrl(
+                                       $window, $filters, 'financial', 'property_schedule', (string) (int) $fpR['id'],
+                                       !empty($compare) ? ['compare' => '1'] : []
+                                   )) ?>"><?= sanitize((string) $fpR['property_code']) ?></a>
                             </td>
                             <td class="col-mid">
                                 <i class="bi <?= sanitize(categoryIcon((string) $fpR['category'])) ?> tp-cat-icon" aria-hidden="true"></i>

@@ -50,12 +50,21 @@ $renderNavList = function (string $active) use ($navLinks): void { ?>
                     <span><?= sanitize(BIZ_PHONE) ?></span>
                 </a>
             </div>
-            <div class="topbar__social">
-                <a href="#" aria-label="<?= sanitize(companyName()) ?> on X"><i class="bi bi-twitter-x" aria-hidden="true"></i></a>
-                <a href="#" aria-label="<?= sanitize(companyName()) ?> on Facebook"><i class="bi bi-facebook" aria-hidden="true"></i></a>
-                <a href="#" aria-label="<?= sanitize(companyName()) ?> on Instagram"><i class="bi bi-instagram" aria-hidden="true"></i></a>
-                <a href="#" aria-label="<?= sanitize(companyName()) ?> on LinkedIn"><i class="bi bi-linkedin" aria-hidden="true"></i></a>
-            </div>
+            <?php /* Four hand-written links to "#" used to sit here: they looked
+                     like controls, announced themselves as "Marko Real Estate on
+                     Facebook, link", and went nowhere — on every public page.
+
+                     social_links.php is the definition this site already had.
+                     Each network's URL comes from the settings table, falls back
+                     to the BIZ_SOCIAL defaults, and a network with neither is
+                     left out of the row entirely rather than rendered dead. The
+                     footer and the sign-in screen have been using it all along;
+                     this is the last place that kept its own copy. */ ?>
+            <?php
+            $socialClass = 'topbar__social';
+            $socialLabel = 'Follow ' . companyName();
+            require VIEWS_PATH . '/components/social_links.php';
+            ?>
         </div>
     </div>
 

@@ -208,6 +208,18 @@
 }
 
 /* ─── Inbox: the list ────────────────────────────────────────── */
+/* The rows and the pager sit inside #msgItems, the block the live updater
+   swaps. That wrapper is now the flex child of .msg__list, so it — not the
+   <ul> inside it — carries the growth and the min-height that let the list
+   scroll instead of pushing the panel taller. The <ul> keeps `overflow-y`
+   and flexes within it, exactly as it did when both were direct children. */
+[data-msg-items] {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .msg__items {
   list-style: none;
   margin: 0;
@@ -2012,23 +2024,28 @@
 /* ── Thread ───────────────────────────────────────────────────────  */
 .msg__head{background:var(--surface);border-bottom:1px solid var(--border)}
 
-/* Bubbles. The asymmetric corner is what tells the eye which side a
-   message came from before the alignment does — and it is the cheapest
-   possible way to make a thread read as a conversation. */
-.msg__msg-body{
-  border-radius:16px;
+/* Bubbles.
+
+   The corner geometry is NOT set here. .msg__msg--first/--mid/--last above
+   already carry it, per side, keyed off .msg__run--mine — a run of messages
+   from one person is squared off where it joins the message above and round
+   where the run ends, which is what makes a thread read as speech rather
+   than as a list. Restating any of that here would only fight it.
+
+   What is added is depth, and only depth: an incoming bubble sits on the
+   panel, an outgoing one sits slightly above it in the brand's own shadow.
+   That is the difference the eye uses before it has read a word. */
+.msg__msg{
   box-shadow:0 1px 2px rgba(15,32,51,.06);
   line-height:1.5;
 }
-.msg__msg--last .msg__msg-body{border-bottom-left-radius:5px}
-.msg__msg--out .msg__msg-body,
-.msg__msg--mine .msg__msg-body{
-  box-shadow:0 1px 2px rgba(6,63,109,.18),0 2px 8px -4px rgba(10,99,168,.30);
+.msg__run--mine .msg__msg{
+  box-shadow:0 1px 2px rgba(6,63,109,.16),0 2px 8px -4px rgba(10,99,168,.26);
 }
-.msg__msg--out.msg__msg--last .msg__msg-body,
-.msg__msg--mine.msg__msg--last .msg__msg-body{
-  border-bottom-left-radius:16px;border-bottom-right-radius:5px;
-}
+/* A withdrawn message is an outline, not an object — it should not be
+   lifted off the page as though there were something in it. */
+.msg__msg--gone,
+.msg__run--mine .msg__msg--gone{box-shadow:none}
 
 /* The day divider: a rule with the date sitting on it, rather than a
    line of grey text floating between two bubbles. */

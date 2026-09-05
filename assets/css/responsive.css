@@ -19,6 +19,11 @@
   .app__sidebar.open{transform:translateX(0)}
   .app__main{margin-left:0}
   .header__toggle{display:flex}
+  /* Below this width the rail is a drawer, so there is nothing to collapse —
+     .header__toggle opens it instead. Hiding the collapse control is what
+     stops a stored `rail-collapsed` from putting two navigation buttons side
+     by side on a phone. */
+  .header__rail-toggle{display:none}
   /* Two up is held down to the narrowest common phone rather than dropping
      to one: a KPI is a short label and a number, and a full-width card for
      that leaves the row scrolling for no gain. */
@@ -134,7 +139,11 @@
 
   /* Controls carrying their own literal sizes, lifted to the minimum. */
   .header__icon-btn,.header__visit,.header__toggle,
-  .row-menu__trigger{min-width:44px;min-height:44px}
+  .header__rail-toggle,.row-menu__trigger{min-width:44px;min-height:44px}
+  /* A collapsed row is a square with nothing but a glyph in it, and the
+     68px column is wide enough to give it the full target height. Height,
+     not min-height: the collapsed rule sets an explicit one. */
+  .rail-collapsed .sidebar__link{height:44px;min-height:44px}
   .sidebar__link,.sidebar__label--toggle,.th-sort__link,
   .toolbar__filter-trigger,.tabs__item{min-height:44px}
   /* Pills and segments carry fixed heights (32 and 34) that read well under

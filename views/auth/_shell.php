@@ -12,19 +12,24 @@
  * with scripting off they navigate, and the server renders the other panel
  * active. auth.js intercepts the click and cross-fades instead.
  *
- * The left half is a photographic panel rather than a flat brand block. The
- * pictures are real listings supplied by AuthController::showcaseProperties()
- * — cover photos where one has been uploaded, seeded stock shots where none
- * has — so the screen shows the product rather than describing it. It is
- * decoration in the accessibility sense: every image is presentational, and
- * the property details behind them are reachable through the labelled dot
- * controls rather than by watching the panel change.
+ * The left half is the brand panel: a gradient in the house blues, a
+ * wordmark, a welcome and the switch to the other form. It used to rotate
+ * through photographs of real listings, and it no longer does — colour holds
+ * the copy at full contrast without a scrim over it, downloads nothing, and
+ * does not move while somebody is typing a password beside it.
+ *
+ * The curve between the two halves is the one structural addition: two
+ * clipPaths in objectBoundingBox units, defined at the top of the shell and
+ * applied from pages/auth.css — vertical side by side, horizontal stacked.
  *
  * Expects:
  *   $authMode    'login' | 'register'  which panel opens active
  *   $roleOptions array<int,string>     roles registration will accept
  *   $formErrors  array                 per-field errors from a reject
- *   $showcase    array                 slides: image, title, location, badge, price
+ *
+ * AuthController still passes $showcase; nothing on the page reads it now.
+ * Retiring the query behind it is a controller change and is deliberately
+ * left alone here.
  */
 $authMode = ($authMode ?? 'login') === 'register' ? 'register' : 'login';
 
@@ -32,24 +37,54 @@ $authMode = ($authMode ?? 'login') === 'register' ? 'register' : 'login';
    Read once and cleared, exactly as register.php did before. */
 $formData = $_SESSION['form_data'] ?? [];
 unset($_SESSION['form_data']);
-$errs = $formErrors ?? [];
+
+/* Both panels are in the document, and both own a field called `password`.
+   So the errors are scoped to the panel the rejection actually landed on
+   rather than handed to the page: a failed sign-in redirects to ?page=login
+   and a failed registration to ?page=register, which is exactly the switch
+   below. Without it a mistyped sign-in would come back having outlined the
+   registration form's password box as well — a field nobody had touched.
+
+   This is the same rule the flash already follows a few lines down. */
+$allErrs   = $formErrors ?? [];
+$errs      = $authMode === 'register' ? $allErrs : [];   // registration panel
+$loginErrs = $authMode === 'login'    ? $allErrs : [];   // sign-in panel
 
 $err  = static fn(string $f): string => uiFieldError($errs, $f);
 $bad  = static fn(string $f): string => uiInvalidClass($errs, $f);
 $aria = static fn(string $f, string $hint = ''): string => uiFieldAria($errs, $f, $hint);
+
+$lerr  = static fn(string $f): string => uiFieldError($loginErrs, $f);
+$lbad  = static fn(string $f): string => uiInvalidClass($loginErrs, $f);
+$laria = static fn(string $f, string $hint = ''): string => uiFieldAria($loginErrs, $f, $hint);
 
 /* Flash is consumed once and printed into the panel that is open.
    Every redirect that sets one lands on the matching route, so the
    message and the panel it belongs to always arrive together. */
 $flash = renderFlash();
 
+/* Which step a phone opens on. Two panels side by side is a desktop
+   layout; stacked, showing a hero and a seven-field form at once asks
+   somebody to scroll past the branding every single time. So on a narrow
+   screen the screen is the gate first and the form second.
+
+   The rule is: open on the gate unless there is already something to
+   read or something already typed. A rejected sign-in comes back with a
+   flash and a filled identifier, and hiding that behind a chooser would
+   throw away the message the redirect exists to deliver.
+
+   ?step=form is the same statement from the other direction — it is what
+   the gate's links carry, so they still work with scripting off. It is
+   read here and nowhere else: no controller, route or redirect knows
+   about it, and dropping it changes nothing but which step opens. */
+$authStep = (($_GET['step'] ?? '') === 'form' || $allErrs || $flash !== '' || $formData)
+    ? 'form' : 'choose';
+
 $loginUrl    = APP_URL . '/index.php?page=login';
 $registerUrl = APP_URL . '/index.php?page=register';
 $homeUrl     = APP_URL . '/index.php?page=home';
 $contactUrl  = APP_URL . '/index.php?page=contact';
 $company     = sanitize(companyName());
-
-$slides = array_values($showcase ?? []);
 ?>
 <?php /* Straight to the form. "Main content" here would land a keyboard
          user at the top of the property panel, in front of a wordmark, a
@@ -58,46 +93,92 @@ $slides = array_values($showcase ?? []);
 <a class="skip-link" href="#auth-form">Skip to the form</a>
 
 <div class="auth-shell" id="main" data-auth-shell data-auth-mode="<?= $authMode ?>"
+     data-auth-step="<?= $authStep ?>"
      data-title-login="<?= sanitize('Sign In — ' . companyName()) ?>"
      data-title-register="<?= sanitize('Create Account — ' . companyName()) ?>">
 
-    <!-- ─── The photographic panel ───────────────────────────── -->
-    <?php /* Five seconds a slide, with a short cross-fade so the pictures
-             replace each other rather than cut, and a slow zoom under that
-             which runs the whole time — neighbouring photographs drift in
-             opposite directions, so the panel never looks like it is doing
-             one thing on a loop. The interval is data rather than a constant
-             in the script, so it can be changed without touching auth.js.
+    <?php /* ─── The curve between the two halves ─────────────────
+             The only markup this redesign added, and it is here because
+             CSS cannot express the shape on its own: clip-path: path()
+             takes absolute user units, so a curve written that way is
+             fixed at one window size, and a mask would draw the wave
+             without clipping hit-testing — leaving an invisible strip of
+             the photographic panel lying over the form's left margin.
 
-             There is no pause button. What stops the rotation instead is
-             hovering the panel, moving keyboard focus into it, choosing a
-             property from the dots, switching to another tab, and
-             prefers-reduced-motion — which holds it on the first frame and
-             never starts it at all. */ ?>
-    <section class="auth-showcase" data-slideshow data-slideshow-interval="5000"
-             aria-label="<?= $company ?> featured properties">
+             A clipPath in objectBoundingBox units has neither problem.
+             Every coordinate is a fraction of the box, so one path
+             describes the curve at 1024px and at 2560px alike, and the
+             clipped-away area stops taking pointer events as well as
+             paint.
 
-        <div class="auth-showcase__stage" aria-hidden="true">
-            <?php foreach ($slides as $i => $slide): ?>
-                <div class="auth-showcase__slide<?= $i === 0 ? ' is-active' : '' ?>" data-slide="<?= $i ?>">
-                    <?php /* The first frame is the one blocking the panel's
-                             appearance, so it is fetched eagerly and at high
-                             priority; the rest are lazy and arrive during the
-                             first few seconds. */ ?>
-                    <img src="<?= sanitize($slide['image']) ?>" alt=""
-                         decoding="async"
-                         <?= $i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>>
-                </div>
-            <?php endforeach ?>
-        </div>
+             Two paths rather than one: side by side the curve is the
+             vertical boundary between the panels, stacked it is the
+             horizontal one under the hero. Purely decorative — nothing
+             here is announced, focusable or laid out. */ ?>
+    <svg class="auth-waves" aria-hidden="true" focusable="false" width="0" height="0">
+        <defs>
+            <?php /* One sweep, not two. The path this replaced bent at
+                     0.17, again at 0.37 and again at 0.56, which at the size
+                     it is drawn reads as a ripple down the seam rather than
+                     as a shape. The reference has a single wave: the panel
+                     leans into the form column through the upper half and
+                     draws back below it, and the control points are far
+                     enough apart for the curve to be legible as one gesture
+                     at 1024px and at 2560px alike.
+
+                     0.78 at the top and 0.80 at the foot are the two numbers
+                     the layout is written against — they are the leftmost the
+                     boundary ever comes, and the panel's copy is held clear
+                     of them by a percentage padding, so it scales with the
+                     same box the path does. 0.97 is the crest, and the form's
+                     own left padding clears that. */ ?>
+            <clipPath id="authWaveSide" clipPathUnits="objectBoundingBox">
+                <path d="M0,0 H0.78 C0.90,0.16 0.99,0.32 0.97,0.50 C0.95,0.70 0.82,0.84 0.80,1 H0 Z"/>
+            </clipPath>
+            <clipPath id="authWaveFoot" clipPathUnits="objectBoundingBox">
+                <path d="M0,0 H1 V0.80 C0.88,0.94 0.70,1 0.50,0.96 C0.30,0.92 0.14,0.80 0,0.84 Z"/>
+            </clipPath>
+        </defs>
+    </svg>
+
+    <!-- ─── The brand panel ──────────────────────────────────── -->
+    <?php /* Colour, not photography. The panel used to rotate through real
+             listings, and the pictures were doing two jobs badly: every
+             frame needed a scrim heavy enough to hold white text over a
+             sunlit exterior, which flattened the photograph, and the
+             rotation put moving content on a screen whose whole purpose is
+             a person typing a password into it.
+
+             What is left is the brand: a gradient in the house blues with a
+             pair of soft shapes behind the copy. It reads at any window
+             size, needs no scrim, downloads nothing, and holds still.
+
+             The .auth-showcase__veil element stays and changes job — it is
+             the decorative layer now rather than the readability one. */ ?>
+    <section class="auth-showcase" aria-label="Welcome to <?= $company ?>">
+
         <div class="auth-showcase__veil" aria-hidden="true"></div>
 
         <div class="auth-showcase__body">
 
+            <?php /* The lockup: an eyebrow, a roundel and the name, stacked
+                     and centred, which is the shape the reference gives its
+                     brand panel. It was a wordmark in the top-left corner —
+                     the right place on a page with a header, and this page has
+                     no header, so the mark sat in the corner of an empty blue
+                     field with nothing to be aligned to.
+
+                     Still one link to the marketing site, still one accessible
+                     name. The eyebrow is outside it: "Welcome to" is the
+                     sentence the name finishes, not part of what the link
+                     announces itself as. */ ?>
             <div class="auth-showcase__top">
+                <p class="auth-showcase__eyebrow">Welcome to</p>
                 <a class="auth-showcase__wordmark" href="<?= $homeUrl ?>">
-                    <i class="bi bi-buildings-fill" aria-hidden="true"></i>
-                    <span><?= $company ?></span>
+                    <span class="auth-showcase__mark" aria-hidden="true">
+                        <i class="bi bi-buildings-fill"></i>
+                    </span>
+                    <span class="auth-showcase__name"><?= $company ?></span>
                 </a>
             </div>
 
@@ -139,56 +220,75 @@ $slides = array_values($showcase ?? []);
                 </div>
             </div>
 
-            <?php if ($slides): ?>
-                <div class="auth-showcase__foot">
-                    <?php /* Not a live region: a caption that re-announces
-                             itself every five seconds interrupts a screen
-                             reader for as long as the page is open. The same
-                             information is on the dot controls below, where it
-                             is read on demand. */ ?>
-                    <div class="auth-showcase__meta" data-slide-meta>
-                        <?php foreach ($slides as $i => $slide): ?>
-                            <?php if (trim((string) $slide['title']) === '') continue ?>
-                            <div class="auth-showcase__card<?= $i === 0 ? ' is-active' : '' ?>"
-                                 data-slide-card="<?= $i ?>" aria-hidden="true">
-                                <p class="auth-showcase__ptitle"><?= sanitize($slide['title']) ?></p>
-                                <p class="auth-showcase__pmeta">
-                                    <?php if ($slide['location'] !== ''): ?>
-                                        <span><i class="bi bi-geo-alt" aria-hidden="true"></i> <?= sanitize($slide['location']) ?></span>
-                                    <?php endif ?>
-                                    <?php if ($slide['badge'] !== ''): ?>
-                                        <span class="auth-showcase__badge"><?= sanitize($slide['badge']) ?></span>
-                                    <?php endif ?>
-                                    <?php if ($slide['price'] !== ''): ?>
-                                        <span class="auth-showcase__price"><?= sanitize($slide['price']) ?></span>
-                                    <?php endif ?>
-                                </p>
-                            </div>
-                        <?php endforeach ?>
-                    </div>
+            <?php /* ─── The gate ──────────────────────────────────
+                     Both destinations, on one row, always in the same
+                     place — which is what the single CTA above could not
+                     be. That one says "create an account" on the sign-in
+                     panel and "I already have an account" on the other,
+                     so the control a person is looking for moves and
+                     changes wording depending on where they already are.
 
-                    <?php if (count($slides) > 1): ?>
-                        <div class="auth-showcase__dots" role="group" aria-label="Choose a property and stop the slideshow">
-                            <?php foreach ($slides as $i => $slide): ?>
-                                <button type="button" class="auth-showcase__dot<?= $i === 0 ? ' is-active' : '' ?>"
-                                        data-slide-to="<?= $i ?>" aria-pressed="<?= $i === 0 ? 'true' : 'false' ?>">
-                                    <span class="sr-only"><?=
-                                        sanitize(trim((string) $slide['title']) !== ''
-                                            ? $slide['title'] . ($slide['location'] !== '' ? ', ' . $slide['location'] : '')
-                                            : 'Property ' . ($i + 1))
-                                    ?></span>
-                                </button>
-                            <?php endforeach ?>
-                        </div>
-                    <?php endif ?>
+                     This is the first thing on a phone. The step it opens
+                     is branding and these two buttons and nothing else;
+                     the form arrives when one of them is pressed. On a
+                     desktop the form is already beside it, so the gate is
+                     not shown at all and the panel keeps its single CTA.
+
+                     Real links to the two routes, and links that carry
+                     their own step. Without scripting they navigate, the
+                     server renders that panel active and ?step=form opens
+                     it directly — the same contract the switch controls
+                     have always had. auth.js intercepts and neither the
+                     navigation nor the query string ever happens. */ ?>
+            <div class="auth-gate" data-auth-gate>
+                <p class="auth-gate__lead" id="auth-gate-lead">How would you like to continue?</p>
+                <div class="auth-gate__actions" role="group" aria-labelledby="auth-gate-lead">
+                    <a class="auth-gate__btn auth-gate__btn--solid" href="<?= $registerUrl ?>&amp;step=form"
+                       data-auth-switch="register" aria-controls="auth-panel-register">
+                        <i class="bi bi-person-plus" aria-hidden="true"></i> Sign Up
+                    </a>
+                    <a class="auth-gate__btn" href="<?= $loginUrl ?>&amp;step=form"
+                       data-auth-switch="login" aria-controls="auth-panel-login">
+                        <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign In
+                    </a>
                 </div>
-            <?php endif ?>
+            </div>
+
+            <?php /* The rule at the foot of the panel. The reference closes its
+                     brand half with a line of small capitals rather than with
+                     the gradient simply running out, and the difference is that
+                     the panel reads as a composition with a bottom edge instead
+                     of as a column that was cut off.
+
+                     Both halves of it earn the space rather than filling it:
+                     the year and owner of the software somebody is about to
+                     hand a password to, and the one link on this screen that
+                     goes to a person. There is no self-service reset here —
+                     passwords are issued from Users & Roles — so "Need help?"
+                     is the honest destination for anyone who is stuck. */ ?>
+            <p class="auth-showcase__meta">
+                <span>&copy; <?= date('Y') ?> <?= $company ?></span>
+                <a href="<?= $contactUrl ?>">Need help?</a>
+            </p>
         </div>
     </section>
 
     <!-- ─── The forms ────────────────────────────────────────── -->
     <div class="auth-forms" id="auth-form" tabindex="-1">
         <div class="auth-forms__inner" data-auth-forms>
+
+            <?php /* The way back to the gate. Shown only on a narrow
+                     screen and only once scripting has enhanced the
+                     screen into two steps — with the form and the hero
+                     both on the page there is nothing for it to go back
+                     *to*, so without JS it is not rendered at all rather
+                     than rendered and inert. One control for both panels,
+                     because the step is a property of the screen and not
+                     of whichever form happens to be open. */ ?>
+            <button type="button" class="auth-step-back" data-auth-back hidden>
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                <span>All sign-in options</span>
+            </button>
 
             <!-- ─── Sign in ─────────────────────────────────── -->
             <section class="auth-panel<?= $authMode === 'login' ? '' : ' is-hidden' ?>"
@@ -208,32 +308,49 @@ $slides = array_values($showcase ?? []);
                         <label class="form-label" for="login-identifier">Email or username</label>
                         <?php /* autocomplete lets a password manager fill this. Without it
                                  people retype credentials by hand, which is how short and
-                                 reused passwords happen. */ ?>
+                                 reused passwords happen.
+
+                                 value= is the other half of the same idea: a refused
+                                 attempt comes back with the identifier still in the box,
+                                 so a mistyped password costs one field rather than two.
+                                 Only this one — the password is never carried back. */ ?>
                         <div class="input-icon">
                             <i class="bi bi-person" aria-hidden="true"></i>
-                            <input type="text" class="form-control" id="login-identifier" name="login"
-                                   autocomplete="username" placeholder="you@example.com" required
+                            <input type="text" class="form-control<?= $lbad('login') ?>" id="login-identifier" name="login"
+                                   value="<?= sanitize($formData['login'] ?? '') ?>"
+                                   autocomplete="username" placeholder="you@example.com" required<?= $laria('login') ?>
                                    <?= $authMode === 'login' ? 'autofocus' : '' ?>>
                         </div>
+                        <?= $lerr('login') ?>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="login-password">Password</label>
                         <div class="input-icon input-reveal" data-reveal>
                             <i class="bi bi-lock" aria-hidden="true"></i>
-                            <input type="password" class="form-control" id="login-password" name="password"
-                                   autocomplete="current-password" placeholder="••••••••" required>
+                            <input type="password" class="form-control<?= $lbad('password') ?>" id="login-password" name="password"
+                                   autocomplete="current-password" placeholder="••••••••" required<?= $laria('password') ?>>
                             <button type="button" class="input-reveal__btn" data-reveal-toggle
                                     aria-label="Show password" aria-pressed="false">
                                 <i class="bi bi-eye" aria-hidden="true"></i>
                             </button>
                         </div>
+                        <?= $lerr('password') ?>
                     </div>
 
-                    <div class="auth-panel__row">
-                        <label class="auth-panel__remember">
-                            <input type="checkbox" name="remember"> Remember me
-                        </label>
+                    <?php /* "Remember me" used to sit here as a checkbox. Nothing read it:
+                             no branch of AuthController, the session module or the login
+                             path ever looked at $_POST['remember'], and checkSessionTimeout()
+                             expires an idle session at SESSION_LIFETIME whatever the cookie
+                             says — so ticking it changed nothing at all.
+
+                             A control that promises to keep you signed in and does not is
+                             worse than no control, and the honest alternatives both mean
+                             loosening session expiry on a system where an administrator
+                             chose that window deliberately. So the promise is withdrawn
+                             rather than the security. Reinstating it is a session change,
+                             not a markup one. */ ?>
+                    <div class="auth-panel__row auth-panel__row--end">
                         <?php /* There is no self-service reset in this system — passwords
                                  are issued by an administrator from Users & Roles. The link
                                  goes where the question can actually be answered rather
@@ -241,16 +358,35 @@ $slides = array_values($showcase ?? []);
                         <a class="auth-panel__link" href="<?= $contactUrl ?>">Forgot password?</a>
                     </div>
 
-                    <button type="submit" class="btn btn--primary btn--block btn--lg auth-panel__submit">
-                        <span>Sign in</span> <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                    </button>
-                </form>
+                    <?php /* Both destinations, one row, filled and outlined —
+                             the pair the reference ends its form with, and the
+                             pair the gate already offers a phone on its first
+                             step. They were a full-width submit with a sentence
+                             underneath reading "Don't have an account? Sign
+                             Up", which is the same two journeys drawn once as a
+                             control and once as a footnote.
 
-                <p class="auth-panel__switch">
-                    Don't have an account?
-                    <a class="auth-switch" href="<?= $registerUrl ?>"
-                       data-auth-switch="register" aria-controls="auth-panel-register">Register</a>
-                </p>
+                             The order is fixed rather than mirrored: the action
+                             this form performs is always first and always
+                             filled, so the button the eye lands on does what
+                             the heading above it promised.
+
+                             The second is a link and not a button, because it
+                             goes somewhere. Same href, same switch attribute,
+                             same behaviour with scripting off; auth.js reads
+                             [data-auth-switch] from anywhere inside the shell,
+                             so sitting inside the form changes nothing about
+                             the switch — and an anchor submits nothing. */ ?>
+                    <div class="auth-actions">
+                        <button type="submit" class="btn btn--primary auth-panel__submit">
+                            <span>Sign In</span>
+                        </button>
+                        <a class="auth-actions__alt" href="<?= $registerUrl ?>&amp;step=form"
+                           data-auth-switch="register" aria-controls="auth-panel-register">
+                            Sign Up
+                        </a>
+                    </div>
+                </form>
 
                 <?php /* The way back and the social accounts share one row.
                          They were two stacked blocks with a heading apiece,
@@ -407,22 +543,36 @@ $slides = array_values($showcase ?? []);
                         </div>
                     </div>
 
-                    <p class="auth-panel__terms">
-                        By creating an account you agree to our
-                        <a href="<?= APP_URL ?>/index.php?page=terms">Terms of Service</a> and
-                        <a href="<?= APP_URL ?>/index.php?page=privacy">Privacy Policy</a>.
+                    <?php /* The consent line, with the reference's tick beside
+                             it. The tick is a mark and not a control: it is a
+                             <span>, it is aria-hidden, it has no name, no
+                             checked state and nothing reads it — because a real
+                             checkbox here would be a new required field, and a
+                             new required field is a change to what the server
+                             accepts. Submitting this form is the agreement, as
+                             it always was; the mark says so at a glance instead
+                             of leaving the sentence to be read. */ ?>
+                    <p class="auth-panel__terms auth-consent">
+                        <span class="auth-consent__mark" aria-hidden="true">
+                            <i class="bi bi-check-lg"></i>
+                        </span>
+                        <span>
+                            By signing up I agree with the
+                            <a href="<?= APP_URL ?>/index.php?page=terms">Terms of Service</a> and
+                            <a href="<?= APP_URL ?>/index.php?page=privacy">Privacy Policy</a>.
+                        </span>
                     </p>
 
-                    <button type="submit" class="btn btn--primary btn--block btn--lg auth-panel__submit">
-                        <span>Create account</span> <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                    </button>
+                    <div class="auth-actions">
+                        <button type="submit" class="btn btn--primary auth-panel__submit">
+                            <span>Sign Up</span>
+                        </button>
+                        <a class="auth-actions__alt" href="<?= $loginUrl ?>&amp;step=form"
+                           data-auth-switch="login" aria-controls="auth-panel-login">
+                            Sign In
+                        </a>
+                    </div>
                 </form>
-
-                <p class="auth-panel__switch">
-                    Already have an account?
-                    <a class="auth-switch" href="<?= $loginUrl ?>"
-                       data-auth-switch="login" aria-controls="auth-panel-login">Login</a>
-                </p>
 
                 <?php /* The way back and the social accounts share one row.
                          They were two stacked blocks with a heading apiece,

@@ -19,8 +19,8 @@
  * from the figures that scrolling lost it entirely. That statement now lives
  * in the masthead above, directly over the numbers it qualifies. What is left
  * here is one row of controls on a desktop: the period on the left, and
- * filters, comparison and print grouped on the right, because those three are
- * things you *do* to the report and the period is what you are looking at.
+ * filters, comparison, export and print grouped on the right, because those
+ * are things you *do* to the report and the period is what you are looking at.
  *
  * Expects: $window, $filters, $reportTab, $compare
  *
@@ -228,10 +228,58 @@ $tbCarry = !empty($compare) ? ['compare' => '1'] : [];
                 <span class="sr-only">with the previous period of equal length</span>
             </a>
 
-            <?php /* Printing is real and works today. Export is not built yet
-                     and is therefore not offered as a button that would do
-                     nothing — the workspace would rather be short a control
-                     than have one that lies. */ ?>
+            <?php /* Export. Three links, each carrying the report, the period,
+                     the comparison and the filters that are on screen right
+                     now — which is what makes "export what I am looking at"
+                     literally true rather than approximately so. Written as
+                     <details> and plain anchors for the same reason every
+                     other control here is: it works with scripting off, and
+                     each format is a real URL somebody can bookmark.
+
+                     Print stays exactly as it was. Print is the browser
+                     printing this page; Export is a document the business can
+                     file, and replacing one with the other would lose a
+                     capability rather than add one. */ ?>
+            <details class="toolbar__filters toolbar__filters--end rexport" data-report-export>
+                <summary class="toolbar__filter-trigger">
+                    <i class="bi bi-download" aria-hidden="true"></i>
+                    <span>Export</span>
+                    <i class="bi bi-chevron-down toolbar__filter-chev" aria-hidden="true"></i>
+                </summary>
+
+                <div class="toolbar__popover rexport__menu" id="reportExport">
+                    <p class="rfilters__title">Export this report</p>
+                    <?php
+                    $tbFormats = [
+                        ['format' => 'pdf',  'icon' => 'bi-filetype-pdf',  'label' => 'Export PDF',
+                         'hint' => 'A formatted report to read, file or send on'],
+                        ['format' => 'xlsx', 'icon' => 'bi-filetype-xlsx', 'label' => 'Export Excel',
+                         'hint' => 'Summary, analytics, records and data quality'],
+                        ['format' => 'csv',  'icon' => 'bi-filetype-csv',  'label' => 'Export CSV',
+                         'hint' => 'The record table behind this report, machine-readable'],
+                    ];
+                    foreach ($tbFormats as $tbFmt): ?>
+                        <a class="rexport__item"
+                           href="<?= sanitize(reportUrl($window, $filters, [
+                                    'tab'    => $tbTab,
+                                    'action' => 'export',
+                                    'format' => $tbFmt['format'],
+                                ] + $tbCarry)) ?>">
+                            <i class="bi <?= sanitize($tbFmt['icon']) ?> rexport__icon" aria-hidden="true"></i>
+                            <span class="rexport__text">
+                                <span class="rexport__label"><?= sanitize($tbFmt['label']) ?></span>
+                                <span class="rexport__hint"><?= sanitize($tbFmt['hint']) ?></span>
+                            </span>
+                        </a>
+                    <?php endforeach ?>
+
+                    <p class="rexport__foot">
+                        Exports carry the period, the comparison and the filters shown above,
+                        under your own access scope.
+                    </p>
+                </div>
+            </details>
+
             <button type="button" class="btn btn--outline btn--sm rtoolbar__print" data-report-print>
                 <i class="bi bi-printer" aria-hidden="true"></i>
                 <span>Print</span>

@@ -82,6 +82,7 @@ $pmShow  = static fn(array $pmR): callable => $pmR['format'] === 'count' ? $pmCo
     <div class="card__body card__body--flush">
         <div class="table-wrap">
             <table class="table fcomp__table">
+                <caption class="sr-only">This period's payment activity set against the previous period of equal length.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Measure</th>

@@ -90,6 +90,7 @@ $ptAgrees = static function (array $ptR, string $ptDerived): bool {
     <?php else: ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">Properties, with commercial state, recorded status and revenue collected in this period.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Property</th>
@@ -113,7 +114,14 @@ $ptAgrees = static function (array $ptR, string $ptDerived): bool {
                                 <a class="tp-name" href="<?= sanitize(APP_URL . '/index.php?page=properties&action=show&id=' . (int) $ptR['id']) ?>">
                                     <?= sanitize((string) $ptR['title']) ?>
                                 </a>
-                                <div class="tp-code tp-code--id"><?= sanitize((string) $ptR['property_code']) ?></div>
+                                <?php /* The code drills to this property's record; the title above it still opens
+                                     the property. Two destinations, one row, and
+                                     neither takes the other's click. */ ?>
+                                <a class="tp-code tp-code--id is-drill" data-drill
+                                   href="<?= sanitize(reportDrillUrl(
+                                       $window, $filters, 'properties', 'property', (string) (int) $ptR['id'],
+                                       !empty($compare) ? ['compare' => '1'] : []
+                                   )) ?>"><?= sanitize((string) $ptR['property_code']) ?></a>
                             </td>
                             <td class="col-mid">
                                 <i class="bi <?= sanitize(categoryIcon((string) $ptR['category'])) ?> tp-cat-icon" aria-hidden="true"></i>

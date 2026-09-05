@@ -20,175 +20,461 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 /* ─── Health banner ─────────────────────────────────────── */
-.backup-health__list{margin:6px 0 0;padding-left:18px;line-height:1.6}
-.backup-health__list li+li{margin-top:3px}
+.backup-health__list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: 1.6
+}
+
+.backup-health__list li+li {
+  margin-top: 3px
+}
 
 /* The polling notice. Uses the shared .spin keyframes from components.css
    rather than declaring a second rotation animation. */
-.backup-busy{margin-bottom:var(--space-5)}
+.backup-busy {
+  margin-bottom: var(--space-5)
+}
 
 /* Long values — "Not scheduled", a timestamp — in a tile sized for a number.
    Without this the six stat cards fall out of alignment as soon as one of
    them has to say something in words. */
-.stat-card__value--compact{font-size:1.22rem;line-height:1.25;overflow-wrap:anywhere}
-.stat-card__trend--muted{color:var(--text-subtle);font-weight:400;margin-top:3px}
+.stat-card__value--compact {
+  font-size: 1.22rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere
+}
+
+.stat-card__trend--muted {
+  color: var(--text-subtle);
+  font-weight: 400;
+  margin-top: 3px
+}
 
 /* The side column carries four cards; without this they collide. */
-.backup-cols .detail-cols__side{display:flex;flex-direction:column;gap:var(--space-5)}
+.backup-cols .detail-cols__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5)
+}
 
 /* The side rail is taller than the viewport once it holds four cards, so
    sticky positioning would pin its top and hide the bottom two. */
-@media(min-width:1025px){
-  .backup-cols .detail-cols__side{position:static}
+@media(min-width:1025px) {
+  .backup-cols .detail-cols__side {
+    position: static
+  }
 }
 
 /* ─── Schedule list ─────────────────────────────────────── */
-.sched{list-style:none;margin:0;padding:0}
-.sched__row{
-  display:flex;gap:12px;padding:13px 18px;
-  border-bottom:1px solid var(--border);align-items:flex-start;
+.sched {
+  list-style: none;
+  margin: 0;
+  padding: 0
 }
-.sched__row:last-child{border-bottom:0}
-.sched__row--off{opacity:.62}
-.sched__dot{
-  width:8px;height:8px;border-radius:50%;background:var(--success);
-  margin-top:7px;flex-shrink:0;
+
+.sched__row {
+  display: flex;
+  gap: 12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
 }
-.sched__row--off .sched__dot{background:var(--border-strong)}
-.sched__body{min-width:0;flex:1}
-.sched__name{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  font-weight:600;color:var(--text);font-size:var(--fs-sm);
+
+.sched__row:last-child {
+  border-bottom: 0
 }
-.sched__meta{
-  font-size:var(--fs-2xs);color:var(--text-muted);
-  margin-top:3px;line-height:1.5;
+
+.sched__row--off {
+  opacity: .62
+}
+
+.sched__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+.sched__row--off .sched__dot {
+  background: var(--border-strong)
+}
+
+.sched__body {
+  min-width: 0;
+  flex: 1
+}
+
+.sched__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 600;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.sched__meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.5;
 }
 
 /* ─── Storage meter ─────────────────────────────────────── */
-.meter__head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.meter__value{
-  font-family:var(--font-display);font-size:1.45rem;font-weight:700;
-  color:var(--text);letter-spacing:-.02em;line-height:1;
+.meter__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px
 }
-.meter__basis{font-size:var(--fs-xs);color:var(--text-muted)}
-.meter{
-  height:8px;border-radius:var(--radius-pill);background:var(--surface-3);
-  overflow:hidden;
+
+.meter__value {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.02em;
+  line-height: 1;
 }
-.meter__fill{
-  display:block;height:100%;border-radius:inherit;
-  background:var(--primary);transition:width .4s ease;
+
+.meter__basis {
+  font-size: var(--fs-xs);
+  color: var(--text-muted)
 }
-.meter--warning .meter__fill{background:var(--warning)}
-.meter--danger  .meter__fill{background:var(--danger)}
-.meter__foot{
-  display:flex;justify-content:space-between;gap:8px;
-  margin-top:7px;font-size:var(--fs-2xs);color:var(--text-subtle);
-  font-variant-numeric:tabular-nums;
+
+.meter {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  overflow: hidden;
 }
-@media(prefers-reduced-motion:reduce){.meter__fill{transition:none}}
+
+.meter__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width .4s ease;
+}
+
+.meter--warning .meter__fill {
+  background: var(--warning)
+}
+
+.meter--danger .meter__fill {
+  background: var(--danger)
+}
+
+.meter__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 7px;
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .meter__fill {
+    transition: none
+  }
+}
 
 /* ─── By-type breakdown ─────────────────────────────────── */
-.breakdown{list-style:none;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--border)}
-.breakdown__row{
-  display:grid;grid-template-columns:10px 1fr auto auto;
-  align-items:center;gap:10px;padding:5px 0;font-size:var(--fs-xs);
+.breakdown {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border)
 }
-.breakdown__dot{width:8px;height:8px;border-radius:2px}
-.breakdown__dot--purple{background:var(--purple)}
-.breakdown__dot--info  {background:var(--info)}
-.breakdown__dot--orange{background:var(--orange)}
-.breakdown__label{color:var(--text-body);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.breakdown__count{
-  color:var(--text-subtle);font-variant-numeric:tabular-nums;
-  background:var(--surface-3);border-radius:var(--radius-pill);
-  padding:1px 7px;font-size:var(--fs-2xs);
+
+.breakdown__row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: var(--fs-xs);
 }
-.breakdown__value{
-  color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;
-  min-width:64px;text-align:right;
+
+.breakdown__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px
+}
+
+.breakdown__dot--purple {
+  background: var(--purple)
+}
+
+.breakdown__dot--info {
+  background: var(--info)
+}
+
+.breakdown__dot--orange {
+  background: var(--orange)
+}
+
+.breakdown__label {
+  color: var(--text-body);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.breakdown__count {
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-3);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  font-size: var(--fs-2xs);
+}
+
+.breakdown__value {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 64px;
+  text-align: right;
 }
 
 /* ─── Quick actions, stacked ────────────────────────────── */
 /* The dashboard's quick actions flow in a responsive grid; in a narrow side
    panel that grid produces one cramped column of half-width tiles. */
-.quick-actions--stack{grid-template-columns:1fr}
-.quick-action__form{display:contents}
-.quick-action__form .quick-action{width:100%;text-align:left;font:inherit;cursor:pointer}
+.quick-actions--stack {
+  grid-template-columns: 1fr
+}
+
+.quick-action__form {
+  display: contents
+}
+
+.quick-action__form .quick-action {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer
+}
 
 /* ─── Choice cards (create + restore dialogs) ───────────── */
-.choice-grid{display:grid;gap:10px}
-.choice-grid--tight{gap:8px}
-.choice{display:block;cursor:pointer}
-.choice__input{position:absolute;opacity:0;width:0;height:0}
-.choice__box{
-  display:flex;gap:12px;align-items:flex-start;
-  padding:13px 14px;border:1px solid var(--border);border-radius:var(--radius-lg);
-  background:var(--surface);transition:border-color .15s ease,background .15s ease,box-shadow .15s ease;
+.choice-grid {
+  display: grid;
+  gap: 10px
 }
-.choice:hover .choice__box{border-color:var(--border-strong);background:var(--surface-2)}
-.choice__input:checked+.choice__box{
-  border-color:var(--primary);background:var(--primary-tint);
-  box-shadow:0 0 0 3px var(--primary-ring);
+
+.choice-grid--tight {
+  gap: 8px
 }
+
+.choice {
+  display: block;
+  cursor: pointer
+}
+
+.choice__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0
+}
+
+.choice__box {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.choice:hover .choice__box {
+  border-color: var(--border-strong);
+  background: var(--surface-2)
+}
+
+.choice__input:checked+.choice__box {
+  border-color: var(--primary);
+  background: var(--primary-tint);
+  box-shadow: 0 0 0 3px var(--primary-ring);
+}
+
 /* Keyboard focus must be visible on the box, since the real input is hidden. */
-.choice__input:focus-visible+.choice__box{outline:2px solid var(--primary);outline-offset:2px}
-.choice__icon{
-  width:34px;height:34px;border-radius:var(--radius);flex-shrink:0;
-  display:grid;place-items:center;font-size:16px;
-  background:var(--surface-3);color:var(--text-muted);
+.choice__input:focus-visible+.choice__box {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px
 }
-.choice__input:checked+.choice__box .choice__icon{background:var(--primary-light);color:var(--primary-ink)}
-.choice__text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-.choice__title{font-weight:600;color:var(--text);font-size:var(--fs-sm)}
-.choice__desc{font-size:var(--fs-xs);color:var(--text-muted);line-height:1.5}
-.choice__meta{font-size:var(--fs-2xs);color:var(--text-subtle);margin-top:2px}
-.choice__check{
-  width:20px;height:20px;border-radius:50%;flex-shrink:0;
-  display:grid;place-items:center;font-size:11px;
-  border:1px solid var(--border-strong);color:transparent;background:var(--surface);
+
+.choice__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  background: var(--surface-3);
+  color: var(--text-muted);
 }
-.choice__input:checked+.choice__box .choice__check{
-  background:var(--primary);border-color:var(--primary);color:#fff;
+
+.choice__input:checked+.choice__box .choice__icon {
+  background: var(--primary-light);
+  color: var(--primary-ink)
 }
+
+.choice__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1
+}
+
+.choice__title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: var(--fs-sm)
+}
+
+.choice__desc {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5
+}
+
+.choice__meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  margin-top: 2px
+}
+
+.choice__check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  border: 1px solid var(--border-strong);
+  color: transparent;
+  background: var(--surface);
+}
+
+.choice__input:checked+.choice__box .choice__check {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
 /* The full-restore option, which is the destructive one. */
-.choice--danger .choice__input:checked+.choice__box{
-  border-color:var(--danger);background:var(--danger-bg);
-  box-shadow:0 0 0 3px rgba(200,30,30,.14);
+.choice--danger .choice__input:checked+.choice__box {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  box-shadow: 0 0 0 3px rgba(200, 30, 30, .14);
 }
+
 .choice--danger .choice__input:checked+.choice__box .choice__icon,
-.choice--danger .choice__input:checked+.choice__box .choice__check{
-  background:var(--danger);border-color:var(--danger);color:#fff;
+.choice--danger .choice__input:checked+.choice__box .choice__check {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
 }
+
 /* Hidden rather than disabled when the selected archive cannot provide it: a
    greyed option invites a click that has to be explained. */
-.choice[hidden]{display:none}
-@media(prefers-reduced-motion:reduce){.choice__box{transition:none}}
+.choice[hidden] {
+  display: none
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .choice__box {
+    transition: none
+  }
+}
 
 /* The restore dialog gets a red top edge, so it cannot be mistaken at a
    glance for the create dialog it otherwise resembles. */
-.modal__dialog--danger{border-top:3px solid var(--danger)}
-.modal__dialog--danger .modal__title{color:var(--danger)}
+.modal__dialog--danger {
+  border-top: 3px solid var(--danger)
+}
+
+.modal__dialog--danger .modal__title {
+  color: var(--danger)
+}
 
 /* ─── Settings screen ───────────────────────────────────── */
-.sched-edit+.sched-edit{margin-top:var(--space-6);padding-top:var(--space-6);border-top:1px solid var(--border)}
-.codeblock{
-  margin:10px 0;padding:11px 13px;border-radius:var(--radius);
-  background:var(--ink);color:#e8f1f6;overflow-x:auto;
-  font-family:var(--font-mono);font-size:var(--fs-xs);line-height:1.6;
+.sched-edit+.sched-edit {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border)
 }
-.codeblock code{background:none;color:inherit;padding:0;white-space:pre}
-.form-hint--inline{display:inline;font-weight:400;color:var(--text-subtle)}
+
+.codeblock {
+  margin: 10px 0;
+  padding: 11px 13px;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: #e8f1f6;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
+.codeblock code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  white-space: pre
+}
+
+.form-hint--inline {
+  display: inline;
+  font-weight: 400;
+  color: var(--text-subtle)
+}
 
 /* ─── Narrow widths ─────────────────────────────────────── */
-@media(max-width:640px){
-  .stat-card__value--compact{font-size:1.1rem}
-  .sched__row{padding:12px 14px}
+@media(max-width:640px) {
+  .stat-card__value--compact {
+    font-size: 1.1rem
+  }
+
+  .sched__row {
+    padding: 12px 14px
+  }
+
   /* Drop the count pill before the size, which is the figure being compared. */
-  .breakdown__row{grid-template-columns:10px 1fr auto}
-  .breakdown__count{display:none}
-  .choice__box{padding:11px 12px;gap:10px}
-  .choice__icon{width:30px;height:30px;font-size:14px}
-  .codeblock{font-size:.72rem}
+  .breakdown__row {
+    grid-template-columns: 10px 1fr auto
+  }
+
+  .breakdown__count {
+    display: none
+  }
+
+  .choice__box {
+    padding: 11px 12px;
+    gap: 10px
+  }
+
+  .choice__icon {
+    width: 30px;
+    height: 30px;
+    font-size: 14px
+  }
+
+  .codeblock {
+    font-size: .72rem
+  }
 }

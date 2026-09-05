@@ -75,6 +75,11 @@ class BackupController
             'health'       => backupHealth(),
             'storage'      => backupStorageUsage(),
             'schedules'    => backupSchedules(),
+            // Whether anything is actually acting on those schedules. Passed
+            // beside them rather than folded into them because a schedule and
+            // the scheduler fail independently, and the page has to be able to
+            // say "configured, but nothing is running it".
+            'scheduler'    => backupSchedulerState(),
             'activity'     => backupRecentActivity(8),
             'restorable'   => can('backup.restore') ? $this->model->restorable() : [],
             'lastRestore'  => $this->model->lastRestore(),
@@ -430,6 +435,13 @@ class BackupController
             'health'       => backupHealth(),
             'exposed'      => backupRootIsExposed(),
             'lastSweep'    => setting('backup_retention_last_run', ''),
+            // The installation notice on this page is the module's main
+            // instruction for making automatic backup work at all, so it shows
+            // the real command for this installation and the real state of the
+            // task, not an example to be adapted.
+            'scheduler'    => backupSchedulerState(),
+            'command'      => backupSchedulerCommand(),
+            'taskInstalled' => backupWindowsTaskInstalled(),
             'pageTitle'    => 'Backup Settings',
             'pageSubtitle' => 'Schedules, retention, recovery objective and storage.',
             'breadcrumbs'  => [

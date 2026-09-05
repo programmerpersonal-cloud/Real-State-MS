@@ -25,6 +25,11 @@ $fiFiltered = reportFilterCount($filters) > 0;
 $fiCarry    = !empty($compare) ? ['compare' => '1'] : [];
 $fiReset    = reportUrl($window, [], ['tab' => 'financial'] + $fiCarry);
 $fiLink     = static fn(string $tab): string => reportUrl($window, $filters, ['tab' => $tab] + $fiCarry);
+/* Every drill-down on this page carries the period, the comparison and the
+   filters above, because it is built from the same window and filters the
+   figures were. Nothing is copied across by hand. */
+$fiDrill = static fn(string $metric, string $key = ''): string
+    => reportDrillUrl($window, $filters, 'financial', $metric, $key, $fiCarry);
 
 $fiExpected  = (float) $ledger['expected'];
 $fiSettled   = (float) $ledger['settled_on_ledger'];
@@ -54,6 +59,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'previous_label' => $previousStreams !== null
             ? formatCurrency((float) $previousStreams['total']) . ' previously'
             : null,
+        'drill'   => $fiDrill('revenue'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -73,6 +79,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'previous_label' => $previousLedger !== null
             ? formatCurrency((float) $previousLedger['expected']) . ' previously'
             : null,
+        'drill'   => $fiDrill('expected'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -94,6 +101,10 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'previous_label' => ($previousLedger !== null && $previousLedger['collection_rate'] !== null)
             ? reportPercent($previousLedger['collection_rate']) . ' previously'
             : null,
+        /* A rate is a ratio and has no record set of its own. The drill goes
+           to the numerator — the instalments actually settled — because that
+           is the half a reader questioning the rate is asking about. */
+        'drill'   => $fiDrill('settled'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -107,6 +118,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'context' => $fiNotYetDue > 0
             ? formatCurrency($fiNotYetDue) . ' of this is not yet due'
             : 'All of it has already fallen due',
+        'drill'   => $fiDrill('outstanding'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -122,7 +134,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
                 (int) $ledger['overdue_count'] === 1 ? 'instalment' : 'instalments'
             )
             : 'Nothing overdue',
-        'url'     => $fiLink('payments'),
+        'drill'   => $fiDrill('arrears'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
     ?>
@@ -160,6 +172,8 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         ],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent was scheduled to fall due in this period.',
+        'drill'    => ['metric' => 'expected_bucket',
+                       'keys'   => array_column($ledgerSeries['expected'], 'bucket')],
         'size'   => 'feature',
         'filtered' => $fiFiltered,
         'resetUrl' => $fiReset,
@@ -190,6 +204,8 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'series'   => [['label' => 'Settled', 'data' => $fiRate, 'tone' => '--primary']],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No rent fell due in this period, so there is no collection rate to plot.',
+        'drill'    => ['metric' => 'settled_bucket',
+                       'keys'   => array_column($ledgerSeries['expected'], 'bucket')],
         'size'   => 'feature',
         'filtered' => $fiFiltered,
         'resetUrl' => $fiReset,
@@ -209,12 +225,17 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
     <?php
     $fiStreamNames = ['rental' => 'Rental', 'sale' => 'Sales', 'reservation' => 'Reservation'];
     $fiStreamTones = ['rental' => '--primary', 'sale' => '--success', 'reservation' => '--purple'];
-    $fiSLabels = $fiSData = $fiSTones = [];
+    $fiSLabels = $fiSData = $fiSTones = $fiSKeys = [];
     foreach ($fiStreamNames as $fiKey => $fiName) {
         if ((float) $streams[$fiKey] > 0) {
             $fiSLabels[] = $fiName;
             $fiSData[]   = (float) $streams[$fiKey];
             $fiSTones[]  = $fiStreamTones[$fiKey];
+            /* The reference_type the revenue was counted under, not the
+               label above the slice. revenueByStream() reads the same
+               constants. */
+            $fiSKeys[]   = ['rental' => REPORT_STREAM_RENTAL, 'sale' => REPORT_STREAM_SALE,
+                            'reservation' => 'reservation'][$fiKey];
         }
     }
 
@@ -228,6 +249,7 @@ $fiNotYetDue = (float) ($ledger['not_yet_due'] ?? 0);
         'series'   => [['label' => 'Collected', 'data' => $fiSData, 'tones' => $fiSTones]],
         'label_heading' => 'Stream',
         'empty'    => 'No eligible revenue was collected in this period.',
+        'drill'    => ['metric' => 'stream', 'keys' => $fiSKeys],
         'size'   => 'standard',
         'share'    => true,
         'filtered' => $fiFiltered,

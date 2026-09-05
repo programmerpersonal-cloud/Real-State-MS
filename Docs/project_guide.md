@@ -316,6 +316,67 @@ CSS custom properties drive the theme. Components:
 6. From **Settings**, configure company info, currency, late fee, etc.
 7. From **Branches**, add at least one branch
 8. From **Users**, create staff accounts (agent, maintenance) as needed
+9. **Install the backup scheduler** — see below. Without it, automatic backups
+   do not run, however the Backup screen is configured.
+
+### Automatic backups (required, easily forgotten)
+
+Nothing in the web application starts a scheduled backup. A backup that
+depends on somebody having a browser tab open is not a schedule, so schedules
+are carried out by one command-line runner that a timer invokes:
+
+```
+database	oolsun_backups.php
+```
+
+**Windows / XAMPP** — right-click and *Run as administrator*:
+
+```
+database	ools\install_scheduler.bat
+```
+
+That registers **one** Windows scheduled task, `Saxane Backup Scheduler`,
+ticking every five minutes. One task, not one per schedule: the runner reads
+`backup_schedules` on each tick and works out for itself whether the daily,
+weekly or monthly job is due.
+
+If you prefer to add the task by hand, these are the three fields Task
+Scheduler asks for:
+
+| Field | Value |
+|---|---|
+| Program | `D:\XAMPP\php\php.exe` |
+| Arguments | `"D:\XAMPP\htdocs\Real-State-MS\Real-State-MS\database	oolsun_backups.php" --quiet` |
+| Start in | `D:\XAMPP\htdocs\Real-State-MS\Real-State-MS` |
+
+Set the trigger to *Daily*, repeat every 5 minutes for *indefinitely*, and tick
+*Run whether user is logged on or not* and *Run task as soon as possible after
+a scheduled start is missed*. "Start in" is a convenience only — the runner
+resolves every path from its own location, so it works from any working
+directory.
+
+**Linux** — a crontab line instead:
+
+```
+*/5 * * * * /usr/bin/php /var/www/app/database/tools/run_backups.php --quiet
+```
+
+**Checking it.** The runner answers for itself, so nobody has to read source
+to find out why a backup did not happen:
+
+| Command | Answers |
+|---|---|
+| `php run_backups.php --doctor` | everything: binaries, storage, clock, whether the task is registered, when the scheduler last ticked, what is overdue |
+| `php run_backups.php --status` | health, schedules and storage, read-only |
+| `php run_backups.php --due` | which schedules are due right now, and why each one is or is not |
+| `php run_backups.php --log` | the last runs, from `<BACKUP_PATH>/logs/scheduler.log` |
+| `php run_backups.php --force` | run every active schedule now, ignoring `next_run_at` |
+| `php run_backups.php --run=full` | one backup now: `full`, `database` or `files` |
+
+The Backup dashboard reads the same heartbeat: it says *"Scheduler checked in
+2 minutes ago"* when the task is running, and turns red with *"The scheduler
+has never run"* when it is not — so an enabled schedule with nothing behind it
+can no longer look healthy.
 
 ---
 

@@ -111,6 +111,77 @@ foreach (SettingsController::CURRENCIES as $code => [$name, $symbol]) {
                                             <?php endforeach ?>
                                         </select>
 
+                                    <?php elseif ($type === 'theme'): ?>
+                                        <?php /* Radios, not a <select>. There are three of them, they are
+                                                 mutually exclusive, and each one is a look rather than a word —
+                                                 so each is drawn as the rail it produces. A dropdown would ask
+                                                 someone to pick "dark" and then go and find out what that meant.
+
+                                                 The previews take their accent from --sidebar-accent, which is
+                                                 the live value: change the colour below and all three tiles
+                                                 follow, because they are showing this rail rather than a rail. */ ?>
+                                        <div class="theme-field" role="radiogroup" aria-label="<?= sanitize($label) ?>">
+                                            <?php foreach (SettingsController::RAIL_THEMES as $mode => [$modeLabel, $modeHint]): ?>
+                                                <label class="theme-tile<?= $mode === $val ? ' is-selected' : '' ?>" data-theme-tile="<?= sanitize($mode) ?>">
+                                                    <input type="radio"
+                                                           <?= $mode === array_key_first(SettingsController::RAIL_THEMES) ? 'id="' . $id . '"' : '' ?>
+                                                           name="<?= $name ?>" value="<?= sanitize($mode) ?>"
+                                                           <?= $mode === $val ? 'checked' : '' ?>>
+                                                    <span class="theme-tile__preview" aria-hidden="true">
+                                                        <span class="theme-tile__rail">
+                                                            <span class="theme-tile__brand"></span>
+                                                            <span class="theme-tile__row theme-tile__row--active"></span>
+                                                            <span class="theme-tile__row"></span>
+                                                            <span class="theme-tile__row"></span>
+                                                        </span>
+                                                        <span class="theme-tile__page"></span>
+                                                    </span>
+                                                    <span class="theme-tile__body">
+                                                        <span class="theme-tile__name"><?= sanitize($modeLabel) ?></span>
+                                                        <span class="theme-tile__hint"><?= sanitize($modeHint) ?></span>
+                                                    </span>
+                                                </label>
+                                            <?php endforeach ?>
+                                        </div>
+
+                                    <?php elseif ($type === 'color'): ?>
+                                        <?php $accentValue = $val !== '' ? $val : RAIL_ACCENT_DEFAULT; ?>
+                                        <div class="accent-field" data-accent-field>
+                                            <div class="accent-field__swatches">
+                                                <?php foreach (SettingsController::RAIL_ACCENTS as $hex => $accentName): ?>
+                                                    <?php $isOn = strcasecmp($hex, $accentValue) === 0; ?>
+                                                    <button type="button"
+                                                            class="accent-swatch<?= $isOn ? ' is-selected' : '' ?>"
+                                                            style="--swatch:<?= sanitize($hex) ?>"
+                                                            data-accent="<?= sanitize($hex) ?>"
+                                                            aria-pressed="<?= $isOn ? 'true' : 'false' ?>">
+                                                        <span class="sr-only"><?= sanitize($accentName) ?></span>
+                                                    </button>
+                                                <?php endforeach ?>
+                                            </div>
+
+                                            <?php /* The hex box is the field that is actually submitted; the
+                                                     colour well and the swatches above only write into it. One
+                                                     input, one name, one value in the POST body — and the hex
+                                                     stays visible because it is the thing a brand guideline is
+                                                     written in, and the thing someone came here to paste. */ ?>
+                                            <div class="accent-field__custom">
+                                                <span class="accent-field__well">
+                                                    <input type="color" value="<?= sanitize($accentValue) ?>"
+                                                           data-accent-picker aria-label="Pick a custom accent colour">
+                                                </span>
+                                                <input class="form-control accent-field__hex" id="<?= $id ?>"
+                                                       type="text" name="<?= $name ?>" value="<?= sanitize($val) ?>"
+                                                       maxlength="7" spellcheck="false" autocomplete="off"
+                                                       placeholder="<?= sanitize(RAIL_ACCENT_DEFAULT) ?>"
+                                                       pattern="#[0-9a-fA-F]{6}" data-accent-hex>
+                                                <button type="button" class="accent-field__reset" data-accent-reset
+                                                        data-default="<?= sanitize(RAIL_ACCENT_DEFAULT) ?>">
+                                                    Reset
+                                                </button>
+                                            </div>
+                                        </div>
+
                                     <?php elseif ($type === 'logo'): ?>
                                         <?php $logoUrl = companyLogoUrl(); ?>
                                         <div class="logo-field" data-logo-field>

@@ -3,7 +3,13 @@
  * Stylesheet links — the one place the CSS load order is decided.
  *
  * Order is load-bearing, not cosmetic:
- *   design-system → tokens-app → layout → components → pages/* → responsive
+ *   design-system → tokens-app → layout → rail → components → pages/* → responsive
+ *
+ * rail.css sits directly after layout.css and only in the app bundle. It owns
+ * the navigation rail outright — palette and shape both — because the rail is
+ * themeable per installation and a value split across two sheets is a value
+ * that drifts. It must load after layout.css so its shell rules win, and its
+ * own :root palette must come after design-system.css for the same reason.
  *
  * design-system first because every other file reads its custom properties,
  * and responsive last because its narrow-width rules override component and
@@ -38,7 +44,7 @@ $bundle = $bundle ?? 'app';
 $sheets = match ($bundle) {
     'public' => ['design-system', 'components', 'public'],
     'auth'   => ['design-system', 'tokens-app', 'components', 'pages/auth'],
-    default  => ['design-system', 'tokens-app', 'layout', 'components', 'pages/dashboard', 'pages/settings'],
+    default  => ['design-system', 'tokens-app', 'layout', 'rail', 'components', 'pages/dashboard', 'pages/settings'],
 };
 /* Page sheets sit between the bundle and responsive.css. Anything the page
    names is loaded once, even if it names it twice, and only if the file is

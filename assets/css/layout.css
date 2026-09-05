@@ -15,256 +15,180 @@
    min-height is doubled up on purpose: 100vh is the honest fallback, and
    100dvh corrects it on mobile browsers where the address bar makes the
    visual viewport shorter than 100vh claims. */
-.app{display:flex;min-height:100vh;min-height:100dvh;background:var(--bg)}
-.app__sidebar{
-  position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-width);
-  background:var(--sidebar-bg);
-  border-right:1px solid var(--sidebar-border);
-  z-index:100;display:flex;flex-direction:column;
-  transition:transform .25s ease;
-  /* Declared for the rail's own sake: the browser paints the scrollbar and
-     any native affordance inside it, and the page-level `color-scheme:light`
-     would otherwise hand this dark column a light scrollbar. */
-  color-scheme:dark;
+.app {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg)
 }
-.app__main{margin-left:var(--sidebar-width);flex:1;min-width:0;display:flex;flex-direction:column}
-.app__header{
-  position:sticky;top:0;z-index:90;background:rgba(255,255,255,.88);
-  backdrop-filter:saturate(180%) blur(10px);-webkit-backdrop-filter:saturate(180%) blur(10px);
-  border-bottom:1px solid var(--border);
-  height:var(--header-height);display:flex;align-items:center;padding:0 28px;gap:16px;
+
+/* .app__sidebar and the content column's margin-left live in rail.css,
+   with the rest of the rail. The rail is themeable now — its width, its
+   surface and its border all move together — and splitting "how wide is
+   it" from "what colour is it" across two files is how the two drift. */
+
+.app__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column
 }
+
+.app__header {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  background: rgba(255, 255, 255, .88);
+  backdrop-filter: saturate(180%) blur(10px);
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
+  border-bottom: 1px solid var(--border);
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 16px;
+}
+
 /* min-width:0 so a wide table inside can shrink instead of stretching the
    column; flex:1 is what pushes the footer down on a short page. */
-.app__content{padding:14px 24px 24px;flex:1;min-width:0}
-
-/* ─── Sidebar ───────────────────────────────────────────── */
-/* The brand sits in its own banded row so the rail reads as three parts —
-   identity, who you are, where you can go — rather than one long list that
-   happens to start with a logo. */
-/* No divider under the brand: the reference reads as one continuous rail,
-   and a rule here chops the identity off from the menu it belongs to. Its
-   height still tracks the topbar so the two line up across the shell. */
-/* The gap under the brand is small on purpose: the menu now starts here, and
-   the section's own top padding already separates the two. Its height still
-   tracks the topbar so the brand and the breadcrumb sit on one line across
-   the shell. */
-.sidebar__brand{
-  padding:0 14px;height:var(--header-height);flex-shrink:0;
-  display:flex;align-items:center;gap:10px;min-width:0;
-  margin-bottom:4px;
-}
-/* The company name is user-supplied and can be any length — it ellipses
-   rather than pushing the rail's contents out of alignment. */
-.sidebar__brand > div:last-child{min-width:0}
-.sidebar__title,.sidebar__subtitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sidebar__logo{
-  width:34px;height:34px;background:linear-gradient(135deg,var(--primary) 0%,#3aa8e6 100%);
-  border-radius:10px;display:flex;align-items:center;justify-content:center;
-  font-weight:700;color:#fff;font-size:1rem;
-  box-shadow:0 4px 12px rgba(0,117,192,.42);
-  overflow:hidden;flex-shrink:0;
-}
-/* An uploaded logo replaces the gradient tile — the brand gradient behind a
-   logo of unknown colour reads as a mistake. The white plate stays: a mark
-   drawn for light backgrounds would otherwise vanish into the navy. */
-.sidebar__logo--image{background:#fff;border:1px solid var(--sidebar-border);box-shadow:none;padding:3px}
-.sidebar__logo img{width:100%;height:100%;object-fit:contain}
-.sidebar__title{font-size:1rem;font-weight:700;color:var(--sidebar-text-strong);letter-spacing:-.2px;line-height:1.15}
-.sidebar__subtitle{font-size:.64rem;color:var(--sidebar-muted);text-transform:uppercase;letter-spacing:.9px;margin-top:3px;font-weight:600}
-
-/* flex:1 + min-height:0 is what confines the scroll to the menu itself: the
-   rail never grows past the viewport, so the brand stays at the top and the
-   account at the bottom while only the list in between moves. It scrolls
-   only when the menu is genuinely taller than the space left for it.
-
-   The bottom padding is the gap between the last row and the account block,
-   and it belongs to the scrolling area rather than to the footer so that it
-   survives the scroll: a margin on the footer would leave the final item
-   butted against the divider the moment the menu overflows.
-
-   The scrollbar is kept faint at rest and only firms up while the pointer is
-   in the menu — on a rail this dark a bright track reads as a piece of
-   chrome sitting on top of the navigation. */
-.sidebar__nav{
-  flex:1;min-height:0;padding:0 10px 14px;overflow-y:auto;overscroll-behavior:contain;
-  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent;
-}
-.sidebar__nav:hover{scrollbar-color:rgba(255,255,255,.26) transparent}
-.sidebar__nav::-webkit-scrollbar{width:5px}
-.sidebar__nav::-webkit-scrollbar-track{background:transparent}
-.sidebar__nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;transition:background var(--transition)}
-.sidebar__nav:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.26)}
-
-/* Density, revisited in Phase 6.
-   The rail used to hold every destination open at once — 26 rows for an
-   administrator — which forced 30px rows at .83rem to make them fit. Groups
-   collapse now, so a typical session shows eight to twelve rows and the
-   height that bought back goes into the rows themselves: 36px at the
-   application's own --fs-sm, which is a comfortable pointer target rather
-   than a tolerable one. On a phone the rail is a drawer, and a drawer is
-   expected to scroll. */
-.sidebar__section{margin-bottom:2px}
-.sidebar__section:last-child{margin-bottom:0}
-
-/* The heading is a <button> when its group can collapse and a <div> when it
-   holds a single row. One rule dresses both so the two never sit at
-   different heights in the same column. */
-.sidebar__label{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
-  font-size:.63rem;text-transform:uppercase;letter-spacing:1.15px;line-height:1.2;
-  color:var(--sidebar-muted);padding:9px 10px 5px;font-weight:700;
-  background:none;border:0;text-align:left;font-family:inherit;
-}
-.sidebar__label--toggle{cursor:pointer;border-radius:var(--radius-sm);transition:color var(--transition)}
-.sidebar__label--toggle:hover{color:var(--sidebar-text-strong)}
-.sidebar__label--toggle:focus-visible{outline:2px solid #fff;outline-offset:-2px}
-.sidebar__label-chev{
-  font-size:.6rem;flex-shrink:0;opacity:.7;
-  transition:transform var(--dur-base) var(--ease-standard);
-}
-.sidebar__label--toggle[aria-expanded="false"] .sidebar__label-chev{transform:rotate(-90deg)}
-.sidebar__section:first-child .sidebar__label{padding-top:2px}
-
-/* The collapsing panel. Height is animated via grid-template-rows rather than
-   max-height: a guessed max-height either clips a long group or leaves the
-   animation idling through empty space on a short one. */
-.sidebar__items{
-  display:grid;grid-template-rows:1fr;
-  transition:grid-template-rows var(--dur-base) var(--ease-standard);
-}
-/* The single inner child is what makes 1fr→0fr work. grid-template-rows sizes
-   the first row only; with the links as direct children the rows after the
-   first were auto-sized, kept their height, and the group never collapsed —
-   it only stopped being painted. min-height:0 lets that one row shrink below
-   its content, and overflow:hidden clips the rows on the way down. */
-.sidebar__items-inner{min-height:0;overflow:hidden}
-.sidebar__section.is-collapsed .sidebar__items{grid-template-rows:0fr}
-/* No visibility:hidden. It was masking the bug above — the content vanished
-   while the space stayed — and it cannot be transitioned, so it also made the
-   close snap. Hidden rows leave the tab order via `inert`, set in JS. */
-
-/* One row shape for every item: a fixed icon column, a fixed gap, and a
-   fixed min-height, so labels start on the same x and rows keep the same
-   rhythm whether the text wraps or not. */
-.sidebar__link{
-  display:flex;align-items:center;gap:11px;padding:6px 10px;min-height:36px;
-  border-radius:var(--radius);
-  color:var(--sidebar-text);font-size:var(--fs-sm);font-weight:500;line-height:1.3;
-  transition:background var(--transition),color var(--transition);
-  margin-bottom:2px;position:relative;
-}
-.sidebar__link i{
-  font-size:1rem;width:var(--sidebar-icon-col);flex-shrink:0;
-  display:inline-flex;align-items:center;justify-content:center;
-  color:var(--sidebar-muted);
-  transition:color var(--transition);
-}
-/* No transform on hover. The row shifting sideways under the cursor moved its
-   neighbours' apparent baseline and made a settled list look nervous; ground
-   and colour say "this one" without anything having to move. */
-.sidebar__link:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text-strong)}
-.sidebar__link:hover i{color:var(--sidebar-text-strong)}
-
-/* Active carries two signals, not one: a solid brand fill and an indicator bar
-   on the leading edge. The bar is what survives being read by someone who
-   cannot separate the two tones on navy, and it is the piece that still shows
-   when the rail collapses to icons. */
-.sidebar__link--active,
-.sidebar__link--active:hover{
-  background:var(--sidebar-active-bg);
-  color:var(--sidebar-active-text);font-weight:600;
-  box-shadow:0 2px 8px rgba(0,117,192,.28);
-}
-.sidebar__link--active::before{
-  content:"";position:absolute;left:-10px;top:50%;transform:translateY(-50%);
-  width:3px;height:20px;border-radius:0 3px 3px 0;background:#fff;
-}
-.sidebar__link--active i,
-.sidebar__link--active:hover i{color:var(--sidebar-active-text)}
-.sidebar__link-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* A count on a row. Tabular so 9 and 11 occupy the same width and the column
-   does not twitch as the number changes. */
-.sidebar__link-count{
-  margin-left:auto;flex-shrink:0;
-  min-width:20px;padding:1px 6px;border-radius:var(--radius-pill);
-  background:rgba(255,255,255,.14);color:var(--sidebar-text-strong);
-  font-size:.66rem;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;
-}
-.sidebar__link--active .sidebar__link-count{background:rgba(255,255,255,.24);color:#fff}
-.sidebar__link .chev{margin-left:auto;font-size:.7rem;color:var(--sidebar-muted)}
-.sidebar__link:focus-visible{outline:2px solid #fff;outline-offset:-2px}
-
-/* ─── Rail footer: the signed-in account ──────────────────
-   Opaque and outside the scroll box, so the menu passes behind the divider
-   rather than under a translucent panel — a half-visible nav row peeking
-   through the account block is the thing that makes a rail look unfinished. */
-.sidebar__footer{
-  flex-shrink:0;padding:8px 10px 10px;
-  border-top:1px solid var(--sidebar-border);
-  background:var(--sidebar-bg);
-}
-/* Deliberately the same card shape as a nav row's hover state rather than a
-   louder one: it is the same rail, and the account is a destination like any
-   other — the chevron, not the styling, is what says it leads somewhere. */
-.sidebar__account{
-  display:flex;align-items:center;gap:10px;min-width:0;
-  padding:8px 9px;border-radius:var(--radius);
-  border:1px solid var(--sidebar-border);background:var(--sidebar-bg-soft);
-  transition:background var(--transition),border-color var(--transition);
-}
-.sidebar__account:hover{
-  background:var(--sidebar-hover-bg);border-color:var(--sidebar-border-strong);
-}
-.sidebar__account:hover .sidebar__account-chevron{
-  color:var(--sidebar-text-strong);transform:translateX(2px);
-}
-.sidebar__account:focus-visible{outline:2px solid #fff;outline-offset:-2px}
-.sidebar__account-avatar{
-  width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;
-  background:var(--sidebar-hover-bg);box-shadow:0 0 0 2px var(--sidebar-border-strong);
-}
-/* min-width:0 is what lets the two lines ellipse instead of forcing the card
-   wider than the rail — a full name and an email are both unbounded. */
-.sidebar__account-info{flex:1;min-width:0}
-.sidebar__account-name{
-  font-size:.83rem;font-weight:600;line-height:1.3;color:var(--sidebar-text-strong);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.sidebar__account-meta{
-  font-size:.71rem;line-height:1.35;color:var(--sidebar-muted);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.sidebar__account-chevron{
-  flex-shrink:0;font-size:.7rem;color:var(--sidebar-muted);
-  transition:color var(--transition),transform var(--transition);
+.app__content {
+  padding: 12px 24px 20px;
+  flex: 1;
+  min-width: 0
 }
 
-@media(prefers-reduced-motion:reduce){
-  .sidebar__link,.sidebar__link i{transition:none}
-  .sidebar__link:hover,.sidebar__link:hover i{transform:none}
-  .sidebar__account,.sidebar__account-chevron{transition:none}
-  .sidebar__account:hover .sidebar__account-chevron{transform:none}
-}
+/* The rail — its palette, its shape, its collapsed state and its
+   drawer behaviour — lives in assets/css/rail.css. It moved out of this
+   file when it became themeable: the colours used to sit in
+   design-system.css and the shape here, which meant every change to the
+   rail was a change to two files that had to agree.
+
+   styles.php loads rail.css immediately after this sheet. */
 
 /* ─── Header / Topbar ───────────────────────────────────── */
-.header__left{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
-.header__toggle{
-  display:none;background:transparent;border:1px solid transparent;font-size:1.25rem;
-  color:var(--text);width:40px;height:40px;align-items:center;justify-content:center;
-  border-radius:var(--radius);transition:background var(--transition),border-color var(--transition);
+.header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1
 }
-.header__toggle:hover{background:var(--surface-3);border-color:var(--border)}
-.header__breadcrumb{display:flex;align-items:center;gap:9px;font-size:.84rem;color:var(--text-muted);min-width:0;overflow:hidden;flex-wrap:nowrap}
-.header__breadcrumb a{color:var(--text-muted);display:inline-flex;align-items:center;gap:6px;transition:color var(--transition);flex-shrink:0}
-.header__breadcrumb a:hover{color:var(--primary)}
-.header__breadcrumb span{color:var(--text);font-weight:600}
-.header__breadcrumb i.sep{font-size:.58rem;color:var(--border-strong);flex-shrink:0}
+
+.header__toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 1.25rem;
+  color: var(--text);
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.header__toggle:hover {
+  background: var(--surface-3);
+  border-color: var(--border)
+}
+
+/* ── Rail collapse control ────────────────────────────────────────
+   The desktop counterpart of .header__toggle beside it, and the reason
+   it is here rather than in the rail: this is the only spot on screen
+   that does not move when the rail's width changes. Same size and same
+   resting weight as the topbar's other icon buttons, so it reads as
+   part of the bar rather than as something parked on it.
+
+   Hidden below 768px by responsive.css, where the rail is a drawer and
+   .header__toggle is the control that matters. */
+.header__rail-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: .82rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.header__rail-toggle:hover {
+  background: var(--surface-3);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.header__rail-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* The chevron points the way the rail will go. One transform, so the
+   pressed and unpressed states cannot disagree about which icon to
+   show. */
+.header__rail-toggle i {
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+
+.header__rail-toggle[aria-pressed="true"] i {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header__rail-toggle i {
+    transition: none;
+  }
+}
+
+.header__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: .84rem;
+  color: var(--text-muted);
+  min-width: 0;
+  overflow: hidden;
+  flex-wrap: nowrap
+}
+
+.header__breadcrumb a {
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color var(--transition);
+  flex-shrink: 0
+}
+
+.header__breadcrumb a:hover {
+  color: var(--primary)
+}
+
+.header__breadcrumb span {
+  color: var(--text);
+  font-weight: 600
+}
+
+.header__breadcrumb i.sep {
+  font-size: .58rem;
+  color: var(--border-strong);
+  flex-shrink: 0
+}
+
 /* The trail is the one thing here that can be any length, so it is the one
    thing allowed to shrink — and it ellipses rather than being sliced off
    mid-word by the parent's overflow. */
-.header__breadcrumb > span:last-child{
-  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+.header__breadcrumb>span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ─── Header search ─────────────────────────────────────────
@@ -273,235 +197,621 @@
    having to be outlined heavily, and it shrinks before the account cluster
    does because a search box narrowed to 260px still works and a clipped
    avatar does not. */
-.header__search{position:relative;flex:0 1 380px;min-width:0}
-.header__search-input{
-  width:100%;height:38px;padding:0 78px 0 38px;
-  font-family:inherit;font-size:.83rem;color:var(--text);
-  background:var(--surface-2);
-  border:1px solid var(--border);border-radius:var(--radius-pill);
-  transition:background var(--transition),border-color var(--transition),box-shadow var(--transition);
+.header__search {
+  position: relative;
+  flex: 0 1 380px;
+  min-width: 0
 }
-.header__search-input::placeholder{color:var(--text-subtle)}
-.header__search-input:hover{background:var(--surface);border-color:var(--border-strong)}
-.header__search-input:focus{
-  outline:none;background:var(--surface);
-  border-color:var(--primary);box-shadow:var(--ring);
+
+.header__search-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 78px 0 38px;
+  font-family: inherit;
+  font-size: .83rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
-.header__search-icon{
-  position:absolute;left:14px;top:50%;transform:translateY(-50%);
-  font-size:.9rem;color:var(--text-subtle);pointer-events:none;
-  transition:color var(--transition);
+
+.header__search-input::placeholder {
+  color: var(--text-subtle)
 }
-.header__search:focus-within .header__search-icon{color:var(--primary)}
+
+.header__search-input:hover {
+  background: var(--surface);
+  border-color: var(--border-strong)
+}
+
+.header__search-input:focus {
+  outline: none;
+  background: var(--surface);
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+.header__search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: .9rem;
+  color: var(--text-subtle);
+  pointer-events: none;
+  transition: color var(--transition);
+}
+
+.header__search:focus-within .header__search-icon {
+  color: var(--primary)
+}
+
 /* Advertised, not decorative — the shortcut it names is bound in main.js.
    It steps aside for the clear button the moment there is a query to clear. */
-.header__search-kbd{
-  position:absolute;right:10px;top:50%;transform:translateY(-50%);
-  font-family:var(--font);font-size:.66rem;font-weight:600;letter-spacing:.4px;
-  color:var(--text-muted);background:var(--surface-3);
-  border:1px solid var(--border);border-radius:var(--radius-xs);
-  padding:3px 7px;pointer-events:none;
+.header__search-kbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font);
+  font-size: .66rem;
+  font-weight: 600;
+  letter-spacing: .4px;
+  color: var(--text-muted);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 3px 7px;
+  pointer-events: none;
 }
-.header__search-clear{
-  position:absolute;right:8px;top:50%;transform:translateY(-50%);
-  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
-  border:none;background:transparent;border-radius:50%;cursor:pointer;
-  color:var(--text-subtle);font-size:.72rem;
-  transition:background var(--transition),color var(--transition);
+
+.header__search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-subtle);
+  font-size: .72rem;
+  transition: background var(--transition), color var(--transition);
 }
-.header__search-clear:hover{background:var(--surface-3);color:var(--text)}
+
+.header__search-clear:hover {
+  background: var(--surface-3);
+  color: var(--text)
+}
 
 /* The listbox. Header content and footer hints stay put while only the
    results scroll, so the "Enter to open" legend cannot scroll out of reach
    on a long list. */
-.header__search-panel{
-  position:absolute;top:calc(100% + 8px);left:0;right:0;
-  display:flex;flex-direction:column;min-width:300px;
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
-  z-index:200;overflow:hidden;
-  animation:dropdownIn 160ms var(--ease-out);
+.header__search-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  overflow: hidden;
+  animation: dropdownIn 160ms var(--ease-out);
 }
-.header__search-panel[hidden]{display:none}
-.gs-list{
-  padding:6px;overflow-y:auto;overscroll-behavior:contain;
-  max-height:min(58vh,420px);
-  scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;
+
+.header__search-panel[hidden] {
+  display: none
 }
-.gs-group__label{
-  font-size:.62rem;text-transform:uppercase;letter-spacing:1.1px;font-weight:700;
-  color:var(--text-subtle);padding:9px 10px 5px;
+
+.gs-list {
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-height: min(58vh, 420px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
-.gs-group:first-child .gs-group__label{padding-top:5px}
+
+.gs-group__label {
+  font-size: .62rem;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  font-weight: 700;
+  color: var(--text-subtle);
+  padding: 9px 10px 5px;
+}
+
+.gs-group:first-child .gs-group__label {
+  padding-top: 5px
+}
 
 /* One active row, driven by JS, whether it was reached by arrow key or by
    pointer — a separate :hover style would let the mouse light up one row
    while Enter opened another. */
-.gs-item{
-  display:flex;align-items:center;gap:11px;padding:7px 10px;min-height:44px;
-  border-radius:var(--radius-sm);color:var(--text);font-size:.855rem;
-  transition:background var(--transition);
+.gs-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 10px;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: .855rem;
+  transition: background var(--transition);
 }
-.gs-item__icon{
-  width:30px;height:30px;flex-shrink:0;border-radius:var(--radius-sm);
-  display:flex;align-items:center;justify-content:center;
-  background:var(--surface-3);color:var(--text-muted);font-size:.95rem;
-  transition:background var(--transition),color var(--transition);
+
+.gs-item__icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: .95rem;
+  transition: background var(--transition), color var(--transition);
 }
-.gs-item__label{
-  flex:1;min-width:0;font-weight:500;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+
+.gs-item__label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 /* The matched run is marked by weight and colour, not a highlighter block —
    a yellow band inside a result row fights the active state for attention. */
-.gs-item__label mark{background:transparent;color:var(--primary-ink);font-weight:700}
-.gs-item__enter{font-size:.8rem;color:var(--primary);opacity:0;transition:opacity var(--transition)}
-.gs-item__here{
-  font-size:.64rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
-  color:var(--primary);background:var(--primary-light);
-  border-radius:var(--radius-pill);padding:2px 8px;flex-shrink:0;
+.gs-item__label mark {
+  background: transparent;
+  color: var(--primary-ink);
+  font-weight: 700
 }
-.gs-item.is-active{background:var(--primary-tint)}
-.gs-item.is-active .gs-item__icon{background:var(--primary-light);color:var(--primary)}
-.gs-item.is-active .gs-item__enter{opacity:1}
+
+.gs-item__enter {
+  font-size: .8rem;
+  color: var(--primary);
+  opacity: 0;
+  transition: opacity var(--transition)
+}
+
+.gs-item__here {
+  font-size: .64rem;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+.gs-item.is-active {
+  background: var(--primary-tint)
+}
+
+.gs-item.is-active .gs-item__icon {
+  background: var(--primary-light);
+  color: var(--primary)
+}
+
+.gs-item.is-active .gs-item__enter {
+  opacity: 1
+}
 
 /* A dead end is a bad answer: name what was searched for and hand back a
    query that does return something. */
-.gs-empty{padding:24px 18px 26px;text-align:center}
-.gs-empty__icon{
-  width:42px;height:42px;margin:0 auto 10px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--surface-3);color:var(--text-subtle);font-size:1.05rem;
+.gs-empty {
+  padding: 24px 18px 26px;
+  text-align: center
 }
-.gs-empty__title{font-size:.86rem;font-weight:600;color:var(--text);word-break:break-word}
-.gs-empty__desc{font-size:.78rem;color:var(--text-muted);margin-top:5px;line-height:1.55}
-.gs-foot{
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;
-  padding:8px 12px;border-top:1px solid var(--border);background:var(--surface-2);
-  font-size:.7rem;color:var(--text-subtle);
+
+.gs-empty__icon {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+  color: var(--text-subtle);
+  font-size: 1.05rem;
 }
-.gs-foot span{display:inline-flex;align-items:center;gap:5px}
-.gs-foot kbd{
-  font-family:var(--font);font-size:.66rem;font-weight:600;
-  min-width:18px;text-align:center;padding:1px 5px;
-  color:var(--text-muted);background:var(--surface);
-  border:1px solid var(--border);border-radius:var(--radius-xs);
+
+.gs-empty__title {
+  font-size: .86rem;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word
 }
-@media(prefers-reduced-motion:reduce){
-  .header__search-panel{animation:none}
-  .header__search-input,.gs-item,.gs-item__icon,.gs-item__enter{transition:none}
+
+.gs-empty__desc {
+  font-size: .78rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+  line-height: 1.55
+}
+
+.gs-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: .7rem;
+  color: var(--text-subtle);
+}
+
+.gs-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px
+}
+
+.gs-foot kbd {
+  font-family: var(--font);
+  font-size: .66rem;
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+  padding: 1px 5px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .header__search-panel {
+    animation: none
+  }
+
+  .header__search-input,
+  .gs-item,
+  .gs-item__icon,
+  .gs-item__enter {
+    transition: none
+  }
 }
 
 /* The shortcut legend is the first thing to go: on a laptop the field is
    still wide enough to type in, and a pointer user has never needed it. */
-@media (max-width:1180px){
-  .header__search{flex:0 1 300px}
-  .header__search-input{padding-right:38px}
-  .header__search-kbd{display:none}
+@media (max-width:1180px) {
+  .header__search {
+    flex: 0 1 300px
+  }
+
+  .header__search-input {
+    padding-right: 38px
+  }
+
+  .header__search-kbd {
+    display: none
+  }
 }
+
 /* Below the tablet break the field folds to its glyph — a 40px circle that
    matches the other topbar buttons — and unfolds across the bar when focused.
    Collapsing rather than dropping it matters here: this is the width where
    the rail becomes a drawer, so search is the fastest way left to reach a
    module, and it stays one tap away instead of two. */
-@media (max-width:900px){
-  .header__search{flex:0 0 40px;width:40px}
-  .header__search-input{
-    width:40px;height:40px;padding:0;border-radius:50%;
-    color:transparent;cursor:pointer;
+@media (max-width:900px) {
+  .header__search {
+    flex: 0 0 40px;
+    width: 40px
   }
-  .header__search-input::placeholder{color:transparent}
-  .header__search-icon{left:50%;transform:translate(-50%,-50%)}
+
+  .header__search-input {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    color: transparent;
+    cursor: pointer;
+  }
+
+  .header__search-input::placeholder {
+    color: transparent
+  }
+
+  .header__search-icon {
+    left: 50%;
+    transform: translate(-50%, -50%)
+  }
 
   /* .is-open is set by main.js alongside the panel. Focus alone would do for
      the keyboard, but a result reached by pointer takes focus out of the
      input, and the bar must not fold up underneath the click. */
   .header__search:focus-within,
-  .header__search.is-open{
-    position:absolute;left:14px;right:14px;top:50%;transform:translateY(-50%);
-    width:auto;z-index:5;
+  .header__search.is-open {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    z-index: 5;
   }
+
   .header__search:focus-within .header__search-input,
-  .header__search.is-open .header__search-input{
-    width:100%;height:40px;padding:0 44px 0 40px;
-    border-radius:var(--radius-pill);color:var(--text);cursor:auto;
+  .header__search.is-open .header__search-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 44px 0 40px;
+    border-radius: var(--radius-pill);
+    color: var(--text);
+    cursor: auto;
   }
+
   .header__search:focus-within .header__search-input::placeholder,
-  .header__search.is-open .header__search-input::placeholder{color:var(--text-subtle)}
+  .header__search.is-open .header__search-input::placeholder {
+    color: var(--text-subtle)
+  }
+
   .header__search:focus-within .header__search-icon,
-  .header__search.is-open .header__search-icon{left:15px;transform:translateY(-50%)}
+  .header__search.is-open .header__search-icon {
+    left: 15px;
+    transform: translateY(-50%)
+  }
+
   /* The panel takes the width of the unfolded bar rather than the 40px
      trigger that spawned it — the desktop min-width would overflow the
      viewport at this size. It is also nudged down to clear the topbar's own
      edge, so it reads as hanging off the header rather than straddling it. */
-  .header__search-panel{min-width:0;top:calc(100% + 12px)}
-  .gs-list{max-height:min(64vh,380px)}
+  .header__search-panel {
+    min-width: 0;
+    top: calc(100% + 12px)
+  }
+
+  .gs-list {
+    max-height: min(64vh, 380px)
+  }
 }
 
-.header__right{display:flex;align-items:center;gap:6px}
-.header__icon-btn{
-  position:relative;width:40px;height:40px;border-radius:var(--radius);
-  border:1px solid transparent;background:transparent;color:var(--text-muted);
-  font-size:1.05rem;display:flex;align-items:center;justify-content:center;
-  transition:background var(--transition),color var(--transition),border-color var(--transition);
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 6px
 }
-.header__icon-btn:hover{background:var(--primary-tint);color:var(--primary);border-color:var(--primary-border)}
-.header__icon-btn i{transition:transform var(--transition)}
-.header__icon-btn:hover i{transform:scale(1.1)}
-.header__visit{
-  display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;
-  border-radius:var(--radius-pill);border:1px solid var(--border);
-  background:var(--surface);color:var(--text-muted);
-  font-size:.8rem;font-weight:600;text-decoration:none;
-  transition:background var(--transition),color var(--transition),border-color var(--transition);
+
+.header__icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
-.header__visit:hover{background:var(--primary-tint);color:var(--primary);border-color:var(--primary-border)}
-.header__visit i{font-size:.95rem}
+
+.header__icon-btn:hover {
+  background: var(--primary-tint);
+  color: var(--primary);
+  border-color: var(--primary-border)
+}
+
+.header__icon-btn i {
+  transition: transform var(--transition)
+}
+
+.header__icon-btn:hover i {
+  transform: scale(1.1)
+}
+
+.header__visit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 15px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.header__visit:hover {
+  background: var(--primary-tint);
+  color: var(--primary);
+  border-color: var(--primary-border)
+}
+
+.header__visit i {
+  font-size: .95rem
+}
+
 /* Collapses to its glyph well before the phone breakpoint: between the rail
    and the account chip the topbar runs out of room around 900px, and the
    breadcrumb is the wrong thing to spend the last of it on. */
-@media (max-width:900px){.header__visit span{display:none}.header__visit{padding:0;width:38px;justify-content:center;flex-shrink:0}}
-.header__badge{
-  position:absolute;top:3px;right:3px;min-width:17px;height:17px;padding:0 4px;
-  background:var(--danger);color:#fff;border-radius:999px;
-  font-size:.62rem;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;
-  border:2px solid var(--surface);font-variant-numeric:tabular-nums;
+@media (max-width:900px) {
+  .header__visit span {
+    display: none
+  }
+
+  .header__visit {
+    padding: 0;
+    width: 38px;
+    justify-content: center;
+    flex-shrink: 0
+  }
 }
 
-.header__user{
-  display:flex;align-items:center;gap:9px;padding:4px 10px 4px 4px;
-  border-radius:var(--radius-pill);cursor:pointer;margin-left:4px;
-  border:1px solid transparent;
-  transition:background var(--transition),border-color var(--transition);
+.header__badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 999px;
+  font-size: .62rem;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  font-variant-numeric: tabular-nums;
 }
-.header__user:hover{background:var(--surface-2);border-color:var(--border)}
-.header__user img{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--surface-3)}
-.header__user-info{text-align:left;line-height:1.2}
-.header__user-name{font-size:.82rem;font-weight:600;color:var(--text)}
-.header__user-role{font-size:.7rem;color:var(--text-subtle)}
-@media (max-width:640px){.header__user-info{display:none}}
+
+.header__user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  margin-left: 4px;
+  border: 1px solid transparent;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.header__user:hover {
+  background: var(--surface-2);
+  border-color: var(--border)
+}
+
+.header__user img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-3)
+}
+
+.header__user-info {
+  text-align: left;
+  line-height: 1.2
+}
+
+.header__user-name {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text)
+}
+
+.header__user-role {
+  font-size: .7rem;
+  color: var(--text-subtle)
+}
+
+@media (max-width:640px) {
+  .header__user-info {
+    display: none
+  }
+}
 
 /* ─── Dropdown ──────────────────────────────────────────── */
-.dropdown{position:relative}
-.dropdown__menu{
-  position:absolute;top:calc(100% + 8px);right:0;min-width:210px;
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);box-shadow:var(--shadow-lg);
-  padding:5px;display:none;z-index:200;
+.dropdown {
+  position: relative
 }
-.dropdown__menu.show{display:block;animation:dropdownIn 160ms var(--ease-out)}
-@keyframes dropdownIn{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:none}}
-@media(prefers-reduced-motion:reduce){.dropdown__menu.show{animation:none}}
-.dropdown__item{
-  display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius-sm);
-  font-size:.85rem;color:var(--text);transition:background var(--transition);
+
+.dropdown__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 210px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+  display: none;
+  z-index: 200;
 }
-.dropdown__item:hover{background:var(--surface-3);color:var(--text)}
-.dropdown__item i{color:var(--text-subtle);width:16px;font-size:.95rem}
-.dropdown__divider{height:1px;background:var(--border);margin:4px 0}
-.dropdown__item--danger{color:var(--danger)}
-.dropdown__item--danger i{color:var(--danger)}
-.dropdown__item--danger:hover{background:var(--danger-bg)}
+
+.dropdown__menu.show {
+  display: block;
+  animation: dropdownIn 160ms var(--ease-out)
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(.985)
+  }
+
+  to {
+    opacity: 1;
+    transform: none
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .dropdown__menu.show {
+    animation: none
+  }
+}
+
+.dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: .85rem;
+  color: var(--text);
+  transition: background var(--transition);
+}
+
+.dropdown__item:hover {
+  background: var(--surface-3);
+  color: var(--text)
+}
+
+.dropdown__item i {
+  color: var(--text-subtle);
+  width: 16px;
+  font-size: .95rem
+}
+
+.dropdown__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0
+}
+
+.dropdown__item--danger {
+  color: var(--danger)
+}
+
+.dropdown__item--danger i {
+  color: var(--danger)
+}
+
+.dropdown__item--danger:hover {
+  background: var(--danger-bg)
+}
 
 /* ─── Page Header ───────────────────────────────────────── */
 
@@ -513,195 +823,259 @@
    already right and only needed their density revisited.
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── Brand row: text + collapse control ─────────────────────────────
-   The logo tile never moves between states. Only the text beside it and
-   the rail's own width change, which is what makes collapsing read as
-   the column narrowing rather than the brand being replaced. */
-.sidebar__brand-text{min-width:0;flex:1}
-.sidebar__collapse{
-  flex-shrink:0;width:28px;height:28px;display:grid;place-items:center;
-  border:1px solid transparent;border-radius:var(--radius-sm);
-  background:transparent;color:var(--sidebar-muted);cursor:pointer;
-  font-size:.78rem;
-  transition:background var(--transition),color var(--transition),border-color var(--transition);
-}
-.sidebar__collapse:hover{
-  background:var(--sidebar-hover-bg);color:var(--sidebar-text-strong);
-  border-color:var(--sidebar-border);
-}
-.sidebar__collapse:focus-visible{outline:2px solid #fff;outline-offset:-2px}
-.sidebar__collapse i{transition:transform var(--dur-base) var(--ease-standard)}
-
-/* ── Collapsed rail ─────────────────────────────────────────────────
-   68px of icons. Driven by a class on <html> so the width is correct on
-   the very first paint — a rail that renders wide and then snaps narrow
-   is worse than one that never collapsed.
-
-   Labels are not display:none. They are clipped, so the accessible name
-   of every row survives; a rail that reads as eight unlabelled buttons
-   to a screen reader is not a collapsed rail, it is a broken one. */
-.rail-collapsed .app__sidebar{width:var(--rail-width-collapsed)}
-.rail-collapsed .app__main{margin-left:var(--rail-width-collapsed)}
-
-.rail-collapsed .sidebar__brand{padding:0 10px;justify-content:center}
-.rail-collapsed .sidebar__brand-text{display:none}
-.rail-collapsed .sidebar__collapse{position:absolute;top:calc(var(--header-height) - 6px);right:16px;z-index:2}
-.rail-collapsed .sidebar__collapse i{transform:rotate(180deg)}
-
-.rail-collapsed .sidebar__nav{padding:14px 10px}
-.rail-collapsed .sidebar__label{
-  height:1px;padding:0;margin:10px 0;overflow:hidden;
-  border-top:1px solid var(--sidebar-border);
-  color:transparent;pointer-events:none;
-}
-.rail-collapsed .sidebar__label-chev{display:none}
-.rail-collapsed .sidebar__section:first-child .sidebar__label{display:none}
-/* Groups are always open when the rail is collapsed: there is no heading left
-   to press, so a remembered group-collapse would hide icons with no way back.
-   The two states are independent — this overrides the group state for as long
-   as the rail is narrow and restores it exactly when the rail expands. */
-.rail-collapsed .sidebar__items{grid-template-rows:1fr !important}
-.rail-collapsed .sidebar__items-inner{overflow:visible}
-
-.rail-collapsed .sidebar__link{justify-content:center;padding:6px;gap:0}
-.rail-collapsed .sidebar__link-text{
-  position:absolute;width:1px;height:1px;overflow:hidden;
-  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;
-}
-.rail-collapsed .sidebar__link-count{
-  position:absolute;top:2px;right:2px;margin:0;min-width:16px;
-  padding:0 4px;font-size:.6rem;line-height:16px;
-}
-.rail-collapsed .sidebar__link--active::before{left:-10px;height:24px}
-
-.rail-collapsed .sidebar__footer{padding:8px 8px 10px}
-.rail-collapsed .sidebar__account{justify-content:center;padding:7px}
-.rail-collapsed .sidebar__account-info,
-.rail-collapsed .sidebar__account-chevron{display:none}
-
-/* The label as a flyout, on hover and on keyboard focus alike — a
-   collapsed rail that only answers a mouse is a rail half the people
-   using it cannot read. */
-.rail-collapsed .sidebar__link,
-.rail-collapsed .sidebar__account{position:relative}
-.rail-collapsed .sidebar__link::after,
-.rail-collapsed .sidebar__account::after{
-  content:attr(data-rail-label);
-  position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%) translateX(-4px);
-  padding:6px 10px;border-radius:var(--radius-sm);white-space:nowrap;
-  background:var(--ink);color:#fff;font-size:var(--fs-xs);font-weight:600;
-  box-shadow:var(--shadow-md);
-  opacity:0;pointer-events:none;z-index:120;
-  transition:opacity var(--dur-fast) var(--ease-standard),transform var(--dur-fast) var(--ease-standard);
-}
-.rail-collapsed .sidebar__link:hover::after,
-.rail-collapsed .sidebar__link:focus-visible::after,
-.rail-collapsed .sidebar__account:hover::after,
-.rail-collapsed .sidebar__account:focus-visible::after{
-  opacity:1;transform:translateY(-50%) translateX(0);
-}
-
-/* The rail becomes a drawer at 768px — the breakpoint responsive.css uses —
-   and collapsing means nothing to a drawer. It must be this number and not a
-   rounder one: between 769px and 1024px the rail is still pinned and visible,
-   so zeroing the content margin there would slide the page underneath it. */
-@media (max-width:768px){
-  .rail-collapsed .app__sidebar{width:var(--sidebar-width)}
-  .rail-collapsed .app__main{margin-left:0}
-  .rail-collapsed .sidebar__brand-text,
-  .rail-collapsed .sidebar__account-info{display:block}
-  .rail-collapsed .sidebar__link{justify-content:flex-start;padding:6px 10px;gap:11px}
-  .rail-collapsed .sidebar__link-text{position:static;width:auto;height:auto;clip:auto;clip-path:none}
-  .rail-collapsed .sidebar__link::after,
-  .rail-collapsed .sidebar__account::after{content:none}
-  .sidebar__collapse{display:none}
-}
-
 /* ── Notification panel ─────────────────────────────────────────────
    A dropdown that holds content rather than a list of links, so it sets
    its own width and lets the menu rules govern only the shell. */
-.dropdown--panel .dropdown__menu{width:340px;padding:0;overflow:hidden}
-.notif-panel__head{
-  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface-2);
+.dropdown--panel .dropdown__menu {
+  width: 340px;
+  padding: 0;
+  overflow: hidden
 }
-.notif-panel__title{font-size:var(--fs-sm);font-weight:700;color:var(--text)}
-.notif-panel__count{font-size:var(--fs-2xs);color:var(--text-muted);font-variant-numeric:tabular-nums}
-.notif-panel__list{list-style:none;margin:0;padding:0;max-height:320px;overflow-y:auto}
-.notif-item{
-  display:flex;align-items:flex-start;gap:10px;padding:11px 14px;
-  border-bottom:1px solid var(--border);transition:background var(--transition);
+
+.notif-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
 }
-.notif-item:hover{background:var(--surface-2);text-decoration:none}
-.notif-panel__list li:last-child .notif-item{border-bottom:0}
-.notif-item__icon{
-  flex-shrink:0;width:28px;height:28px;border-radius:var(--radius-sm);
-  display:grid;place-items:center;font-size:.82rem;
-  background:var(--surface-3);color:var(--text-muted);
+
+.notif-panel__title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text)
 }
-.notif-item__icon--success{background:var(--success-bg);color:var(--success)}
-.notif-item__icon--warning{background:var(--warning-bg);color:var(--warning)}
-.notif-item__icon--danger{background:var(--danger-bg);color:var(--danger)}
-.notif-item__icon--info{background:var(--info-bg);color:var(--info)}
-.notif-item__body{display:flex;flex-direction:column;gap:2px;min-width:0}
-.notif-item__title{font-size:var(--fs-xs);font-weight:600;color:var(--text);line-height:1.35}
-.notif-item__text{font-size:var(--fs-2xs);color:var(--text-muted);line-height:1.45}
-.notif-item__time{font-size:var(--fs-2xs);color:var(--text-subtle);font-variant-numeric:tabular-nums}
-.notif-panel__empty{
-  display:flex;align-items:center;gap:9px;justify-content:center;
-  padding:26px 14px;color:var(--text-muted);font-size:var(--fs-xs);
+
+.notif-panel__count {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums
 }
-.notif-panel__empty i{color:var(--success);font-size:1rem}
-.notif-panel__foot{
-  padding:9px 14px;border-top:1px solid var(--border);background:var(--surface-2);text-align:center;
+
+.notif-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto
 }
-.notif-panel__foot a{
-  font-size:var(--fs-xs);font-weight:600;display:inline-flex;align-items:center;gap:6px;
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
 }
-@media (max-width:480px){
-  .dropdown--panel .dropdown__menu{width:min(340px,calc(100vw - 32px))}
+
+.notif-item:hover {
+  background: var(--surface-2);
+  text-decoration: none
+}
+
+.notif-panel__list li:last-child .notif-item {
+  border-bottom: 0
+}
+
+.notif-item__icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: .82rem;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.notif-item__icon--success {
+  background: var(--success-bg);
+  color: var(--success)
+}
+
+.notif-item__icon--warning {
+  background: var(--warning-bg);
+  color: var(--warning)
+}
+
+.notif-item__icon--danger {
+  background: var(--danger-bg);
+  color: var(--danger)
+}
+
+.notif-item__icon--info {
+  background: var(--info-bg);
+  color: var(--info)
+}
+
+.notif-item__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0
+}
+
+.notif-item__title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35
+}
+
+.notif-item__text {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.45
+}
+
+.notif-item__time {
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums
+}
+
+.notif-panel__empty {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  justify-content: center;
+  padding: 26px 14px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.notif-panel__empty i {
+  color: var(--success);
+  font-size: 1rem
+}
+
+.notif-panel__foot {
+  padding: 9px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.notif-panel__foot a {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width:480px) {
+  .dropdown--panel .dropdown__menu {
+    width: min(340px, calc(100vw - 32px))
+  }
 }
 
 /* ── Page header: three declensions ─────────────────────────────────
    The title is 28px so it clearly outranks a card heading. At 1.35rem the
    two were close enough to read as siblings, which is why the old pages
    felt like a stack of panels rather than a page about something. */
-.page-header{
-  display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);
-  flex-wrap:wrap;margin-bottom:var(--space-4);padding-bottom:var(--space-4);
-  border-bottom:1px solid var(--border);
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
 }
-.page-header__lead{min-width:0;flex:1 1 320px}
-.page-header__title{
-  font-family:var(--font-display);font-size:var(--fs-page);font-weight:700;
-  color:var(--text);letter-spacing:-.028em;line-height:1.12;text-wrap:balance;
+
+.page-header__lead {
+  min-width: 0;
+  flex: 1 1 320px
 }
-.page-header__subtitle{
-  font-size:var(--fs-lede);color:var(--text-muted);
-  margin-top:5px;max-width:76ch;line-height:1.5;
+
+.page-header__title {
+  font-family: var(--font-display);
+  font-size: var(--fs-page);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.028em;
+  line-height: 1.12;
+  text-wrap: balance;
 }
-.page-header__eyebrow{
-  font-size:var(--fs-2xs);font-weight:700;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--primary-ink);margin-bottom:4px;
+
+.page-header__subtitle {
+  font-size: var(--fs-lede);
+  color: var(--text-muted);
+  margin-top: 3px;
+  max-width: 76ch;
+  line-height: 1.5;
 }
-.page-header__meta{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-top:10px}
-.page-header__actions{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;flex-wrap:wrap}
-.page-header__back{
-  display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;
-  font-size:var(--fs-xs);font-weight:600;color:var(--text-muted);
+
+.page-header__eyebrow {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--primary-ink);
+  margin-bottom: 4px;
 }
-.page-header__back:hover{color:var(--primary)}
+
+.page-header__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: 10px
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  flex-wrap: wrap
+}
+
+.page-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.page-header__back:hover {
+  color: var(--primary)
+}
 
 /* A register. The rule under it separates the page's identity from the
    toolbar that filters it. */
-.page-header--list{align-items:flex-end}
+.page-header--list {
+  align-items: flex-end
+}
+
 /* One record. No rule: the record header component directly beneath it
    draws its own box, and two horizontal lines 16px apart is a seam. */
-.page-header--record{border-bottom:0;padding-bottom:0;margin-bottom:var(--space-3)}
+.page-header--record {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: var(--space-3)
+}
+
 /* A form. Narrower measure, and no competing action — the form owns its
    own Save. */
-.page-header--form{border-bottom:0;padding-bottom:0;margin-bottom:var(--space-4)}
-.page-header--form .page-header__subtitle{max-width:64ch}
+.page-header--form {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: var(--space-4)
+}
+
+.page-header--form .page-header__subtitle {
+  max-width: 64ch
+}
 
 /* ── Condense on scroll ─────────────────────────────────────────────
    Past the first ~90px the header gives its air back to the content.
@@ -710,26 +1084,45 @@
    a scroll. Under reduced motion the same end state applies with no
    transition, which is the point: the layout still tightens, it just
    does not animate doing it. */
-.page-header{
-  transition:padding-bottom var(--dur-base) var(--ease-standard),
-             margin-bottom var(--dur-base) var(--ease-standard);
+.page-header {
+  transition: padding-bottom var(--dur-base) var(--ease-standard),
+    margin-bottom var(--dur-base) var(--ease-standard);
 }
-.page-header__title{transition:font-size var(--dur-base) var(--ease-standard)}
-.page-header__subtitle{
-  transition:opacity var(--dur-base) var(--ease-standard),
-             max-height var(--dur-base) var(--ease-standard),
-             margin-top var(--dur-base) var(--ease-standard);
-  max-height:4rem;overflow:hidden;
-}
-.is-condensed .page-header{padding-bottom:var(--space-3);margin-bottom:var(--space-3)}
-.is-condensed .page-header__title{font-size:1.35rem}
-.is-condensed .page-header__subtitle{opacity:0;max-height:0;margin-top:0}
 
-@media (prefers-reduced-motion:reduce){
-  .page-header,.page-header__title,.page-header__subtitle,
-  .sidebar__items,.sidebar__label-chev,.sidebar__collapse i,
-  .rail-collapsed .sidebar__link::after,
-  .rail-collapsed .sidebar__account::after{transition:none}
+.page-header__title {
+  transition: font-size var(--dur-base) var(--ease-standard)
+}
+
+.page-header__subtitle {
+  transition: opacity var(--dur-base) var(--ease-standard),
+    max-height var(--dur-base) var(--ease-standard),
+    margin-top var(--dur-base) var(--ease-standard);
+  max-height: 4rem;
+  overflow: hidden;
+}
+
+.is-condensed .page-header {
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3)
+}
+
+.is-condensed .page-header__title {
+  font-size: 1.35rem
+}
+
+.is-condensed .page-header__subtitle {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0
+}
+
+@media (prefers-reduced-motion:reduce) {
+
+  .page-header,
+  .page-header__title,
+  .page-header__subtitle {
+    transition: none
+  }
 }
 
 /* ── Footer: three slots ────────────────────────────────────────────
@@ -737,31 +1130,76 @@
    shows. It is the last thing on every page, so it answers the three
    questions a support ticket opens with: which product, where to go,
    which build. */
-.app__footer{
-  display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
-  flex-wrap:wrap;
-  padding:var(--space-3) var(--space-6);
-  border-top:1px solid var(--border);background:var(--surface);
-  font-size:var(--fs-2xs);color:var(--text-subtle);
+.app__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--fs-2xs);
+  color: var(--text-subtle);
 }
-.app__footer-slot{display:flex;align-items:center;gap:8px;min-width:0}
-.app__footer-slot--center{flex:1;justify-content:center}
-.app__footer-slot--end{justify-content:flex-end;font-variant-numeric:tabular-nums}
-.app__footer a{color:var(--text-muted);font-weight:500}
-.app__footer a:hover{color:var(--primary)}
-.app__footer-dot{color:var(--border-strong)}
-.app__footer-version{
-  font-family:var(--font-mono);letter-spacing:.02em;color:var(--text-subtle);
+
+.app__footer-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0
 }
+
+.app__footer-slot--center {
+  flex: 1;
+  justify-content: center
+}
+
+.app__footer-slot--end {
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums
+}
+
+.app__footer a {
+  color: var(--text-muted);
+  font-weight: 500
+}
+
+.app__footer a:hover {
+  color: var(--primary)
+}
+
+.app__footer-dot {
+  color: var(--border-strong)
+}
+
+.app__footer-version {
+  font-family: var(--font-mono);
+  letter-spacing: .02em;
+  color: var(--text-subtle);
+}
+
 /* Only rendered off production, where knowing which box you are on matters. */
-.app__footer-env{
-  padding:1px 7px;border-radius:var(--radius-pill);
-  background:var(--warning-bg);color:var(--warning);
-  font-weight:700;letter-spacing:.06em;
+.app__footer-env {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-weight: 700;
+  letter-spacing: .06em;
 }
-@media (max-width:640px){
-  .app__footer{justify-content:center;text-align:center;gap:6px}
-  .app__footer-slot--center{flex:0 0 100%;order:3}
+
+@media (max-width:640px) {
+  .app__footer {
+    justify-content: center;
+    text-align: center;
+    gap: 6px
+  }
+
+  .app__footer-slot--center {
+    flex: 0 0 100%;
+    order: 3
+  }
 }
 
 /* ================================================================
@@ -773,105 +1211,88 @@
    substantial it looks doing it.
    ================================================================ */
 
-/* ── The rail ─────────────────────────────────────────────────────
-   A single flat navy read as a panel bolted to the side of the page. A
-   very slight vertical fall — lighter at the brand, deeper at the account
-   card — gives the column a top and a bottom, which is what makes it read
-   as the product's own furniture. It is 4% of lightness across 100vh; the
-   point is that you cannot see it, only that the rail stops looking
-   printed on. */
-.app__sidebar{
-  background:linear-gradient(180deg,#132741 0%,var(--sidebar-bg) 46%,#0a1626 100%);
-  border-right:1px solid rgba(255,255,255,.06);
-  box-shadow:1px 0 0 rgba(15,32,51,.04);
-}
+/* ── The rail ───────────────────────────────────────────────────
+   The premium pass that used to sit here — a navy gradient, a tinted
+   brand band, a raised active row and a 2px slide on hover — was written
+   for a rail that could only be one colour. rail.css owns all of it now,
+   and the two cannot both be right: half of these rules would have
+   survived the newer sheet on specificity and painted a dark surface
+   under a light theme. */
 
-/* The brand sits on its own band rather than floating above the first
-   group, so the eye has somewhere to start. */
-.sidebar__brand{
-  border-bottom:1px solid var(--sidebar-border);
-  background:rgba(255,255,255,.02);
-}
-
-/* The active row. It had a fill; now it has a fill, an edge and a shadow,
-   which is the difference between "this row is coloured" and "this row is
-   raised". The left indicator stays — colour is never the only channel. */
-.sidebar__link{border-radius:9px;font-weight:500;letter-spacing:-.005em}
-.sidebar__link--active{
-  background:var(--sidebar-active-bg);
-  box-shadow:0 2px 8px -2px rgba(24,119,201,.55),inset 0 1px 0 rgba(255,255,255,.14);
-  font-weight:600;
-}
-.sidebar__link:not(.sidebar__link--active):hover{
-  background:var(--sidebar-hover-bg);
-  transform:translateX(2px);
-}
-.sidebar__link{transition:background var(--transition),color var(--transition),transform var(--transition-fast)}
-
-/* Group headings: quieter and more spaced, so the rail reads as sections
-   with names rather than as a list with shouting in it. */
-.sidebar__label{letter-spacing:.09em;font-size:.665rem}
-
-/* The account card at the foot, given a real surface. */
-.sidebar__footer{border-top:1px solid var(--sidebar-border)}
-.sidebar__account{
-  border-radius:11px;
-  background:var(--sidebar-bg-soft);
-  border:1px solid var(--sidebar-border);
-  transition:background var(--transition),border-color var(--transition);
-}
-.sidebar__account:hover{
-  background:rgba(255,255,255,.09);
-  border-color:var(--sidebar-border-strong);
-}
-
-@media (prefers-reduced-motion:reduce){
-  .sidebar__link:not(.sidebar__link--active):hover{transform:none}
-}
 
 /* ── The topbar ───────────────────────────────────────────────────
    More glass, less line. The bar is the one element on screen that never
    moves, so it earns a slightly heavier blur and a hairline that fades in
    only once the page beneath it has actually scrolled. */
-.app__header{
-  background:rgba(255,255,255,.82);
-  backdrop-filter:saturate(180%) blur(14px);
-  -webkit-backdrop-filter:saturate(180%) blur(14px);
-  border-bottom:1px solid transparent;
-  box-shadow:inset 0 -1px 0 var(--border);
-  transition:box-shadow var(--transition),background var(--transition);
+.app__header {
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid transparent;
+  box-shadow: inset 0 -1px 0 var(--border);
+  transition: box-shadow var(--transition), background var(--transition);
 }
-body.is-condensed .app__header{
-  background:rgba(255,255,255,.92);
-  box-shadow:inset 0 -1px 0 var(--border),0 6px 20px -12px rgba(15,32,51,.24);
+
+body.is-condensed .app__header {
+  background: rgba(255, 255, 255, .92);
+  box-shadow: inset 0 -1px 0 var(--border), 0 6px 20px -12px rgba(15, 32, 51, .24);
 }
 
 /* The command surface. It read as a form field in a bar full of buttons;
    now it reads as a surface you press. */
-.header__search-input{border-radius:var(--radius-pill)}
-.header__search{border-radius:var(--radius-pill)}
+.header__search-input {
+  border-radius: var(--radius-pill)
+}
 
-.header__icon-btn,.header__visit{border-radius:var(--radius-pill)}
-.header__user{border-radius:var(--radius-pill)}
+.header__search {
+  border-radius: var(--radius-pill)
+}
+
+.header__icon-btn,
+.header__visit {
+  border-radius: var(--radius-pill)
+}
+
+.header__user {
+  border-radius: var(--radius-pill)
+}
 
 /* ── The page header ──────────────────────────────────────────────
    The title had the size but not the weight of a page title. Tighter
    tracking and a heavier stem is most of what separates a document from
    a panel with a caption on it. */
-.page-header__title{letter-spacing:-.025em;font-weight:700}
-.page-header__subtitle{max-width:70ch}
+.page-header__title {
+  letter-spacing: -.025em;
+  font-weight: 700
+}
+
+.page-header__subtitle {
+  max-width: 70ch
+}
 
 /* ── The content column ───────────────────────────────────────────
-   A page opens rather than appears. One transform, one opacity, 240ms,
-   and only on first paint — this is the only entrance animation in the
-   application and it is deliberately the only one. */
-@media (prefers-reduced-motion:no-preference){
-  .app__content{animation:app-enter var(--dur-slow) var(--ease-enter) both}
-}
-@keyframes app-enter{
-  from{opacity:0;transform:translateY(6px)}
-  to{opacity:1;transform:none}
-}
+   The page entrance is NOT here, and must not come back here.
+
+   .app__content is the ancestor of every modal in the application —
+   each view requires its own _create_modal.php into this column — and
+   an animation on it breaks dialogs in two separate ways at once:
+
+     · a transform in the keyframes makes this element the containing
+       block for its position:fixed descendants, so a dialog stops being
+       pinned to the viewport and scrolls away with the page behind it;
+
+     · any animated transform or opacity creates a stacking context, and
+       `both` keeps it applying after the animation ends — which scopes
+       `.modal { z-index: 300 }` inside a context of its own whose
+       z-index is auto, so every dialog paints *underneath* the sticky
+       topbar at z-index 90 and has its title row sliced off.
+
+   Both were live at once: this rule and a second copy in components.css.
+   The entrance now runs on .page-header, which is never a modal's
+   ancestor. See "Page entrance" in components.css. */
 
 /* ── The footer ───────────────────────────────────────────────────  */
-.app__footer{background:transparent;border-top:1px solid var(--border)}
+.app__footer {
+  background: transparent;
+  border-top: 1px solid var(--border)
+}

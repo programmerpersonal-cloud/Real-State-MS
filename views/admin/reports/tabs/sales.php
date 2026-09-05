@@ -22,6 +22,11 @@ $slFiltered = reportFilterCount($filters) > 0;
 $slCarry    = !empty($compare) ? ['compare' => '1'] : [];
 $slReset    = reportUrl($window, [], ['tab' => 'sales'] + $slCarry);
 $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['tab' => $tab] + $slCarry);
+/* Every drill-down on this page carries the period, the comparison and the
+   filters above, because it is built from the same window and filters the
+   figures were. Nothing is copied across by hand. */
+$slDrill = static fn(string $metric, string $key = ''): string
+    => reportDrillUrl($window, $filters, 'sales', $metric, $key, $slCarry);
 ?>
 
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
@@ -40,6 +45,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'icon'    => 'bi-briefcase',
         'tone'    => 'primary',
         'context' => formatCurrency((float) $summary['total_value']) . ' across every status',
+        'drill'   => $slDrill('deals'),
         'delta'   => $previous !== null
             ? reportDelta((float) $summary['total'], (float) $previous['total'])
             : null,
@@ -59,6 +65,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'icon'    => 'bi-cash-stack',
         'tone'    => (float) $summary['completed_value'] > 0 ? 'success' : 'info',
         'context' => 'Contract value of completed sales — not cash received',
+        'drill'   => $slDrill('completed'),
         'delta'   => $previous !== null
             ? reportDelta((float) $summary['completed_value'], (float) $previous['completed_value'])
             : null,
@@ -78,6 +85,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'context' => $summary['average'] !== null
             ? 'Averaging ' . formatCurrency((float) $summary['average']) . ' each'
             : 'No sale has completed in this period',
+        'drill'   => $slDrill('completed'),
         'delta'   => $previous !== null
             ? reportDelta((float) $summary['completed'], (float) $previous['completed'])
             : null,
@@ -96,6 +104,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'context' => (int) $summary['pending'] > 0
             ? formatCurrency((float) $summary['pending_value']) . ' of value awaiting completion'
             : 'Nothing awaiting completion',
+        'drill'   => $slDrill('status', 'pending'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -107,6 +116,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
         'context' => (int) $summary['cancelled'] > 0
             ? formatCurrency((float) $summary['cancelled_value']) . ' of value fell through'
             : 'Nothing cancelled in this period',
+        'drill'   => $slDrill('status', 'cancelled'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -126,6 +136,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             : ((int) $reservations['live'] > 0
                 ? formatCurrency((float) $reservations['live_deposits']) . ' held on deposit'
                 : 'No property is under an unexpired hold'),
+        'drill'   => $slDrill('reservations', 'live'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
     ?>
@@ -167,6 +178,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             'data'  => array_map(static fn(array $r): float => (float) $r['value'], $pipeline),
             'tone'  => '--primary',
         ]],
+        'drill'      => ['metric' => 'status', 'keys' => array_column($pipeline, 'status')],
         'label_heading' => 'Status',
         'empty'      => 'No sale was recorded in this period.',
         'size'     => 'feature',
@@ -191,6 +203,8 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             ['label' => 'Recorded',  'data' => $slRecorded,  'tone' => '--text-subtle'],
             ['label' => 'Completed', 'data' => $slCompleted, 'tone' => '--success'],
         ],
+        'drill'    => ['metric' => 'bucket',
+                       'keys'   => array_column($salesSeries['recorded'], 'bucket')],
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No sale carries a date inside this period.',
         'size'   => 'feature',
@@ -226,6 +240,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             'data'  => array_map(static fn(array $r): float => (float) $r['value'], $byCategory),
             'tone'  => '--primary',
         ]],
+        'drill'      => ['metric' => 'category', 'keys' => array_column($byCategory, 'category')],
         'label_heading' => 'Category',
         'empty'      => 'No sale was recorded in this period.',
         'size'     => 'standard',
@@ -237,11 +252,13 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
 
     /* Live versus lapsed, not by the status column. Both slices are holds the
        system still treats as standing; only one of them actually is. */
+    /* Each state drills to the holds in it. Live and lapsed are never
+       added, and their panels are never the same set. */
     $slResv = array_values(array_filter([
-        ['label' => 'Live',      'value' => (int) $reservations['live'],      'tone' => '--success'],
-        ['label' => 'Lapsed',    'value' => (int) $reservations['lapsed'],    'tone' => '--danger'],
-        ['label' => 'Expired',   'value' => (int) $reservations['marked_expired'], 'tone' => '--text-subtle'],
-        ['label' => 'Cancelled', 'value' => (int) $reservations['cancelled'], 'tone' => '--purple'],
+        ['label' => 'Live',      'key' => 'live',      'value' => (int) $reservations['live'],      'tone' => '--success'],
+        ['label' => 'Lapsed',    'key' => 'lapsed',    'value' => (int) $reservations['lapsed'],    'tone' => '--danger'],
+        ['label' => 'Expired',   'key' => 'expired',   'value' => (int) $reservations['marked_expired'], 'tone' => '--text-subtle'],
+        ['label' => 'Cancelled', 'key' => 'cancelled', 'value' => (int) $reservations['cancelled'], 'tone' => '--purple'],
     ], static fn(array $r): bool => $r['value'] > 0));
 
     $chart = [
@@ -256,6 +273,7 @@ $slLink     = static fn(string $tab): string => reportUrl($window, $filters, ['t
             'data'  => array_column($slResv, 'value'),
             'tones' => array_column($slResv, 'tone'),
         ]],
+        'drill'    => ['metric' => 'reservations', 'keys' => array_column($slResv, 'key')],
         'label_heading' => 'State',
         'empty'    => 'No reservation has been recorded against a property in scope.',
         'size'   => 'standard',

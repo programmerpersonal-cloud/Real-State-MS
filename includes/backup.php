@@ -893,10 +893,70 @@ function backupHealth(): array
         $raise('warning', $level);
     }
 
-    /* ── Is anything scheduled? ── */
+    /* ── Is anything scheduled, and is anything running the schedule? ──
+       These two questions are asked together because separately each has a
+       reassuring answer. "Three schedules are active" says nothing if no
+       runner exists to act on them, and that is precisely the state this
+       module was found in: a daily schedule enabled, its next run two days in
+       the past, and a Critical badge that blamed the missing backup rather
+       than the missing scheduler. The finding has to name the cause, because
+       the cure — install the task — is not one anybody guesses from
+       "no completed backup exists". */
     $activeSchedules = (int) $db->query("SELECT COUNT(*) FROM backup_schedules WHERE is_active = 1")->fetchColumn();
     if ($activeSchedules === 0) {
         $findings[] = ['tone' => 'warning', 'text' => 'No automatic schedule is enabled. Every backup has to be started by hand.'];
+        $raise('warning', $level);
+    } else {
+        $scheduler = backupSchedulerState();
+
+        if (!$scheduler['installed']) {
+            $findings[] = ['tone' => 'danger', 'text' => sprintf(
+                '%d automatic schedule%s enabled, but the backup scheduler has never run. '
+                . 'Nothing is acting on them — install the scheduled task described on Backup Settings.',
+                $activeSchedules, $activeSchedules === 1 ? ' is' : 's are'
+            )];
+            $raise('critical', $level);
+        } elseif ($scheduler['stale']) {
+            $findings[] = ['tone' => 'danger', 'text' => sprintf(
+                'The backup scheduler last ran %s and should run every few minutes. '
+                . 'It has stopped, so no schedule can fire.',
+                backupAgo($scheduler['last_tick'])
+            )];
+            $raise('critical', $level);
+        }
+
+        // Overdue is reported separately from stale. A scheduler that is
+        // ticking but leaving a schedule behind is a different fault — a run
+        // that fails to start every time, most often — and the fix is not the
+        // same one.
+        if ($scheduler['installed'] && !$scheduler['stale']) {
+            foreach (backupOverdueSchedules() as $late) {
+                $findings[] = ['tone' => 'warning', 'text' => sprintf(
+                    'The %s schedule was due at %s and has not run — it is %s late.',
+                    $late['frequency'],
+                    backupScheduleWhen($late['next_run_at'], 'M d, H:i'),
+                    $late['minutes_late'] >= 120
+                        ? round($late['minutes_late'] / 60) . ' hours'
+                        : $late['minutes_late'] . ' minutes'
+                )];
+                $raise('warning', $level);
+            }
+        }
+    }
+
+    /* ── Is a run stuck behind a lock? ──
+       A live lock is normal and says only that a backup is in progress. One
+       held past the full lease is not: the lease is what makes a crashed run
+       recoverable, and a holder that old means either a genuinely enormous
+       backup or a process that died without releasing. Said out loud because
+       from the outside both look like "nothing is happening". */
+    $lock = backupLockHolder();
+    if ($lock !== null && (int) $lock['held_seconds'] > BACKUP_LOCK_TTL) {
+        $findings[] = ['tone' => 'warning', 'text' => sprintf(
+            'A backup lock has been held by %s since %s. If no backup is really running it will '
+            . 'clear itself once the lease expires.',
+            $lock['owner'], backupWhen($lock['acquired_at'])
+        )];
         $raise('warning', $level);
     }
 
@@ -948,6 +1008,416 @@ function backupHealth(): array
         'rpo_hours'     => $rpo,
         'hours_since'   => $hoursAgo,
     ];
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Scheduler — proof of life, and the log nobody is watching
+   ─────────────────────────────────────────────────────────────────────
+
+   Everything above this point describes what the backup system intends.
+   This section is the only part that can say whether anything is carrying
+   those intentions out, and it exists because the answer used to be
+   unobtainable: a schedule row said "daily, active, next run 04:00" for two
+   days after that time had passed, and no value anywhere recorded that the
+   runner which turns such a row into an archive had never been started.
+
+   Two mechanisms, deliberately independent.
+
+   The heartbeat is in the database, so the dashboard can read it. Every tick
+   of the runner writes it, whether or not a backup was due — a scheduler that
+   checks and finds nothing to do is working, and a design that only recorded
+   runs would be silent for the twenty-three hours a day when a daily schedule
+   is not due, which is exactly the window in which somebody disables the task
+   by accident.
+
+   The log is on disk, so it survives the database. A scheduled process has no
+   console: Windows Task Scheduler and cron both discard stdout, and the first
+   thing anybody asks after a missed backup is what the last run said. Writing
+   it to a file inside the backup root — already outside the web root, already
+   guarded — is the difference between a diagnosis and a shrug.
+   ───────────────────────────────────────────────────────────────────── */
+
+/** The active scheduler log file. */
+function backupLogPath(): string
+{
+    return backupDir('logs') . '/scheduler.log';
+}
+
+/**
+ * Append one line to the scheduler log, rotating it when it gets large.
+ *
+ * The format is fixed and greppable — timestamp, level, pid, message, then any
+ * context as key=value — because these lines are read during an incident by
+ * somebody who has never seen them before. Structured JSON would be tidier and
+ * slower to read at three in the morning.
+ *
+ * Never throws. A backup must not fail because its log could not be written,
+ * and a caller that had to guard every log call would stop calling it.
+ */
+function backupLog(string $level, string $message, array $context = []): void
+{
+    try {
+        $path = backupLogPath();
+
+        // Rotate before writing, so the cap is a ceiling rather than a
+        // suggestion the last oversized line gets to ignore.
+        if (is_file($path) && filesize($path) >= BACKUP_LOG_MAX_BYTES) {
+            $oldest = $path . '.' . BACKUP_LOG_KEEP;
+            if (is_file($oldest)) {
+                @unlink($oldest);
+            }
+            for ($i = BACKUP_LOG_KEEP - 1; $i >= 1; $i--) {
+                if (is_file($path . '.' . $i)) {
+                    @rename($path . '.' . $i, $path . '.' . ($i + 1));
+                }
+            }
+            @rename($path, $path . '.1');
+        }
+
+        $line = sprintf(
+            '%s [%-5s] pid=%d %s',
+            (new DateTimeImmutable('now', backupTimezone()))->format('Y-m-d H:i:s T'),
+            strtoupper($level),
+            function_exists('getmypid') ? (int) getmypid() : 0,
+            $message
+        );
+
+        foreach ($context as $k => $v) {
+            if ($v === null || $v === '') {
+                continue;
+            }
+            // Values are flattened onto one line: a multi-line stderr dump from
+            // mysqldump would otherwise break the one-record-per-line rule that
+            // makes this file greppable.
+            $line .= ' ' . $k . '=' . str_replace(["\r", "\n"], ' ', (string) $v);
+        }
+
+        @file_put_contents($path, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
+    } catch (Throwable $e) {
+        // The only place in this module that swallows an exception, and it
+        // earns it: the alternative is a logging failure masking the error it
+        // was called to record. error_log() still receives it.
+        error_log('Backup log write failed: ' . $e->getMessage());
+    }
+}
+
+/** How long the scheduler may stay silent before it is presumed stopped. */
+function backupSchedulerStaleMinutes(): int
+{
+    return max(5, BACKUP_SCHEDULER_STALE_MINUTES);
+}
+
+/**
+ * What the scheduler itself has been doing.
+ *
+ * Read straight from the table rather than through setting(), which caches for
+ * the life of the request: the runner writes its heartbeat during a tick and
+ * reads it back afterwards, and a cached value would report the state of the
+ * previous run.
+ *
+ * `installed` is the honest question — has this ever ticked at all — and is
+ * what separates "the schedule has not come round yet" from "nothing is
+ * listening".
+ *
+ * @return array{installed:bool, last_tick:?string, ago:string, minutes_since:?int,
+ *               stale:bool, last_result:string, tick_count:int, host:string}
+ */
+function backupSchedulerState(): array
+{
+    $rows = [];
+    try {
+        $stmt = getDBConnection()->query("
+            SELECT setting_key, setting_value
+              FROM settings
+             WHERE setting_key IN ('backup_scheduler_last_tick','backup_scheduler_last_result',
+                                   'backup_scheduler_tick_count','backup_scheduler_host')
+        ");
+        foreach ($stmt->fetchAll() as $r) {
+            $rows[$r['setting_key']] = (string) $r['setting_value'];
+        }
+    } catch (Throwable $e) {
+        // A missing settings table is a bare install, not a stalled scheduler.
+        // Reported below as "never ticked", which is true either way.
+    }
+
+    $tick    = trim($rows['backup_scheduler_last_tick'] ?? '');
+    $lastTs  = $tick !== '' ? strtotime($tick) : false;
+    $minutes = $lastTs === false
+        ? null
+        : max(0, (int) floor((time() + backupClockSkew() - $lastTs) / 60));
+
+    return [
+        'installed'     => $tick !== '',
+        'last_tick'     => $tick !== '' ? $tick : null,
+        'ago'           => backupAgo($tick !== '' ? $tick : null),
+        'minutes_since' => $minutes,
+        'stale'         => $tick !== '' && $minutes !== null && $minutes > backupSchedulerStaleMinutes(),
+        'last_result'   => trim($rows['backup_scheduler_last_result'] ?? ''),
+        'tick_count'    => (int) ($rows['backup_scheduler_tick_count'] ?? 0),
+        'host'          => trim($rows['backup_scheduler_host'] ?? ''),
+    ];
+}
+
+/**
+ * Record that the scheduler ran, and what it found.
+ *
+ * Called on every tick, including the overwhelmingly common one that finds
+ * nothing due. INSERT … ON DUPLICATE KEY UPDATE rather than a plain UPDATE so
+ * the heartbeat also works on an installation where the migration has not been
+ * applied — the first tick creates its own rows, and a diagnostic that needs a
+ * migration before it can tell you the migration is missing is not a
+ * diagnostic.
+ */
+function backupSchedulerRecordTick(string $result): void
+{
+    $host = (function_exists('gethostname') ? (string) gethostname() : 'unknown')
+          . ' · ' . (PHP_SAPI === 'cli' ? 'cli' : PHP_SAPI)
+          . ' · php ' . PHP_VERSION;
+
+    $values = [
+        'backup_scheduler_last_tick'   => backupDbNow(),
+        'backup_scheduler_last_result' => mb_substr($result, 0, 500),
+        'backup_scheduler_host'        => mb_substr($host, 0, 500),
+    ];
+
+    try {
+        $db   = getDBConnection();
+        $stmt = $db->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_group)
+            VALUES (:k, :v, 'backup')
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+        ");
+        foreach ($values as $k => $v) {
+            $stmt->execute([':k' => $k, ':v' => $v]);
+        }
+
+        // Incremented in SQL rather than read-modify-written in PHP, so two
+        // ticks that overlap cannot both write the same number back.
+        $db->prepare("
+            INSERT INTO settings (setting_key, setting_value, setting_group)
+            VALUES ('backup_scheduler_tick_count', '1', 'backup')
+            ON DUPLICATE KEY UPDATE setting_value = CAST(setting_value AS UNSIGNED) + 1
+        ")->execute();
+    } catch (Throwable $e) {
+        backupLog('error', 'Could not record the scheduler heartbeat.', ['error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Active schedules whose next run has already passed, with how late each is.
+ *
+ * A few minutes late is normal — the runner ticks on an interval, not on the
+ * second — so lateness is only interesting once it exceeds one stale window.
+ * That keeps this from firing about a schedule due at 04:00 read at 04:03.
+ *
+ * @return array<int, array{frequency:string, next_run_at:string, minutes_late:int}>
+ */
+function backupOverdueSchedules(): array
+{
+    $now  = new DateTimeImmutable('now', backupTimezone());
+    $late = [];
+
+    foreach (backupSchedules() as $s) {
+        if (empty($s['is_active']) || empty($s['next_run_at'])) {
+            continue;
+        }
+        try {
+            $due = new DateTimeImmutable((string) $s['next_run_at'], backupTimezone());
+        } catch (Throwable $e) {
+            continue;
+        }
+        $minutes = (int) floor(($now->getTimestamp() - $due->getTimestamp()) / 60);
+        if ($minutes > backupSchedulerStaleMinutes()) {
+            $late[] = [
+                'frequency'    => (string) $s['frequency'],
+                'next_run_at'  => (string) $s['next_run_at'],
+                'minutes_late' => $minutes,
+            ];
+        }
+    }
+    return $late;
+}
+
+/**
+ * The exact command that runs the scheduler on this installation.
+ *
+ * Derived from PHP_BINARY when this process is itself a CLI one, and from the
+ * platform's convention otherwise, so the string on the settings page is the
+ * one that will actually work rather than an example to be adapted. Both parts
+ * are absolute: the runner resolves everything from __DIR__, and the command
+ * that starts it must not need a working directory either.
+ *
+ * @return array{php:string, script:string, command:string, task_name:string}
+ */
+function backupSchedulerCommand(): array
+{
+    $windows = DIRECTORY_SEPARATOR === '\\';
+
+    // PHP_BINARY under Apache is httpd, not something that can run a script,
+    // so it is only trusted when this process is a CLI one.
+    $php = PHP_SAPI === 'cli' && PHP_BINARY !== '' && is_file(PHP_BINARY)
+        ? PHP_BINARY
+        : ($windows ? 'php.exe' : 'php');
+
+    // Under the web server, guess the XAMPP layout — htdocs/<project>/<app>
+    // puts php.exe three levels up — and fall back to the documented default
+    // so the page always shows something runnable.
+    if ($windows && !is_file($php)) {
+        foreach ([dirname(BASE_PATH, 3) . '/php/php.exe', 'D:/XAMPP/php/php.exe', 'C:/xampp/php/php.exe'] as $guess) {
+            if (is_file($guess)) {
+                $php = $guess;
+                break;
+            }
+        }
+    }
+
+    $script = BASE_PATH . '/database/tools/run_backups.php';
+
+    if ($windows) {
+        $php    = str_replace('/', '\\', $php);
+        $script = str_replace('/', '\\', $script);
+    }
+
+    return [
+        'php'       => $php,
+        'script'    => $script,
+        'command'   => '"' . $php . '" "' . $script . '"',
+        'task_name' => BACKUP_TASK_NAME,
+    ];
+}
+
+/**
+ * Is the Windows scheduled task registered?
+ *
+ * Returns null on anything that is not Windows, and on any answer schtasks
+ * gives that is not a plain yes or no — "we could not check" and "it is not
+ * there" are different findings, and the health panel must not print the
+ * second when it means the first.
+ */
+function backupWindowsTaskInstalled(): ?bool
+{
+    if (DIRECTORY_SEPARATOR !== '\\' || !function_exists('proc_open')) {
+        return null;
+    }
+
+    $spec  = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+    $pipes = [];
+    $proc  = @proc_open(['schtasks', '/Query', '/TN', BACKUP_TASK_NAME], $spec, $pipes);
+    if (!is_resource($proc)) {
+        return null;
+    }
+    foreach ($pipes as $pipe) {
+        stream_get_contents($pipe);
+        fclose($pipe);
+    }
+
+    // 0 = the task exists, 1 = it does not. Anything else — access denied, no
+    // schtasks on PATH — is "cannot tell".
+    return match (proc_close($proc)) {
+        0       => true,
+        1       => false,
+        default => null,
+    };
+}
+
+/**
+ * What Windows itself says about the last few runs of the scheduled task.
+ *
+ * There is one failure this module cannot see from the inside: the runner
+ * dying before its own error handlers are installed. A parse error in the
+ * runner, or in anything it requires, kills PHP at compile time — nothing
+ * reaches the scheduler log, and the heartbeat simply stops. The dashboard
+ * then reports "the scheduler has stopped" and cannot say why.
+ *
+ * Windows knows. It records an exit code for every run, and a script PHP
+ * cannot compile exits 255. Reading it turns "stopped, cause unknown" into
+ * "the task fired at 11:00 and the runner exited 255", which is the difference
+ * between an afternoon and a minute.
+ *
+ * Deliberately NOT called from a page render — it spawns PowerShell, which
+ * costs a few hundred milliseconds. It belongs to the on-demand diagnostic,
+ * where somebody is already waiting for an answer.
+ *
+ * PowerShell rather than parsing schtasks output because Get-ScheduledTaskInfo
+ * returns fields by name: schtasks prints its column headings in the system
+ * language, and a diagnostic that works only on English Windows fails exactly
+ * where help is hardest to come by.
+ *
+ * @return array{last_run:?string, last_result:?int, next_run:?string}|null
+ */
+function backupWindowsTaskInfo(): ?array
+{
+    if (DIRECTORY_SEPARATOR !== '\\' || !function_exists('proc_open')) {
+        return null;
+    }
+
+    $script = "try { Get-ScheduledTaskInfo -TaskName '" . str_replace("'", "''", BACKUP_TASK_NAME) . "' -ErrorAction Stop"
+            . " | Select-Object LastRunTime, LastTaskResult, NextRunTime | ConvertTo-Json -Compress } catch { '' }";
+
+    $pipes = [];
+    $proc  = @proc_open(
+        ['powershell', '-NoProfile', '-NonInteractive', '-Command', $script],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes
+    );
+    if (!is_resource($proc)) {
+        return null;
+    }
+
+    $json = (string) stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    stream_get_contents($pipes[2]);
+    fclose($pipes[2]);
+    proc_close($proc);
+
+    $data = json_decode(trim($json), true);
+    if (!is_array($data)) {
+        return null;
+    }
+
+    /* PowerShell serialises a DateTime as "/Date(1757062800000)/" — milliseconds
+       since the epoch. Rendered in the backup timezone, not PHP's: every other
+       time the diagnostic prints is on that clock, and two adjacent lines an
+       hour apart because one came from Windows would be read as a fault rather
+       than as a formatting choice. Anything that does not match the shape is
+       passed through as written rather than guessed at. */
+    $stamp = static function ($value): ?string {
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+        if (!preg_match('#/Date\((-?\d+)#', $value, $m)) {
+            return $value;
+        }
+        return (new DateTimeImmutable('@' . (int) round(((int) $m[1]) / 1000)))
+            ->setTimezone(backupTimezone())
+            ->format('Y-m-d H:i:s');
+    };
+
+    return [
+        'last_run'    => $stamp($data['LastRunTime'] ?? null),
+        'last_result' => isset($data['LastTaskResult']) ? (int) $data['LastTaskResult'] : null,
+        'next_run'    => $stamp($data['NextRunTime'] ?? null),
+    ];
+}
+
+/**
+ * What a Windows task exit code means, in the terms this module uses.
+ *
+ * Only the codes the runner itself produces, plus the two Windows contributes
+ * for a task that is running or has never run. An unrecognised code is reported
+ * as itself rather than guessed at.
+ */
+function backupTaskResultText(int $code): string
+{
+    return match ($code) {
+        0       => 'success',
+        1       => 'a backup failed — see the scheduler log',
+        2       => 'the runner could not start (bootstrap, configuration or database)',
+        255     => 'PHP could not run the script at all — a parse error, or php.exe cannot read it',
+        267009  => 'currently running',
+        267011  => 'has not run yet',
+        default => 'exit code ' . $code,
+    };
 }
 
 /* ─────────────────────────────────────────────────────────────────────

@@ -20,12 +20,47 @@ $ovCarry    = !empty($compare) ? ['compare' => '1'] : [];
 $ovReset    = reportUrl($window, [], ['tab' => 'overview'] + $ovCarry);
 $ovLink     = static fn(string $tab): string => reportUrl($window, $filters, ['tab' => $tab] + $ovCarry);
 
+/* Every drill-down on this page carries the period, the comparison and the
+   filters above, because it is built from the same window and filters the
+   figures were. Nothing is copied across by hand. */
+$ovDrill = static fn(string $metric, string $key = ''): string
+    => reportDrillUrl($window, $filters, 'overview', $metric, $key, $ovCarry);
+
 /* The sparkline on the revenue tile is the same series the trend chart draws,
    so the two can never disagree about the shape of the period. */
 $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series);
+
+/* The payload, put back together for the Decision Center.
+
+   The controller hands a view its variables extracted rather than as one
+   array, so the keys the assessor reads are named here explicitly. That is
+   more useful than it looks: this list *is* the set of figures the
+   intelligence layer is allowed to see, written where a reader of this file
+   can check it against what the panel claims. */
+$ovPayload = [
+    'streams'         => $streams,
+    'ledger'          => $ledger,
+    'occupancy'       => $occupancy,
+    'inventory'       => $inventory,
+    'unattributed'    => $unattributed,
+    'dataQuality'     => $dataQuality,
+    'previousRevenue' => $previousRevenue,
+    'signals'         => $signals ?? [],
+];
 ?>
 
 <?php require dirname(__DIR__) . '/_data_quality.php'; ?>
+
+<?php /* What the figures below mean, before the figures themselves.
+
+         The order is the one §12 asks for and the one the questions get
+         asked in: whether the numbers can be trusted, then what they say,
+         then the numbers. The Decision Center reads this report's own
+         payload -- it computes nothing and can contradict nothing. */ ?>
+<?php
+$decision = ReportIntelligence::assess($ovPayload, $window, $filters, !empty($compare));
+require dirname(__DIR__) . '/_decision_center.php';
+?>
 
 <?php /* the headline figures */ ?>
 <?php $section = [
@@ -50,7 +85,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
         'previous_label' => $previousRevenue !== null
             ? formatCurrency($previousRevenue) . ' previously'
             : null,
-        'url'     => $ovLink('financial'),
+        'drill'   => $ovDrill('revenue'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -71,7 +106,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
                 $occupancy['rentable'] === 1 ? 'property' : 'properties'
             )
             : 'No rentable property in scope',
-        'url'     => $ovLink('rentals'),
+        'drill'   => $ovDrill('occupancy'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -89,7 +124,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
             $occupancy['vacant'],
             $inventory['lifecycle']['active_listings']
         ),
-        'url'     => $ovLink('properties'),
+        'drill'   => $ovDrill('occupied'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
 
@@ -108,7 +143,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
                 $ledger['overdue_count'] === 1 ? 'instalment' : 'instalments'
             )
             : 'Nothing overdue',
-        'url'     => $ovLink('payments'),
+        'drill'   => $ovDrill('arrears'),
     ];
     require dirname(__DIR__) . '/_kpi.php';
     ?>
@@ -161,6 +196,10 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
         'series'   => $ovSeries,
         'label_heading' => ucfirst($window['grain']),
         'empty'    => 'No payments were received in this period.',
+        /* The bucket keys, not the labels: "15 Aug" is what a reader sees and
+           2026-08-15 is what the query needs, and the two must stay paired by
+           position rather than by parsing one back into the other. */
+        'drill'    => ['metric' => 'revenue_bucket', 'keys' => array_column($series, 'bucket')],
         'size'   => 'feature',
         'filtered' => $ovFiltered,
         'resetUrl' => $ovReset,
@@ -175,12 +214,22 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
     $ovStreamLabels = [];
     $ovStreamData   = [];
     $ovStreamTones  = [];
+    $ovStreamKeys   = [];
     $ovStreamTonePool = ['rental' => '--primary', 'sale' => '--success', 'reservation' => '--purple'];
+    /* The slice's drill key is the reference_type the revenue was counted
+       under -- 'lease' for rentals -- not the label above it. revenueByStream()
+       reads the same constants. */
+    $ovStreamRef = [
+        'rental'      => REPORT_STREAM_RENTAL,
+        'sale'        => REPORT_STREAM_SALE,
+        'reservation' => 'reservation',
+    ];
     foreach ($ovStreamNames as $ovKey => $ovName) {
         if ((float) $streams[$ovKey] > 0) {
             $ovStreamLabels[] = $ovName;
             $ovStreamData[]   = (float) $streams[$ovKey];
             $ovStreamTones[]  = $ovStreamTonePool[$ovKey];
+            $ovStreamKeys[]   = $ovStreamRef[$ovKey];
         }
     }
 
@@ -194,6 +243,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
         'series'   => [['label' => 'Collected', 'data' => $ovStreamData, 'tones' => $ovStreamTones]],
         'label_heading' => 'Source',
         'empty'    => 'No revenue was collected in this period, so there is nothing to break down.',
+        'drill'    => ['metric' => 'stream', 'keys' => $ovStreamKeys],
         'size'   => 'feature',
         'filtered' => $ovFiltered,
         'resetUrl' => $ovReset,
@@ -216,10 +266,10 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
        signed. The register's own account of itself still exists and still
        disagrees; where it does, the data-quality panel above counts it. */
     $ovCommercial = [
-        ['label' => 'Occupied', 'value' => $inventory['commercial']['occupied'], 'tone' => '--success'],
-        ['label' => 'Vacant',   'value' => $inventory['commercial']['vacant'],   'tone' => '--text-subtle'],
-        ['label' => 'Reserved', 'value' => $inventory['commercial']['reserved'], 'tone' => '--warning'],
-        ['label' => 'Sold',     'value' => $inventory['commercial']['sold'],     'tone' => '--purple'],
+        ['label' => 'Occupied', 'key' => 'state_occupied', 'value' => $inventory['commercial']['occupied'], 'tone' => '--success'],
+        ['label' => 'Vacant',   'key' => 'vacant',         'value' => $inventory['commercial']['vacant'],   'tone' => '--text-subtle'],
+        ['label' => 'Reserved', 'key' => 'reserved',       'value' => $inventory['commercial']['reserved'], 'tone' => '--warning'],
+        ['label' => 'Sold',     'key' => 'sold',           'value' => $inventory['commercial']['sold'],     'tone' => '--purple'],
     ];
     // A state nothing is in is not drawn. Four legend entries where two apply
     // makes the reader hunt for slices that were never there.
@@ -239,6 +289,7 @@ $ovSpark = array_map(static fn(array $p): float => (float) $p['total'], $series)
         ]],
         'label_heading' => 'State',
         'empty'    => 'There are no properties in scope for the current filters.',
+        'drill'    => ['metric' => 'state', 'keys' => array_column($ovCommercial, 'key')],
         'size'   => 'standard',
         'filtered' => $ovFiltered,
         'resetUrl' => $ovReset,

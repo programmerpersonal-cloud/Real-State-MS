@@ -10,15 +10,23 @@
  * The installation notice at the top is not decoration. Schedules configured
  * here do nothing at all until the command-line runner is installed, and a
  * screen full of active-looking schedules with no scheduler behind them is the
- * single most likely way this module ends up quietly not protecting anything.
+ * single most likely way this module ends up quietly not protecting anything —
+ * which is exactly how it was found. The notice therefore reports the runner's
+ * real heartbeat rather than repeating the advice unconditionally: red when it
+ * has never run, red when it has stopped, green with a timestamp when it is
+ * ticking.
  *
  * Vars from BackupController::settings().
  */
 $dayNames = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday',
              5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
 
-$runnerPath = str_replace('/', DIRECTORY_SEPARATOR, BASE_PATH . '/database/tools/run_backups.php');
-$phpBin     = DIRECTORY_SEPARATOR === '\\' ? 'D:\\XAMPP\\php\\php.exe' : 'php';
+/* The command and the installer path come from backupSchedulerCommand(), which
+   resolves php.exe from PHP_BINARY and the script from BASE_PATH, so what is
+   printed here is what will actually run on this machine. The previous version
+   hard-coded D:\XAMPP\php\php.exe, which was right for one installation and
+   quietly wrong for every other. */
+$installerPath = str_replace('/', DIRECTORY_SEPARATOR, BASE_PATH . '/database/tools/install_scheduler.bat');
 
 /* Timezones offered as the full IANA list would be 400-odd rows of noise. The
    regions the business plausibly operates in come first; whatever is currently
@@ -44,19 +52,104 @@ $tzOptions = array_values(array_unique(array_merge(
     </div>
 <?php endif ?>
 
-<div class="notice notice--info">
-    <div class="notice__icon"><i class="bi bi-terminal" aria-hidden="true"></i></div>
+<?php
+/* The notice is the module's one instruction for making automatic backup work,
+   so it reports what is true on this machine rather than describing what ought
+   to be done in general. Three states, and the tone of each is the finding:
+
+     never ticked   the runner has never been invoked. Whatever the switches
+                    below say, nothing is backing anything up — the state this
+                    installation was in, with an enabled daily schedule two
+                    days past its next run and no way to tell from any screen.
+     stalled        it ran before and has stopped.
+     ticking        it checked in recently, and the switches below mean what
+                    they say.
+
+   The command shown is generated from this installation's own paths — see
+   backupSchedulerCommand() — because an example command that has to be edited
+   before it works is an example that gets pasted unedited. */
+$schedulerOn  = false;
+foreach ($schedules as $s) {
+    if (!empty($s['is_active'])) {
+        $schedulerOn = true;
+        break;
+    }
+}
+
+$tone  = 'info';
+$icon  = 'bi-terminal';
+$title = 'Schedules need the runner installed';
+
+if (!$scheduler['installed']) {
+    $tone  = $schedulerOn ? 'danger' : 'warning';
+    $icon  = 'bi-exclamation-octagon-fill';
+    $title = 'The backup scheduler has never run';
+} elseif ($scheduler['stale']) {
+    $tone  = 'danger';
+    $icon  = 'bi-exclamation-triangle-fill';
+    $title = 'The backup scheduler has stopped';
+} else {
+    $tone  = 'success';
+    $icon  = 'bi-broadcast';
+    $title = 'The backup scheduler is running';
+}
+?>
+<div class="notice notice--<?= $tone ?>">
+    <div class="notice__icon"><i class="bi <?= $icon ?>" aria-hidden="true"></i></div>
     <div class="notice__body">
-        <div class="notice__title">Schedules need the runner installed</div>
+        <div class="notice__title"><?= sanitize($title) ?></div>
+
+        <?php if (!$scheduler['installed']): ?>
+            <p>
+                Nothing on this page runs by itself. Automatic backups happen when the command below is run
+                on a timer, and on this installation it never has been &mdash; so
+                <?= $schedulerOn
+                        ? 'the schedules below are switched on but are not firing.'
+                        : 'no schedule can fire even once one is switched on.' ?>
+            </p>
+        <?php elseif ($scheduler['stale']): ?>
+            <p>
+                The runner last checked in <strong><?= sanitize($scheduler['ago']) ?></strong> and should
+                check in every few minutes. Until it starts again, no schedule can fire. Check that the
+                <code class="hash"><?= sanitize($command['task_name']) ?></code> task is still enabled in
+                Windows Task Scheduler.
+            </p>
+        <?php else: ?>
+            <p>
+                The runner last checked in <strong><?= sanitize($scheduler['ago']) ?></strong>
+                (<?= number_format((int) $scheduler['tick_count']) ?> checks so far). Schedules switched on
+                below will fire at the times shown.
+            </p>
+            <?php if ($scheduler['last_result'] !== ''): ?>
+                <p class="text-subtle">Last check: <?= sanitize($scheduler['last_result']) ?></p>
+            <?php endif ?>
+        <?php endif ?>
+
+        <?php if (!$scheduler['installed'] || $scheduler['stale']): ?>
+            <p>
+                On Windows, install it once from an elevated command prompt &mdash; one task, ticking every
+                five minutes, which is enough for any schedule because the runner works out for itself what
+                is due:
+            </p>
+            <pre class="codeblock"><code><?= sanitize($installerPath) ?></code></pre>
+            <p>Or point a Task Scheduler entry at this command directly:</p>
+        <?php else: ?>
+            <p>Run it by hand at any time:</p>
+        <?php endif ?>
+
+        <pre class="codeblock"><code><?= sanitize($command['command']) ?></code></pre>
+
         <p>
-            Nothing on this page runs by itself. Automatic backups happen when the command below is run on a
-            timer — every 5 to 15 minutes is right, because it only acts when a schedule is actually due and
-            costs two indexed queries when it is not.
-        </p>
-        <pre class="codeblock"><code><?= sanitize($phpBin) ?> "<?= sanitize($runnerPath) ?>"</code></pre>
-        <p>
-            On this machine that is a Windows Task Scheduler task; on a Linux host it is a crontab line.
-            Use <code class="hash">--status</code> to check it from a shell without changing anything.
+            <?php if ($taskInstalled === true): ?>
+                The <code class="hash"><?= sanitize($command['task_name']) ?></code> task is registered with
+                Windows Task Scheduler.
+            <?php elseif ($taskInstalled === false): ?>
+                The <code class="hash"><?= sanitize($command['task_name']) ?></code> task is
+                <strong>not</strong> registered with Windows Task Scheduler.
+            <?php endif ?>
+            Add <code class="hash">--doctor</code> to the command above for a full diagnosis of why automatic
+            backup is or is not working, <code class="hash">--status</code> for a read-only summary, or
+            <code class="hash">--log</code> for the last runs.
         </p>
     </div>
 </div>

@@ -42,8 +42,13 @@
      and a card title (1.05rem) were close enough to read as siblings,
      which is why a page felt like a stack of panels rather than a page
      about something. */
-  --fs-page:  1.75rem;    /* 28px — page title, clearly outranks a card */
-  --fs-lede:  0.9375rem;  /* 15px — the sentence under a page title     */
+     28px was too much of a good thing. It outranked a card heading by so
+     far that the title area became the tallest block on a dense screen —
+     on an operations dashboard that is a header competing with the
+     figures it introduces. 25px still clears the 17px card title by a
+     full step, which is all the rank it needed. */
+  --fs-page:  1.5625rem;  /* 25px — page title, still a clear step above a card */
+  --fs-lede:  0.875rem;   /* 14px — the sentence under a page title            */
 
   /* Slightly tighter than the shared 1.65: the line is longer now
      that the text is bigger, and 1.6 keeps the block from loosening. */
@@ -58,7 +63,7 @@
   /* ── Row rhythm ────────────────────────────────────────────────
      One setting. There was a compact alternative behind a topbar
      switch; the switch is gone, so this is simply what a row is.   */
-  --cell-x: 16px;
+  --cell-x: 14px;
   --cell-y: 12px;
   --cell-head-y: 10px;
 

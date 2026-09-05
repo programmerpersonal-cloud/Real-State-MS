@@ -106,43 +106,16 @@
   --text-muted: #5f6b7e;  /* secondary/meta         6.0:1 */
   --text-subtle: #6b7688; /* tertiary, still AA     5.1:1 */
 
-  /* Sidebar (admin shell) — deep navy rail
-     The rail is the one dark surface in a light product. That is deliberate:
-     it separates "where you are in the system" from "what you are looking
-     at", so the white content column reads as the whole page rather than a
-     panel floating inside a frame.
+  /* Sidebar (admin shell)
+     The rail owns its own palette now — see assets/css/rail.css. It is no
+     longer one fixed navy column: an administrator picks light, dark or
+     follow-the-system plus a single accent in Settings, and every other
+     value in the rail is derived from those two.
 
-     Every value below is measured against --sidebar-bg, because a dark
-     surface fails quietly — grey that is comfortable on white disappears
-     here. Resting labels 8.6:1, section headings and meta 5.3:1, and the
-     active row is a solid brand fill (white on --primary is 4.9:1) rather
-     than a tint, which has nowhere near enough separation on navy. */
-  /* A true navy rather than the teal-leaning ink used elsewhere. It is the
-     bluest this can go and still clear every threshold: pushing further
-     toward #152a45 drops the active pill's edge to 2.97:1 against the rail,
-     under the 3:1 a filled control needs to read as a distinct surface. */
-  /* Deeper than the #14263d this replaced, which is what lets the rail read
-     as the product's own surface rather than as a dark panel. Every value
-     below is measured against it — a dark surface fails quietly, and a grey
-     that is comfortable on white disappears here. */
-  --sidebar-bg: #0d1c2e;
-  --sidebar-bg-soft: rgba(255,255,255,.055);   /* profile card, search field */
-  --sidebar-border: rgba(255,255,255,.09);
-  --sidebar-border-strong: rgba(255,255,255,.16);
-  --sidebar-text: #a7bccc;        /* resting nav label        8.4:1 */
-  --sidebar-text-strong: #ffffff; /* brand, active, profile  15.3:1 */
-  --sidebar-muted: #7f96a8;       /* headings, meta, kbd      5.1:1 */
-  /* Not --primary. The brand blue is now deep enough that a pill filled with
-     it sits at 2.1:1 against this rail and stops reading as a raised surface.
-     This is the brand hue lifted until the pill clears 3:1 on the rail while
-     white on it still clears 4.5:1 — both thresholds, one colour. */
-  --sidebar-active-bg: #1877c9;
-  --sidebar-active-text: #ffffff;
-  --sidebar-hover-bg: rgba(255,255,255,.07);
-  /* One column width for the icon box, so every label starts on the same
-     x regardless of how wide each glyph happens to draw. */
-  --sidebar-icon-col: 20px;
-  --sidebar-width: 248px;
+     Nothing is declared here because nothing outside the application
+     bundle reads a --sidebar-* token, and this file also ships to the
+     public site and the auth screens. A palette declared for all three
+     that only one can use is a palette that goes stale unnoticed. */
 
   /* ── Status ────────────────────────────────────────────
      Kept semantic: green still means available/paid, never brand. */

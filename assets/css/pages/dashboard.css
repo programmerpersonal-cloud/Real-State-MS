@@ -11,7 +11,7 @@
    is decoration on top of an already-labelled card, never the only cue. */
 .stats{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));
-  gap:13px;margin-bottom:16px;
+  gap:12px;margin-bottom:14px;
 }
 /* min-height is a floor for a card with nothing under its figure. A card
    carrying a context line sets its own height from its content, and pinning
@@ -34,8 +34,8 @@
 .stat-card{
   position:relative;overflow:hidden;
   background:var(--surface);border-radius:var(--radius-lg);
-  border:1px solid var(--border);padding:13px 15px;
-  display:flex;align-items:center;gap:12px;min-height:78px;
+  border:1px solid var(--border);padding:11px 13px;
+  display:flex;align-items:center;gap:11px;min-height:0;
   box-shadow:var(--shadow-xs);
   transition:box-shadow var(--transition),border-color var(--transition),transform var(--transition);
 }
@@ -52,8 +52,8 @@
 .stat-card:hover::after{width:100%}
 .stat-card:hover .stat-card__icon{transform:scale(1.07)}
 .stat-card__icon{
-  width:42px;height:42px;border-radius:11px;
-  display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;
+  width:36px;height:36px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;font-size:1.02rem;flex-shrink:0;
   background:var(--surface-3);color:var(--text);
   transition:transform var(--transition);
 }
@@ -75,19 +75,19 @@
 .stat-card:has(.stat-card__icon--orange) {--stat-accent:var(--orange)}
 .stat-card__body{display:flex;flex-direction:column;min-width:0}
 .stat-card__label{
-  font-size:.74rem;color:var(--text-muted);font-weight:600;order:1;
-  letter-spacing:.02em;line-height:1.3;
+  font-size:var(--fs-2xs);color:var(--text-muted);font-weight:600;order:1;
+  letter-spacing:.02em;line-height:1.25;
 }
 .stat-card__value{
-  font-family:var(--font-display);font-size:1.6rem;font-weight:700;
-  letter-spacing:-.03em;line-height:1.1;color:var(--text);order:2;margin-top:2px;
+  font-family:var(--font-display);font-size:1.5rem;font-weight:700;
+  letter-spacing:-.03em;line-height:1.08;color:var(--text);order:2;margin-top:1px;
   font-variant-numeric:tabular-nums;
 }
 /* Unqualified, a trend is a note about the figure above it, not a verdict
    on it; only the up/down variants take a colour. */
 .stat-card__trend{
-  font-size:.72rem;font-weight:600;margin-top:5px;color:var(--text-muted);
-  display:inline-flex;align-items:center;gap:4px;order:3;
+  font-size:var(--fs-2xs);font-weight:600;margin-top:3px;color:var(--text-muted);
+  display:inline-flex;align-items:center;gap:4px;order:3;line-height:1.3;
 }
 .stat-card__trend--up{color:var(--success)}
 .stat-card__trend--down{color:var(--danger)}
@@ -183,7 +183,7 @@
    one line, which is earlier than a generic two-column rule would guess. */
 .dash-grid{
   display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
-  gap:16px;align-items:start;
+  gap:14px;align-items:start;
 }
 @media(max-width:1180px){.dash-grid{grid-template-columns:minmax(0,1fr)}}
 
@@ -230,7 +230,7 @@
    takes the whole width rather than sitting in half a row. */
 .chart-grid{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
-  gap:16px;margin-bottom:16px;
+  gap:14px;margin-bottom:14px;
 }
 
 /* Both charts present: the six-month line takes the wider half, because
@@ -374,20 +374,22 @@
    a number being reported from a number being read. */
 .stat-card{
   border-radius:var(--card-radius);
-  padding:15px 17px;
-  gap:14px;
+  padding:11px 13px;
+  gap:11px;
   box-shadow:var(--shadow-xs);
 }
-.stat-card__value{font-size:1.75rem;letter-spacing:-.035em}
+/* 24px. Still the largest thing in the row by a wide margin, which is all
+   the prominence a figure needs when it is the only thing on its line. */
+.stat-card__value{font-size:1.5rem;letter-spacing:-.032em}
 .stat-card__label{
-  font-size:.7rem;text-transform:uppercase;letter-spacing:.075em;
-  color:var(--text-subtle);font-weight:700;
+  font-size:var(--fs-2xs);text-transform:uppercase;letter-spacing:.07em;
+  color:var(--text-subtle);font-weight:700;line-height:1.25;
 }
 /* The glyph tile: a tinted surface with its own light, rather than a flat
    swatch. The inner highlight is what stops it reading as a coloured
    rectangle sitting on the card. */
 .stat-card__icon{
-  width:44px;height:44px;border-radius:12px;
+  width:36px;height:36px;border-radius:9px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 2px rgba(15,32,51,.05);
 }
 .stat-card:hover{box-shadow:var(--shadow-md)}
@@ -411,15 +413,425 @@
    a real surface, a real lift, and a chevron that arrives on approach. */
 .quick-action{
   border-radius:var(--radius-lg);
-  padding:11px 13px;min-height:60px;
+  padding:9px 12px;min-height:52px;
   box-shadow:var(--shadow-xs);
 }
 .quick-action:hover{box-shadow:var(--shadow-md);border-color:var(--primary-border)}
 .quick-action__icon{
-  width:38px;height:38px;border-radius:11px;
+  width:34px;height:34px;border-radius:9px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
 }
 
 /* ── Activity feed ────────────────────────────────────────────────  */
 .activity__dot{box-shadow:0 0 0 3px var(--primary-light),0 0 0 5px var(--surface),0 1px 2px rgba(15,32,51,.18)}
 .activity__tag{border-radius:var(--radius-pill)}
+
+/* ================================================================
+   THE BOARD — two rows of panels below the charts
+   ================================================================
+   The page's second half, laid out as a grid of five panels rather
+   than as three independent stacks:
+
+     row one   the day (Recent Activities) · the verbs (Quick
+               Actions) · the money mix (Sales Report)
+     row two   the deal book (Property Overview), under the day and
+               the verbs it summarises, and the sales just closed,
+               under the mix they add up to
+
+   The deal book takes two columns because it seats six of them; every
+   other panel takes one. Placement is written here rather than implied
+   by source order, so the markup can stay in reading order — feed,
+   actions, mix, deals, sales — while the picture reads across.
+
+   Every panel is stretched to its row. That only works because of the
+   density below: six compact rows, a six-tile grid and a ring come out
+   within about fifty pixels of each other, and fifty pixels shared above
+   and below a centred group reads as breathing room. It is not a free
+   move — stretching a short card against a tall one is how a panel ends
+   up with a hole in it, which is what this had before the register was
+   paged to what its card can seat. Keep the three within sight of each
+   other and the stretch is what makes the row a row. */
+.dash-board{
+  display:grid;
+  grid-template-columns:minmax(0,1.55fr) minmax(0,.95fr) minmax(0,1.07fr);
+  gap:14px;align-items:stretch;
+}
+.dash-panel{display:flex;flex-direction:column;min-width:0}
+/* Five cards in two rows read as one board only if their headers agree. The
+   Sales Report carries a caption and the others do not, so the strip is sized
+   to the one that needs the most and the rest match it rather than each card
+   being as tall as its own title. */
+.dash-panel > .card__header{min-height:46px;padding:8px 14px}
+.dash-panel .card__title{font-size:.94rem}
+.dash-panel .card__subtitle{font-size:var(--fs-2xs);line-height:1.3}
+/* The body takes the slack the header does not want, and a tighter inset than
+   a module page's card — but a flush body stays flush: the table inside it
+   draws its own cell padding, and this rule outranks the one that zeroes it. */
+.dash-panel > .card__body{flex:1;min-height:0}
+.dash-panel > .card__body:not(.card__body--flush){padding:12px 14px}
+/* Neither the tiles nor the ring grows well past a point — a tile stretched
+   to twice its drawn height is a box with an icon lost in it — so past that
+   point the slack goes around the group rather than into it. */
+.dash-panel--actions > .card__body,
+.dash-panel--mix > .card__body{display:flex;flex-direction:column;justify-content:center}
+.dash-panel--actions .quick-actions--tiles{
+  align-content:center;grid-auto-rows:minmax(80px,116px);
+}
+
+.dash-panel--feed   {grid-column:1;grid-row:1}
+.dash-panel--actions{grid-column:2;grid-row:1}
+.dash-panel--mix    {grid-column:3;grid-row:1}
+.dash-panel--deals  {grid-column:1/span 2;grid-row:2}
+.dash-panel--sales  {grid-column:3;grid-row:2}
+
+/* A role that may not see the money mix leaves the third column's first
+   row empty; the sales list moves up into it rather than sitting under a
+   hole the size of a card. */
+.dash-board:not(:has(.dash-panel--mix)) .dash-panel--sales{grid-row:1}
+
+/* Three columns from 1200px, which is where the register on the left still
+   has the width to read a sentence in. Below that the board folds to two:
+   the day beside the verbs, the deal book across both — it seats six columns
+   and is the one panel that cannot give width back — and the two small
+   panels together underneath. */
+@media(max-width:1199px){
+  .dash-board{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+  .dash-panel--feed   {grid-column:1;grid-row:1}
+  .dash-panel--actions{grid-column:2;grid-row:1}
+  .dash-panel--deals  {grid-column:1/span 2;grid-row:2}
+  .dash-panel--mix    {grid-column:1;grid-row:3}
+  .dash-panel--sales  {grid-column:2;grid-row:3}
+  .dash-board:not(:has(.dash-panel--mix)) .dash-panel--sales{grid-column:1/span 2;grid-row:3}
+}
+/* One column below 900px: placement is dropped entirely and the panels fall
+   in source order, so the feed is still read first on a phone. */
+@media(max-width:899px){
+  .dash-board{grid-template-columns:minmax(0,1fr)}
+  .dash-panel--feed,
+  .dash-panel--actions,
+  .dash-panel--mix,
+  .dash-panel--deals,
+  .dash-panel--sales{grid-column:auto;grid-row:auto}
+}
+
+/* A card whose body runs edge to edge has to clip, or the table's last
+   row and the sale list's hover both square off the corner the card
+   just rounded. */
+.dash-board .card:has(> .card__body--flush){overflow:hidden}
+/* A flush body holds a table or a list that brings its own scroll; the card
+   must not add a second one around it. */
+.dash-panel > .card__body--flush{display:flex;flex-direction:column}
+/* The sale list sits opposite the deal book and is the shorter of the two.
+   Rather than leave its slack in one lump at the foot of the card, it is
+   shared out between the entries — four sales spread over the height of the
+   register beside them, instead of four crammed against the header with a
+   hole underneath. */
+.dash-panel--sales > .card__body--flush > .salelist{
+  flex:1;display:flex;flex-direction:column;justify-content:space-evenly;
+}
+
+/* A table inside a card draws no box of its own — the card is the box.
+   The class is still .table-card because that is what main.js measures
+   to decide how many columns fit, and what the column-priority rules in
+   components.css are written against. Stripping the chrome here rather
+   than dropping the class is what keeps the fitting behaviour. */
+.table-card--plain{
+  border:0;background:transparent;
+  border-radius:0 0 var(--card-radius) var(--card-radius);
+}
+
+/* The register is the one block here whose height is set by the data, so its
+   page is set to what the card can seat — six entries, in the view — rather
+   than to what the day produced. Nothing is capped, nothing scrolls inside a
+   card, and the whole trail is behind "View All". */
+
+/* The board's tables are panels on a dashboard rather than registers on a
+   module page: no filled header strip, no shouted capitals — a hairline and
+   a quiet label are enough over eight rows, and the row content is what the
+   card is for. Scoped here, so every register in the application keeps the
+   header it was designed with. */
+.dash-board .table th{
+  background:var(--surface);
+  text-transform:none;letter-spacing:0;
+  font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);
+}
+/* The pinned identity column matches, or it stands out as a white block
+   against the strip the moment a narrow table scrolls. */
+.dash-board .table-card.is-scrollable .table thead th:first-child{
+  background:var(--surface);
+}
+
+/* Denser cells than a register's, in both directions, because these are
+   panels on an overview rather than the module's own page: the reader is
+   scanning six rows for a shape, not working through sixty. Ten pixels off
+   each side of each cell is a hundred and twenty across the row — the
+   difference between showing what a deal was and when it closed, and dropping
+   both to fit — and four off the top and bottom is a row of 30px instead of
+   38, which is what lets a card hold its rows without a scrollbar.
+
+   Line height is not touched: 1.45 on the cell text, the same as everywhere
+   else. Compact is a matter of the space around the words, never of the space
+   between the lines of them. */
+.dash-board{--cell-x:9px;--cell-y:6px}
+/* One step down the type scale for a panel's rows — 13px, still two steps
+   above the 12px floor the token file sets. */
+.dash-board .table td{font-size:var(--fs-xs)}
+.dash-board .table th:first-child,
+.dash-board .table td:first-child{padding-left:14px}
+.dash-board .table th:last-child,
+.dash-board .table td:last-child{padding-right:14px}
+/* A title in a panel gets fewer characters before it ellipses than one in a
+   register — the register is the place to read the whole thing. */
+.dash-board .table .cell-clip{max-width:16ch}
+
+/* The feed's three columns are all essential — when it happened, what
+   happened, how it ended — so none of them can be dropped when the panel is
+   narrow, and an auto layout would size the middle one to the longest
+   sentence in the log and push the outcome past the card's edge. A fixed
+   layout settles it: the date and the pill are given exactly the width they
+   need, the sentence takes what is left, and it is the sentence that
+   ellipses — which it was already built to do. */
+.dash-panel--feed .table{table-layout:fixed}
+.dash-panel--feed .table th:first-child,
+.dash-panel--feed .table td:first-child{width:96px}
+.dash-panel--feed .table th:last-child,
+.dash-panel--feed .table td:last-child{width:100px}
+.dash-panel--feed .table th:first-child,
+.dash-panel--feed .table td:first-child{padding-left:12px}
+
+/* ─── An audit line inside the register ──────────────────────
+   The timeline's marker, kept when the feed became a table: the rail is
+   gone — a table has its own rules — but the dot still carries the kind
+   of change at a glance. Toned from the verb the trail recorded, never
+   from a status the audit table does not have. The sentence beside it
+   spells itself out, so nothing is lost where the tones cannot be told
+   apart. */
+.feedline{display:flex;align-items:center;gap:9px;min-width:0}
+.feedline__dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  background:var(--primary);box-shadow:0 0 0 3px var(--primary-light);
+}
+.feedline__dot--success{background:var(--success);box-shadow:0 0 0 3px var(--success-bg)}
+.feedline__dot--danger {background:var(--danger); box-shadow:0 0 0 3px var(--danger-bg)}
+.feedline__dot--warning{background:var(--warning);box-shadow:0 0 0 3px var(--warning-bg)}
+.feedline__dot--info   {background:var(--info);   box-shadow:0 0 0 3px var(--info-bg)}
+.feedline__dot--primary{background:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+/* One line, ellipsed. Eight entries of one height read as a list; eight of
+   two or three heights read as eight paragraphs, and the column beside them
+   stops lining up. The whole sentence is on the row's title, and the trail
+   itself is behind View All. */
+.feedline__text{
+  min-width:0;line-height:1.45;color:var(--text-body);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.feedline__text strong{color:var(--text);font-weight:600}
+
+/* A status pill on the board is a marker in a dense row, not the subject of
+   the cell it sits in: it keeps its dot, its wording and its tone — the three
+   things it says something with — and gives back the padding it was wearing on
+   a register page. */
+.dash-board .status{padding:1px 7px;font-size:var(--fs-2xs);gap:5px}
+.dash-board .status__dot{width:5px;height:5px}
+
+/* ─── The deal book ──────────────────────────────────────────
+   Which book a row came from, as a quiet pill rather than a status —
+   a sale is not a state, and it must not be read as one beside the
+   Status column two cells along. */
+.dealkind{
+  display:inline-flex;align-items:center;padding:2px 8px;
+  border-radius:var(--radius-pill);
+  font-size:.7rem;font-weight:700;letter-spacing:.02em;
+  background:var(--surface-3);color:var(--text-muted);
+}
+.dealkind--sale  {background:var(--success-bg);color:var(--success)}
+.dealkind--rental{background:var(--info-bg);   color:var(--info)}
+/* A rent of 800 and a sale price of 800 are not the same number, and a
+   bare Amount column would say they were. */
+.dealkind__suffix{
+  font-size:.7rem;font-weight:600;color:var(--text-subtle);margin-left:2px;
+}
+
+/* ─── Quick actions, standing up ─────────────────────────────
+   The same tiles as the wide dashboards use, turned on their side so
+   six of them fit the middle track: glyph over label, label centred,
+   caption moved into the accessible name where it was doing its real
+   work. auto-fit rather than a fixed three, because the track is
+   narrower on a laptop than on a monitor and two columns of legible
+   tiles beat three of broken ones. */
+.quick-actions--tiles{grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:9px}
+/* Quantity queries, the same trick the KPI row uses: pick a column count that
+   divides the number of tiles present, so a set never ends in a short row with
+   holes beside it. Six — the administrator's full set — is 3 × 2, which is
+   also the arrangement the tiles were drawn for. Counts that divide neither
+   way fall back to auto-fit. */
+.quick-actions--tiles:has(.quick-action:nth-child(3):last-child),
+.quick-actions--tiles:has(.quick-action:nth-child(6):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
+.quick-actions--tiles:has(.quick-action:nth-child(2):last-child),
+.quick-actions--tiles:has(.quick-action:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+.quick-actions--tiles .quick-action{
+  flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:7px;padding:10px 6px;min-height:80px;
+}
+/* Standing up, the glyph is drawn rather than mounted: no tinted plate, no
+   inner highlight, just the line icon in its module's colour over the tile's
+   own surface. A tile is already a bordered box — a second box inside it was
+   one frame too many at this size. */
+.quick-actions--tiles .quick-action__icon{
+  width:auto;height:auto;border-radius:0;
+  background:transparent;box-shadow:none;font-size:1.28rem;
+}
+.quick-actions--tiles .quick-action__icon--primary{color:var(--primary)}
+.quick-actions--tiles .quick-action__icon--success{color:var(--success)}
+.quick-actions--tiles .quick-action__icon--warning{color:var(--warning)}
+.quick-actions--tiles .quick-action__icon--danger {color:var(--danger)}
+.quick-actions--tiles .quick-action__icon--info   {color:var(--info)}
+.quick-actions--tiles .quick-action__icon--purple {color:var(--purple)}
+.quick-actions--tiles .quick-action__icon--orange {color:var(--orange)}
+.quick-actions--tiles .quick-action__text{align-items:center;width:100%}
+.quick-actions--tiles .quick-action__label{
+  font-size:var(--fs-2xs);line-height:1.25;text-wrap:balance;
+}
+/* The chevron was the tile's "this is live" cue when the tile was a row.
+   Standing up, the lift and the glyph say it, and a chevron under a
+   centred label only unbalances it. */
+.quick-actions--tiles .quick-action__go{display:none}
+.quick-actions--tiles .quick-action:hover .quick-action__icon{transform:scale(1.08)}
+
+/* ─── Sales report — the money ring ──────────────────────────
+   The ring and its key, side by side in the width of a side track. It fits
+   where the portfolio ring's legend would not, because the shares moved onto
+   the band: each row here is a swatch and a name, not four aligned columns. */
+.statbreak--split{
+  display:flex;align-items:center;justify-content:center;
+  gap:14px;flex-wrap:wrap;min-height:0;
+}
+
+/* Each slice's share, printed on the band it belongs to. Placed from two
+   multipliers the page computed — sine and cosine of the slice's middle —
+   against a radius written here in the ring's own terms: half its width, less
+   half the band, which lands the figure in the middle of the colour. Resize
+   the ring above and the labels follow; nothing to keep in step by hand. */
+.statring__slice{
+  position:absolute;
+  left:calc(50% + (50% - var(--ring-w) / 2) * var(--sin, 0));
+  top: calc(50% - (50% - var(--ring-w) / 2) * var(--cos, 0));
+  transform:translate(-50%,-50%);
+  font-size:.62rem;font-weight:700;line-height:1;letter-spacing:.01em;
+  color:#fff;font-variant-numeric:tabular-nums;pointer-events:none;
+  /* Every band tone clears 4.5:1 against white; the shadow is for the
+     hairline where a figure sits over the join between two slices. */
+  text-shadow:0 1px 2px rgba(15,32,51,.45);
+}
+
+/* Currency in the middle rather than a count, so the figure is set at
+   reading size with the word under it instead of filling the hole. */
+/* Sized to the column it stands in rather than pinned: the money panel is
+   a third of the board on a monitor and a quarter of it on a laptop, and a
+   ring that cannot give a few pixels back pushes its own key onto the next
+   line. Bounded at both ends — never smaller than the figure in the middle
+   needs, never larger than the card can seat beside the key. */
+.statring--money{--ring-w:15px;width:clamp(112px,46%,148px);height:auto;aspect-ratio:1}
+.statring--money .statring__total{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;padding:0 12px;text-align:center;
+}
+.statring__figure{
+  font-family:var(--font-display);font-size:1rem;font-weight:700;
+  letter-spacing:-.02em;line-height:1.15;color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+.statring__cap{
+  font-family:var(--font);font-size:.62rem;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text-subtle);
+}
+/* The key beside the ring: a swatch, the name of the money, and under it
+   what it came to. Two lines rather than four columns, because a side track
+   has room for a name or for aligned figures, not for both. */
+/* Bounded rather than greedy: given the whole card the key stretches, and a
+   figure flung against the far border stops belonging to the name beside the
+   ring. It keeps to the width its longest row needs, and the pair stays a
+   pair at any card width. */
+.mixlegend{
+  list-style:none;margin:0;padding:0;
+  flex:0 1 auto;min-width:100px;max-width:232px;
+  display:flex;flex-direction:column;gap:10px;
+}
+/* Two lines rather than three columns: the dot names the slice, and the
+   money it came to sits under the name it belongs to. Aligned figures
+   would need a column the side of the ring does not have, and a total
+   flung against the far border stops belonging to the name beside it. */
+.mixlegend__row{
+  display:grid;grid-template-columns:10px minmax(0,1fr);
+  grid-template-areas:"dot label" ". value";
+  column-gap:9px;row-gap:1px;align-items:center;
+}
+.mixlegend__swatch{grid-area:dot;width:10px;height:10px;border-radius:50%}
+.mixlegend__label{grid-area:label}
+.mixlegend__value{grid-area:value}
+/* The name gives way before the figure does: a clipped "Late fee…" is still
+   read, a clipped amount is a wrong number. */
+.mixlegend__label{
+  font-size:var(--fs-sm);color:var(--text-body);line-height:1.3;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* The share is printed on the ring, so the key carries what the ring cannot:
+   the money. Both are spelled out in the ring's own description for anyone
+   who is being read to. */
+.mixlegend__value{
+  font-size:var(--fs-2xs);font-weight:700;color:var(--text-muted);
+  line-height:1.3;font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+
+/* ─── Recent sales ───────────────────────────────────────────
+   A photograph, what it is, where it is and what it went for — the four
+   things anyone asks about a sale, in the order they ask them. The
+   status sits at the end of the row where the eye already scans it in
+   every table on the site. */
+.salelist{list-style:none;margin:0;padding:4px 0}
+.salelist__item{
+  display:flex;align-items:center;gap:9px;padding:7px 14px;
+  transition:background var(--transition);
+}
+.salelist__item:hover{background:var(--surface-2)}
+.salelist__link{
+  display:flex;align-items:center;gap:11px;
+  flex:1;min-width:0;text-decoration:none;color:inherit;
+}
+.salelist__link:hover .salelist__title{color:var(--primary)}
+.salelist__thumb{
+  width:46px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;
+  background:var(--surface-3);border:1px solid var(--border);
+}
+.salelist__body{display:flex;flex-direction:column;min-width:0}
+.salelist__title{
+  font-size:var(--fs-xs);font-weight:600;color:var(--text);line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:color var(--transition);
+}
+/* On the board the list stands in a single column with a status pill at the
+   end of every row, which leaves a title about twenty characters. The card
+   is as tall as the deal book beside it and has the room, so a long address
+   takes a second line rather than being cut after "a new house in…". Two is
+   the limit: a third would push the price out of line with its neighbours. */
+.dash-panel--sales .salelist__title{
+  white-space:normal;display:-webkit-box;
+  -webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;
+}
+.salelist__meta{
+  font-size:var(--fs-2xs);color:var(--text-subtle);line-height:1.35;
+  display:flex;align-items:center;gap:4px;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.salelist__meta i{font-size:.7rem;flex-shrink:0;opacity:.85}
+.salelist__place{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.salelist__price{
+  font-family:var(--font-display);font-size:.84rem;font-weight:700;
+  color:var(--text);letter-spacing:-.015em;line-height:1.3;margin-top:2px;
+  font-variant-numeric:tabular-nums;
+}
+.salelist__status{flex-shrink:0}
+
+@media(prefers-reduced-motion:reduce){
+  .salelist__item,.salelist__title{transition:none}
+  .quick-actions--tiles .quick-action:hover .quick-action__icon{transform:none}
+}

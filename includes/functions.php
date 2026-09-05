@@ -105,12 +105,27 @@ function renderFlash(): string
     $icon  = $iconMap[$flash['type']] ?? 'bi-info-circle-fill';
     $msg   = sanitize($flash['message']);
 
+    /* The banner is written into the document by the server, after a redirect,
+       so there is no DOM change for a live region to observe — which is why
+       this carries a role rather than aria-live. role="alert" is announced
+       when the page is read; role="status" is the polite equivalent.
+
+       The distinction is not decorative. A refused sign-in is a flash and
+       nothing else: without a role, someone using a screen reader lands on a
+       reloaded login form with no indication that anything went wrong, and
+       the only clue is a sentence they have to go looking for.
+
+       "error" and "warning" interrupt because the reader has to act on them;
+       "success" and "info" wait their turn. */
+    $role = in_array($flash['type'], ['error', 'warning'], true) ? 'alert' : 'status';
+
     return <<<HTML
-    <div class="alert {$class}" id="flashMessage">
-        <i class="bi {$icon}"></i>
+    <div class="alert {$class}" id="flashMessage" role="{$role}">
+        <i class="bi {$icon}" aria-hidden="true"></i>
         <span>{$msg}</span>
-        <button type="button" class="alert__close" onclick="this.parentElement.remove()">
-            <i class="bi bi-x-lg"></i>
+        <button type="button" class="alert__close" aria-label="Dismiss this message"
+                onclick="this.parentElement.remove()">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
     </div>
     HTML;
@@ -509,6 +524,48 @@ function companyLogoUrl(): string
     if ($logo === '') return '';
     if (preg_match('#^https?://#i', $logo)) return $logo;
     return file_exists(BASE_PATH . '/' . $logo) ? APP_URL . '/' . $logo : '';
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Appearance
+   ─────────────────────────────────────────────────────────────────────────
+   Two values decide how the navigation rail looks: a surface mode and one
+   accent colour. Everything else in assets/css/rail.css is derived from
+   them, so these two are the whole of the appearance API.
+
+   Both are validated here rather than trusted from the database, and that
+   is not defensive habit: railAccent() is interpolated straight into a
+   <style> block in views/layout.php, so anything it returns is CSS. The
+   pattern below admits exactly seven characters and no others.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/** The rail's default accent, used until an administrator sets one. */
+const RAIL_ACCENT_DEFAULT = '#0a63a8';
+
+/**
+ * Rail surface mode: 'light', 'dark' or 'auto' (follow the operating
+ * system). Anything else — an unseeded row, a value typed into the
+ * database by hand — falls back to light rather than rendering a rail
+ * with no palette at all.
+ */
+function railTheme(): string
+{
+    $theme = strtolower(trim((string) setting('rail_theme', 'light')));
+    return in_array($theme, ['light', 'dark', 'auto'], true) ? $theme : 'light';
+}
+
+/**
+ * The rail's accent as a #rrggbb string.
+ *
+ * Only a full six-digit hex is accepted. Shorthand (#abc), named colours
+ * and functional notation are all rejected to the default — not because
+ * they would look wrong, but because this value is written into a
+ * stylesheet and the narrowest input that does the job is the right one.
+ */
+function railAccent(): string
+{
+    $accent = strtolower(trim((string) setting('rail_accent', '')));
+    return preg_match('/^#[0-9a-f]{6}$/', $accent) === 1 ? $accent : RAIL_ACCENT_DEFAULT;
 }
 
 function currencyCode(): string

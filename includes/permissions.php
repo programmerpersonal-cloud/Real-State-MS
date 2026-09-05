@@ -83,6 +83,14 @@ function permissionMatrix(): array
         // password. That is not a permission check and does not belong in this
         // matrix — it is a re-authentication, and it exists because `*` cannot
         // express "an administrator, deliberately, right now".
+        //
+        // `dashboard.export` is the other permission the wildcard alone
+        // grants, and it is named here for the same reason. Every role holds
+        // `dashboard.view` and every role gets a dashboard, but only the
+        // administrator's is the portfolio-wide one — every customer, every
+        // payment, the whole user list — and the CSV that
+        // DashboardController::export() writes is a copy of exactly that. An
+        // agent may read their own dashboard and may not take this file.
         ROLE_ADMIN => ['*'],
 
         // ─── Agent ─────────────────────────────────────────────────────

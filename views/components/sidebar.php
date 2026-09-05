@@ -45,9 +45,15 @@ $railMessages = canAccessPage('messages') ? messagesUnreadConversationCount() : 
 
 <aside class="app__sidebar" id="sidebar" data-rail>
 
-    <!-- Brand. Doubles as the rail's collapse control on desktop: the logo
-         stays put and the toggle sits where the title ends, so nothing moves
-         between the two states except the width. -->
+    <!-- Brand. One line, not two: the descriptor that used to sit under the
+         company name read "Real Estate" — on a real-estate product, to people
+         who signed in to it. It cost the row 14px and told nobody anything.
+
+         The collapse control is not here. It is the first thing in the topbar
+         (views/components/header.php), because a control that changes the
+         rail's width cannot live inside the thing whose width it changes —
+         that is what forced it to be absolutely positioned over the logo the
+         moment the column narrowed. -->
     <div class="sidebar__brand">
         <?php $brandLogo = companyLogoUrl(); ?>
         <div class="sidebar__logo<?= $brandLogo !== '' ? ' sidebar__logo--image' : '' ?>">
@@ -59,14 +65,7 @@ $railMessages = canAccessPage('messages') ? messagesUnreadConversationCount() : 
         </div>
         <div class="sidebar__brand-text">
             <div class="sidebar__title"><?= sanitize(companyName()) ?></div>
-            <div class="sidebar__subtitle">Real Estate</div>
         </div>
-
-        <button type="button" class="sidebar__collapse" data-rail-toggle
-                aria-label="Collapse the navigation rail" aria-pressed="false"
-                title="Collapse rail">
-            <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
-        </button>
     </div>
 
     <nav class="sidebar__nav" aria-label="Main">

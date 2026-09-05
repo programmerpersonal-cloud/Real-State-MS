@@ -59,6 +59,7 @@ $srTone = ['completed' => 'success', 'pending' => 'warning', 'cancelled' => 'mut
     <?php else: ?>
         <div class="table-wrap">
             <table class="table">
+                <caption class="sr-only">Sales dated in this period, with contract value and money collected against each.</caption>
                 <thead>
                     <tr>
                         <th scope="col">Sale date</th>
